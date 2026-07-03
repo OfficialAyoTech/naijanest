@@ -12,7 +12,7 @@ exports.handler = async function(event, context) {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
-      body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 1000, messages: groqMessages })
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1000, messages: groqMessages })
     });
     const data = await response.json();
     if (!response.ok) return { statusCode: response.status, headers, body: JSON.stringify({ error: data }) };
