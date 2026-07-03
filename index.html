@@ -368,7 +368,7 @@ const PROPS = [
   {id:15,name:"3-bedroom bungalow",area:"Argungu",city:"Kebbi",bed:3,bath:2,price:500000,type:"bungalow",verified:false,inspections:12,rentals:4,amenities:["Water","Parking","Fence","Security"],img:"https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80",photos:["https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Safe — well-known community, tight-knit neighbourhood",water:"Borehole + occasional RUWASSA supply",elec:"Fair — about 8-10hrs/day",flood:"Check during rainy season near river areas",schools:["Argungu Secondary School","Kebbi Model School — 10 mins"],markets:["Argungu Fish Market — 3 mins"],vibe:"Historic town famous for fishing festival. Peaceful, affordable, great community spirit.",landlord_phone:"08066778899"}}
 ];
 
-const SYSTEM = `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, and Jos, Nigeria.
+function getSystem(){ return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, and Jos, Nigeria.
 
 Available properties (JSON):
 ${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,inspections:p.inspections,rentals:p.rentals,neighborhood:p.nb})))}
@@ -388,11 +388,8 @@ CRITICAL RULES — follow every single one strictly:
 12. Prices are annual rent in Naira. Self-con = self-contained studio = 1 room with bathroom.
 13. NEVER mention Ikoyi, Ikorodu, Victoria Island, Ikeja or any area not in our property list.
 14. Currently available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki Area 2, Maitama), Jos (Rayfield, GRA Jos, Terminus Area), Kwara (GRA Ilorin, Tanke, Adewole Estate), Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu). ONLY suggest from these exact areas.
-15. WAITLIST RULE — VERY IMPORTANT: Whenever a user's exact area/city is not covered OR they seem unsatisfied with available options, you MUST in that SAME message (not a follow-up): 
-  a) Show the closest available properties using SHOW_PROPS
-  b) End your message with this exact waitlist call-to-action: "\n\n🔔 Not finding what you need? Join our waitlist — " + waitlistCount + " people have already signed up! We'll notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free."
-  c) Replace WAITLIST_COUNT with the actual number provided in the user's message context.
-16. NEVER make the user send a second message to hear about the waitlist. Include it in the FIRST response whenever their area is unavailable.`;
+15. WAITLIST RULE: Whenever user's area is not covered OR they seem unsatisfied, in that SAME message: show closest properties with SHOW_PROPS AND end with "🔔 Not finding what you need? Join our waitlist — ${waitlistCount} people already signed up! We'll notify you on WhatsApp when we launch in your area. 👉 Scroll down to join free."
+16. NEVER make user send a second message to hear about the waitlist.`; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
@@ -463,7 +460,7 @@ async function sendMsg(){
   history.push({role:'user',content:text + ' [Current NaijaNest waitlist signups: ' + waitlistCount + ' people]'});
   const typingEl=addMsg('ai','',true);
   try{
-    const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,system:SYSTEM})});
+    const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,system:getSystem()})});
     const data=await resp.json();
     if(data.error)throw new Error(typeof data.error==='string'?data.error:JSON.stringify(data.error));
     const full=data.content.map(c=>c.text||'').join('');
