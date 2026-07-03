@@ -390,7 +390,7 @@ CRITICAL RULES — follow every single one strictly:
 14. Currently available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki Area 2, Maitama), Jos (Rayfield, GRA Jos, Terminus Area), Kwara (GRA Ilorin, Tanke, Adewole Estate), Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu). ONLY suggest from these exact areas.
 15. WAITLIST RULE — VERY IMPORTANT: Whenever a user's exact area/city is not covered OR they seem unsatisfied with available options, you MUST in that SAME message (not a follow-up): 
   a) Show the closest available properties using SHOW_PROPS
-  b) End your message with this exact waitlist call-to-action: "\n\n🔔 Not finding what you need? Join our waitlist — WAITLIST_COUNT people have already signed up! We'll notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free."
+  b) End your message with this exact waitlist call-to-action: "\n\n🔔 Not finding what you need? Join our waitlist — " + waitlistCount + " people have already signed up! We'll notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free."
   c) Replace WAITLIST_COUNT with the actual number provided in the user's message context.
 16. NEVER make the user send a second message to hear about the waitlist. Include it in the FIRST response whenever their area is unavailable.`;
 
@@ -460,9 +460,7 @@ async function sendMsg(){
   document.getElementById('chips').style.display='none';
   document.getElementById('sendBtn').disabled=true;
   addMsg('user',text);
-  // Inject waitlist count so AI knows real number
-  const msgWithContext = text + ` [SYSTEM NOTE: Current waitlist signups: ${waitlistCount} people]`;
-  history.push({role:'user',content:msgWithContext});
+  history.push({role:'user',content:text + ' [Current NaijaNest waitlist signups: ' + waitlistCount + ' people]'});
   const typingEl=addMsg('ai','',true);
   try{
     const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,system:SYSTEM})});
