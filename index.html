@@ -175,6 +175,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ghost-btn{width:100%;padding:10px;background:transparent;color:var(--green);border:0.5px solid var(--green);border-radius:var(--radius);font-size:13.5px;cursor:pointer;margin-top:12px}
 .sched-pad{padding:1rem}
 .sched-prop-info{background:var(--surface);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:13px}
+.waitlist-cta-bubble{background:#eaf5ef;border:0.5px solid #b3ddc4;border-radius:12px;padding:10px 13px;margin:8px 1rem;font-size:13px;color:#1a6b3a;cursor:pointer}
+.waitlist-cta-bubble:hover{background:#d4edda}
 .photo-thumbs{display:flex;gap:6px;padding:8px 1rem;overflow-x:auto;background:#f9fafb}
 .photo-thumb{width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid transparent;flex-shrink:0}
 .photo-thumb.active{border-color:var(--green)}
@@ -371,17 +373,26 @@ const SYSTEM = `You are NaijaNest, a friendly Nigerian house rental AI assistant
 Available properties (JSON):
 ${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,inspections:p.inspections,rentals:p.rentals,neighborhood:p.nb})))}
 
-CRITICAL RULES:
-1. ALWAYS search the property list when user asks for a house.
-2. Match by city, bedrooms, price (annual Naira), type. Be flexible on price.
-3. ALWAYS end your reply with SHOW_PROPS:[4,5] on its own line with matching IDs. This is MANDATORY.
-4. Example: "Great news! I found 2 properties...\n\nSHOW_PROPS:[4,5]"
-5. Keep response under 100 words before the SHOW_PROPS line.
-6. If nothing matches exactly, show closest options and still use SHOW_PROPS.
-7. For neighborhood questions use the neighborhood data.
-8. Use Nigerian context naturally (NEPA, Lagos traffic, Jos cold, Abuja DisCo).
-9. Prices are annual rent in Naira. Self-con = self-contained studio.
-10. NEVER respond to a property search without SHOW_PROPS.`;
+CRITICAL RULES — follow every single one strictly:
+1. ONLY use properties from the list above. NEVER mention areas, streets, or properties not in the list.
+2. NEVER invent or suggest fictional properties. If a location is not in the list, say so honestly.
+3. When user searches for a location not in our list (e.g. Ikorodu, Ikoyi, Kano), say: "We don't have listings in [area] yet. Here are our closest options in [nearby city]:" then show real properties.
+4. ALWAYS end your reply with SHOW_PROPS:[4,5] on its own line with real matching IDs. MANDATORY for every property search.
+5. Example format: "Here are matching properties:\n\nSHOW_PROPS:[4,5]"
+6. Keep response under 100 words before the SHOW_PROPS line.
+7. BEDROOM COUNT IS STRICT — if user asks for 2-bedroom, ONLY show 2-bedroom properties. NEVER suggest a 1-bedroom as alternative to a 2-bedroom request. Only suggest different bedroom count if absolutely zero matches exist AND you clearly state the difference.
+8. PRICE — only show properties within 20% of the user's budget. Never suggest properties far above budget without warning.
+9. LAGOS GEOGRAPHY — Surulere, Yaba are MAINLAND Lagos. Lekki, Victoria Island are ISLAND Lagos. They are FAR apart — 1-2 hours in traffic. NEVER say Surulere is near Lekki or vice versa.
+10. For neighborhood questions use ONLY the neighborhood data provided above.
+11. Use Nigerian context naturally (NEPA, Lagos traffic, Jos cold, Abuja DisCo).
+12. Prices are annual rent in Naira. Self-con = self-contained studio = 1 room with bathroom.
+13. NEVER mention Ikoyi, Ikorodu, Victoria Island, Ikeja or any area not in our property list.
+14. Currently available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki Area 2, Maitama), Jos (Rayfield, GRA Jos, Terminus Area), Kwara (GRA Ilorin, Tanke, Adewole Estate), Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu). ONLY suggest from these exact areas.
+15. WAITLIST RULE — VERY IMPORTANT: Whenever a user's exact area/city is not covered OR they seem unsatisfied with available options, you MUST in that SAME message (not a follow-up): 
+  a) Show the closest available properties using SHOW_PROPS
+  b) End your message with this exact waitlist call-to-action: "\n\n🔔 Not finding what you need? Join our waitlist — WAITLIST_COUNT people have already signed up! We'll notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free."
+  c) Replace WAITLIST_COUNT with the actual number provided in the user's message context.
+16. NEVER make the user send a second message to hear about the waitlist. Include it in the FIRST response whenever their area is unavailable.`;
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
@@ -449,7 +460,9 @@ async function sendMsg(){
   document.getElementById('chips').style.display='none';
   document.getElementById('sendBtn').disabled=true;
   addMsg('user',text);
-  history.push({role:'user',content:text});
+  // Inject waitlist count so AI knows real number
+  const msgWithContext = text + ` [SYSTEM NOTE: Current waitlist signups: ${waitlistCount} people]`;
+  history.push({role:'user',content:msgWithContext});
   const typingEl=addMsg('ai','',true);
   try{
     const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,system:SYSTEM})});
@@ -672,9 +685,35 @@ async function loadWaitlistCount() {
 }
 loadWaitlistCount();
 
+let waitlistCount = 0;
+
+async function fetchWaitlistCount() {
+  try {
+    const resp = await fetch('https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/waitlist?select=id', {
+      headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
+        'Prefer': 'count=exact',
+        'Range': '0-0'
+      }
+    });
+    const countHeader = resp.headers.get('content-range');
+    if (countHeader) {
+      const match = countHeader.match(/\/(\d+)/);
+      if (match) waitlistCount = parseInt(match[1]);
+    }
+    // Update counter on landing page
+    const el = document.getElementById('wlCounter');
+    if(el) el.textContent = waitlistCount === 0 ? '🔥 Be among the first to sign up!' : `🔥 ${waitlistCount} ${waitlistCount === 1 ? 'person has' : 'people have'} already signed up`;
+  } catch(e) {
+    waitlistCount = 0;
+  }
+}
+
 window.addEventListener('load',()=>{
   renderDemoGrid();
   loadRealProperties();
+  fetchWaitlistCount();
 });
 </script>
 </body>
