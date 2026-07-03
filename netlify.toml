@@ -1,0 +1,27 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+
+[[redirects]]
+  from = "/api/submit-property"
+  to = "/.netlify/functions/submit-property"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-properties"
+  to = "/.netlify/functions/get-properties"
+  status = 200
+
+[[redirects]]
+  from = "/api/approve-property"
+  to = "/.netlify/functions/approve-property"
+  status = 200
+
+[[redirects]]
+  from = "/api/waitlist"
+  to = "/.netlify/functions/waitlist"
+  status = 200

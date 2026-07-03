@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NaijaNest — List Your Property</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--green:#1a6b3a;--green-light:#eaf5ef;--green-mid:#b3ddc4;--green-dark:#155730;--text:#1a1a1a;--text-sec:#555;--border:#e0e0e0;--surface:#f8f8f8;--white:#fff;--radius:8px}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh;padding:1.5rem 1rem}
+  .container{max-width:560px;margin:0 auto}
+  .logo{display:flex;align-items:center;gap:8px;margin-bottom:1.5rem;text-decoration:none}
+  .logo-icon{width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .logo-icon i{color:#fff;font-size:17px}
+  .logo-name{font-size:19px;font-weight:600;color:var(--text)}
+  .logo-name span{color:var(--green)}
+  .card{background:var(--white);border-radius:16px;padding:1.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:1rem}
+  .card-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .card-title i{color:var(--green);font-size:18px}
+  .card-sub{font-size:13px;color:var(--text-sec);margin-bottom:1.25rem}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;color:var(--text-sec);margin-bottom:5px;font-weight:500}
+  .field input,.field select,.field textarea{width:100%;padding:0 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:13.5px;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s;font-family:inherit}
+  .field input,.field select{height:40px}
+  .field textarea{padding:10px 12px;height:90px;resize:vertical}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .amenity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .amenity-btn{padding:7px 4px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:11.5px;color:var(--text-sec);cursor:pointer;text-align:center;transition:all .15s}
+  .amenity-btn.sel{border-color:var(--green);background:var(--green-light);color:var(--green);font-weight:500}
+  .city-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+  .city-btn{padding:8px 4px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:12px;color:var(--text-sec);cursor:pointer;text-align:center;transition:all .15s}
+  .city-btn.sel{border-color:var(--green);background:var(--green-light);color:var(--green);font-weight:500}
+  .submit-btn{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:background .15s}
+  .submit-btn:hover{background:var(--green-dark)}
+  .submit-btn:disabled{background:#aaa;cursor:not-allowed}
+  .success-box{background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:1.5rem;text-align:center;display:none}
+  .success-icon{font-size:36px;color:var(--green);margin-bottom:10px}
+  .success-title{font-size:16px;font-weight:600;color:var(--green);margin-bottom:6px}
+  .success-sub{font-size:13px;color:#2d7a4a}
+  .note{font-size:12px;color:var(--text-sec);background:var(--surface);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;border-left:3px solid var(--green)}
+.photo-upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:border-color .15s;background:var(--surface);margin-bottom:10px}
+.photo-upload-area:hover{border-color:var(--green)}
+.photo-upload-area i{font-size:28px;color:var(--text-muted);display:block;margin-bottom:6px}
+.photo-upload-area p{font-size:13px;color:var(--text-sec)}
+.photo-upload-area span{font-size:11.5px;color:var(--text-muted)}
+.photo-previews{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photo-preview-wrap{position:relative;width:80px;height:80px}
+.photo-preview-img{width:80px;height:80px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border)}
+.photo-preview-remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--green);text-decoration:none;margin-bottom:1rem}
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="index.html" class="back-link"><i class="ti ti-arrow-left"></i> Back to search</a>
+  <a href="index.html" class="logo"><div class="logo-icon"><i class="ti ti-home-2"></i></div><div class="logo-name">Naija<span>Nest</span></div></a>
+
+  <div class="card" id="formCard">
+    <div class="card-title"><i class="ti ti-building-store"></i> List Your Property</div>
+    <div class="card-sub">Fill in the details below. Your property will be reviewed and published within 24 hours.</div>
+
+    <div class="note">⚠️ All submissions are manually verified before going live. Fake listings will be permanently banned.</div>
+
+    <div class="card-title" style="font-size:13px;margin-bottom:12px;margin-top:4px"><i class="ti ti-home"></i> Property Details</div>
+
+    <div class="field">
+      <label>Property title</label>
+      <input type="text" id="name" placeholder="e.g. Spacious 2-bedroom flat with parking"/>
+    </div>
+
+    <div class="field">
+      <label>City</label>
+      <div class="city-grid">
+        <button class="city-btn" onclick="selCity('Lagos',this)">Lagos</button>
+        <button class="city-btn" onclick="selCity('Abuja',this)">Abuja</button>
+        <button class="city-btn" onclick="selCity('Jos',this)">Jos</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Area / Neighbourhood</label>
+      <input type="text" id="area" placeholder="e.g. Lekki Phase 1, Wuse 2, Rayfield"/>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Property type</label>
+        <select id="type">
+          <option value="">Select type</option>
+          <option value="self-con">Self-contained</option>
+          <option value="mini-flat">Mini flat</option>
+          <option value="flat">Flat / Apartment</option>
+          <option value="duplex">Duplex</option>
+          <option value="bungalow">Bungalow</option>
+          <option value="terrace">Terrace</option>
+          <option value="mansion">Mansion</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Annual rent (₦)</label>
+        <input type="number" id="price" placeholder="e.g. 800000"/>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Bedrooms</label>
+        <select id="bedrooms">
+          <option value="1">1 bedroom</option>
+          <option value="2">2 bedrooms</option>
+          <option value="3">3 bedrooms</option>
+          <option value="4">4 bedrooms</option>
+          <option value="5">5+ bedrooms</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Bathrooms</label>
+        <select id="bathrooms">
+          <option value="1">1 bathroom</option>
+          <option value="2">2 bathrooms</option>
+          <option value="3">3 bathrooms</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Description</label>
+      <textarea id="description" placeholder="Describe the property — condition, what's included, any special features..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Property photos <span style="color:#dc2626">*</span> (minimum 3 photos)</label>
+      <div class="photo-upload-area" onclick="document.getElementById('photoInput').click()">
+        <i class="ti ti-camera"></i>
+        <p>Click to upload property photos</p>
+        <span>Show living room, bedroom, kitchen, bathroom, exterior</span>
+      </div>
+      <input type="file" id="photoInput" multiple accept="image/*" style="display:none" onchange="previewPhotos(this)"/>
+      <div class="photo-previews" id="photoPreviews"></div>
+      <div id="photoCount" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+    </div>
+
+    <div class="field">
+      <label>Amenities (select all that apply)</label>
+      <div class="amenity-grid" id="amenityGrid">
+        <button class="amenity-btn" onclick="togAmenity(this)">Water</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">Electricity</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">Security</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">Generator</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">Parking</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">Borehole</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">Fence</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">BQ</button>
+        <button class="amenity-btn" onclick="togAmenity(this)">CCTV</button>
+      </div>
+    </div>
+
+    <div class="card-title" style="font-size:13px;margin:16px 0 12px"><i class="ti ti-user"></i> Your Details (Landlord / Agent)</div>
+
+    <div class="field">
+      <label>Full name</label>
+      <input type="text" id="landlord_name" placeholder="e.g. Chukwuemeka Obi"/>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Phone number</label>
+        <input type="tel" id="landlord_phone" placeholder="08012345678"/>
+      </div>
+      <div class="field">
+        <label>Email address</label>
+        <input type="email" id="landlord_email" placeholder="you@email.com"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>NIN (National ID Number)</label>
+      <input type="text" id="nin_number" placeholder="Your 11-digit NIN for verification"/>
+    </div>
+
+    <div class="note">🔒 Your NIN is used only for verification. It will never be shown publicly.</div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitProperty()">Submit Property for Review</button>
+  </div>
+
+  <div class="success-box" id="successBox">
+    <div class="success-icon"><i class="ti ti-circle-check"></i></div>
+    <div class="success-title">Property submitted!</div>
+    <div class="success-sub">Thank you! Your property has been submitted for review.<br>We'll verify your details and publish it within 24 hours.<br><br>We'll contact you on the phone number provided.</div>
+    <a href="index.html" style="display:inline-block;margin-top:1rem;padding:10px 20px;background:var(--green);color:#fff;border-radius:var(--radius);text-decoration:none;font-size:13.5px">Back to NaijaNest</a>
+  </div>
+</div>
+
+<script>
+let selectedCity = '';
+let selectedAmenities = [];
+
+function selCity(city, el) {
+  selectedCity = city;
+  document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function togAmenity(el) {
+  el.classList.toggle('sel');
+  const amenity = el.textContent;
+  if (el.classList.contains('sel')) {
+    selectedAmenities.push(amenity);
+  } else {
+    selectedAmenities = selectedAmenities.filter(a => a !== amenity);
+  }
+}
+
+let selectedPhotos = [];
+
+function previewPhotos(input) {
+  const files = Array.from(input.files);
+  selectedPhotos = files;
+  const previews = document.getElementById('photoPreviews');
+  const count = document.getElementById('photoCount');
+  previews.innerHTML = files.map((f,i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="photo-preview-wrap">
+      <img class="photo-preview-img" src="${url}" alt="Photo ${i+1}"/>
+      <button class="photo-preview-remove" onclick="removePhoto(${i})">×</button>
+    </div>`;
+  }).join('');
+  count.textContent = files.length > 0 ? `${files.length} photo${files.length>1?'s':''} selected` : '';
+  if(files.length < 3) {
+    count.style.color = '#dc2626';
+    count.textContent += files.length > 0 ? ' — please add at least 3 photos' : '';
+  } else {
+    count.style.color = '#16a34a';
+    count.textContent += ' ✓';
+  }
+}
+
+function removePhoto(index) {
+  selectedPhotos.splice(index, 1);
+  const dt = new DataTransfer();
+  selectedPhotos.forEach(f => dt.items.add(f));
+  document.getElementById('photoInput').files = dt.files;
+  previewPhotos(document.getElementById('photoInput'));
+}
+
+async function submitProperty() {
+  const name = document.getElementById('name').value.trim();
+  const area = document.getElementById('area').value.trim();
+  const type = document.getElementById('type').value;
+  const price = document.getElementById('price').value;
+  const bedrooms = document.getElementById('bedrooms').value;
+  const bathrooms = document.getElementById('bathrooms').value;
+  const description = document.getElementById('description').value.trim();
+  const landlord_name = document.getElementById('landlord_name').value.trim();
+  const landlord_phone = document.getElementById('landlord_phone').value.trim();
+  const landlord_email = document.getElementById('landlord_email').value.trim();
+  const nin_number = document.getElementById('nin_number').value.trim();
+
+  if (!name || !selectedCity || !area || !type || !price || !landlord_name || !landlord_phone || !nin_number) {
+    alert('Please fill in all required fields including your NIN.');
+    return;
+  }
+  if (selectedPhotos.length < 3) {
+    alert('Please upload at least 3 photos of the property.');
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  try {
+    const resp = await fetch('/api/submit-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, area, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name, landlord_phone, landlord_email, nin_number })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      document.getElementById('formCard').style.display = 'none';
+      document.getElementById('successBox').style.display = 'block';
+    } else {
+      throw new Error(JSON.stringify(data.error));
+    }
+  } catch (e) {
+    alert('Something went wrong: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Submit Property for Review';
+  }
+}
+</script>
+</body>
+</html>

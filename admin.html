@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NaijaNest Admin</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--green:#1a6b3a;--green-light:#eaf5ef;--border:#e0e0e0;--surface:#f8f8f8;--white:#fff;--radius:8px;--text:#1a1a1a;--text-sec:#555}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh;padding:1.5rem 1rem}
+  .container{max-width:700px;margin:0 auto}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+  .logo{display:flex;align-items:center;gap:8px}
+  .logo-icon{width:30px;height:30px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .logo-icon i{color:#fff;font-size:16px}
+  .logo-name{font-size:17px;font-weight:600}
+  .logo-name span{color:var(--green)}
+  .admin-badge{font-size:11px;padding:3px 8px;background:#fef3c7;color:#d97706;border-radius:20px;font-weight:600}
+  .login-card{background:var(--white);border-radius:16px;padding:2rem;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-width:360px;margin:3rem auto;text-align:center}
+  .login-title{font-size:16px;font-weight:600;margin-bottom:1rem}
+  .login-input{width:100%;height:40px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:14px;outline:none;margin-bottom:10px}
+  .login-input:focus{border-color:var(--green)}
+  .login-btn{width:100%;padding:10px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem}
+  .stat{background:var(--white);border-radius:12px;padding:1rem;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+  .stat-num{font-size:24px;font-weight:600;color:var(--green)}
+  .stat-label{font-size:12px;color:var(--text-sec);margin-top:2px}
+  .tabs{display:flex;gap:8px;margin-bottom:1rem}
+  .tab{padding:7px 16px;border-radius:20px;border:0.5px solid var(--border);background:var(--white);font-size:13px;color:var(--text-sec);cursor:pointer}
+  .tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .prop-card{background:var(--white);border-radius:12px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px}
+  .prop-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+  .prop-title{font-size:14px;font-weight:500}
+  .prop-city{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--green-light);color:var(--green)}
+  .prop-meta{font-size:12px;color:var(--text-sec);margin-bottom:10px;line-height:1.7}
+  .prop-meta strong{color:var(--text)}
+  .prop-actions{display:flex;gap:8px}
+  .approve-btn{flex:1;padding:8px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:13px;cursor:pointer;font-weight:500}
+  .reject-btn{flex:1;padding:8px;background:#fff;color:#dc2626;border:0.5px solid #dc2626;border-radius:var(--radius);font-size:13px;cursor:pointer}
+  .status-badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+  .status-approved{background:#dcfce7;color:#16a34a}
+  .status-rejected{background:#fee2e2;color:#dc2626}
+  .status-pending{background:#fef3c7;color:#d97706}
+  .empty{text-align:center;padding:2rem;color:var(--text-sec);font-size:14px}
+  #adminPanel{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon"><i class="ti ti-home-2"></i></div>
+      <div class="logo-name">Naija<span>Nest</span></div>
+    </div>
+    <span class="admin-badge">ADMIN PANEL</span>
+  </div>
+
+  <div class="login-card" id="loginCard">
+    <div class="login-title">🔐 Admin Login</div>
+    <input type="password" class="login-input" id="pwInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')login()"/>
+    <button class="login-btn" onclick="login()">Login</button>
+  </div>
+
+  <div id="adminPanel">
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="totalCount">0</div><div class="stat-label">Total listings</div></div>
+      <div class="stat"><div class="stat-num" id="pendingCount" style="color:#d97706">0</div><div class="stat-label">Pending review</div></div>
+      <div class="stat"><div class="stat-num" id="approvedCount">0</div><div class="stat-label">Live listings</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="filterProps('pending',this)">Pending</button>
+      <button class="tab" onclick="filterProps('approved',this)">Approved</button>
+      <button class="tab" onclick="filterProps('rejected',this)">Rejected</button>
+      <button class="tab" onclick="filterProps('all',this)">All</button>
+    </div>
+
+    <div id="propsList"></div>
+  </div>
+</div>
+
+<script>
+let adminPassword = '';
+let allProps = [];
+let currentFilter = 'pending';
+
+async function login() {
+  const pw = document.getElementById('pwInput').value;
+  if (!pw) return;
+  adminPassword = pw;
+  await loadProperties();
+}
+
+async function loadProperties() {
+  try {
+    const resp = await fetch(`https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/properties?order=created_at.desc`, {
+      headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk'
+      }
+    });
+    allProps = await resp.json();
+    if (!Array.isArray(allProps)) throw new Error('Invalid response');
+    document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    updateStats();
+    renderProps();
+  } catch(e) {
+    alert('Login failed or wrong password. Try again.');
+    adminPassword = '';
+  }
+}
+
+function updateStats() {
+  document.getElementById('totalCount').textContent = allProps.length;
+  document.getElementById('pendingCount').textContent = allProps.filter(p=>p.status==='pending').length;
+  document.getElementById('approvedCount').textContent = allProps.filter(p=>p.status==='approved').length;
+}
+
+function filterProps(status, el) {
+  currentFilter = status;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderProps();
+}
+
+function renderProps() {
+  const props = currentFilter === 'all' ? allProps : allProps.filter(p=>p.status===currentFilter);
+  const list = document.getElementById('propsList');
+  if (!props.length) { list.innerHTML = `<div class="empty">No ${currentFilter} properties</div>`; return; }
+  list.innerHTML = props.map(p=>`
+    <div class="prop-card" id="card-${p.id}">
+      <div class="prop-top">
+        <div class="prop-title">${p.name}</div>
+        <span class="prop-city">${p.city}</span>
+      </div>
+      <div class="prop-meta">
+        <strong>Location:</strong> ${p.area}, ${p.city}<br>
+        <strong>Type:</strong> ${p.type} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>
+        <strong>Landlord:</strong> ${p.landlord_name} · <strong>Phone:</strong> ${p.landlord_phone}<br>
+        <strong>Email:</strong> ${p.landlord_email||'—'} · <strong>NIN:</strong> ${p.nin_number}<br>
+        <strong>Description:</strong> ${p.description||'—'}<br>
+        <strong>Amenities:</strong> ${(p.amenities||[]).join(', ')||'—'}<br>
+        <strong>Status:</strong> <span class="status-badge status-${p.status}">${p.status}</span>
+      </div>
+      ${p.status==='pending'?`
+      <div class="prop-actions">
+        <button class="approve-btn" onclick="updateProp(${p.id},'approved')">✅ Approve & Publish</button>
+        <button class="reject-btn" onclick="updateProp(${p.id},'rejected')">❌ Reject</button>
+      </div>`:''}
+    </div>`).join('');
+}
+
+async function updateProp(id, status) {
+  try {
+    const resp = await fetch('/api/approve-property', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id, status, admin_password: adminPassword })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      const prop = allProps.find(p=>p.id===id);
+      if (prop) prop.status = status;
+      updateStats();
+      renderProps();
+    } else {
+      alert('Error: ' + JSON.stringify(data.error));
+    }
+  } catch(e) {
+    alert('Something went wrong: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
