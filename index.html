@@ -371,7 +371,7 @@ const PROPS = [
 function getSystem(){ return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, and Jos, Nigeria.
 
 Available properties (JSON):
-${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb.sec,water:p.nb.water,elec:p.nb.elec,flood:p.nb.flood,vibe:p.nb.vibe})))}
+${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
 
 CRITICAL RULES — follow every single one strictly:
 1. ONLY use properties from the list above. NEVER mention areas, streets, or properties not in the list.
