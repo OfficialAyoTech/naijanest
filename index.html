@@ -381,9 +381,10 @@ CRITICAL RULES:
 4. ALWAYS end property searches with SHOW_PROPS:[1,2] on its own line. MANDATORY.
 5. BEDROOM COUNT IS STRICT - only show properties matching requested bedroom count.
 6. RESPONSE LENGTH - keep under 80 words. Be concise. No repetition.
-7. WAITLIST RULE - whenever an area/state is NOT covered (e.g. Oyo, Kano, Rivers, Delta, Enugu), in that SAME first message you MUST: show closest properties with SHOW_PROPS AND end with exactly this: "\n\n🔔 We are not in [area] yet. Join our waitlist — ` + waitlistCount + ` people already signed up! We will notify you on WhatsApp when we launch there. 👉 Scroll down to join free."
-8. Use Nigerian context naturally - NEPA, Lagos traffic, Jos cold, Abuja DisCo.
-9. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
+7. WAITLIST RULE - whenever an area/state is NOT covered (e.g. Oyo, Kano, Rivers, Delta, Enugu), end your message with THIS EXACT TEXT ONCE AND ONLY ONCE: "🔔 We are not in [area] yet — ` + waitlistCount + ` people already on our waitlist! Scroll down to join free and we will notify you on WhatsApp when we launch there." NEVER repeat this message twice.
+8. Verified = true means VERIFIED AGENT. Verified = false means UNVERIFIED. NEVER show "unverified" label — just skip the verified badge silently for unverified properties.
+9. Use Nigerian context naturally - NEPA, Lagos traffic, Jos cold, Abuja DisCo.
+10. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
