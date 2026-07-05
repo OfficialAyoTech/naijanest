@@ -375,16 +375,15 @@ Available properties (JSON):
 ${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
 
 CRITICAL RULES:
-1. ONLY use properties from the list above. NEVER mention areas not in the list.
-2. Ilorin = capital of Kwara State. Search Kwara properties for Ilorin requests.
-3. Birnin Kebbi = capital of Kebbi State. Search Kebbi properties for those requests.
-4. Surulere and Yaba = Mainland Lagos. Lekki = Island Lagos. They are FAR apart.
-5. ALWAYS end property search replies with SHOW_PROPS:[1,2] using matching IDs. MANDATORY.
-6. BEDROOM COUNT IS STRICT - only suggest same bedroom count as requested.
-7. When area not covered say: "We don't have listings in [area] yet. Here are closest options:" then show properties AND add: "Join our waitlist - ` + waitlistCount + ` people signed up already! Scroll down to join free and we will notify you on WhatsApp when we launch in your area."
-8. Keep responses under 100 words before SHOW_PROPS line.
-9. Use Nigerian context naturally - NEPA, Lagos traffic, Jos cold, Abuja DisCo.
-10. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
+1. ONLY use properties from the list. NEVER mention areas not in the list.
+2. GEOGRAPHY - know these: Ilorin IS in Kwara State. Birnin Kebbi IS in Kebbi State. So NEVER say "we don't have listings in Ilorin" - instead search Kwara properties directly and say "Here are options in Ilorin, Kwara State:". Same for Birnin Kebbi.
+3. Surulere/Yaba = Mainland Lagos. Lekki = Island Lagos. Never say they are near each other.
+4. ALWAYS end property searches with SHOW_PROPS:[1,2] on its own line. MANDATORY.
+5. BEDROOM COUNT IS STRICT - only show properties matching requested bedroom count.
+6. RESPONSE LENGTH - keep under 80 words. Be concise. No repetition.
+7. WAITLIST RULE - whenever an area/state is NOT covered (e.g. Oyo, Kano, Rivers, Delta, Enugu), in that SAME first message you MUST: show closest properties with SHOW_PROPS AND end with exactly this: "\n\n🔔 We are not in [area] yet. Join our waitlist — ` + waitlistCount + ` people already signed up! We will notify you on WhatsApp when we launch there. 👉 Scroll down to join free."
+8. Use Nigerian context naturally - NEPA, Lagos traffic, Jos cold, Abuja DisCo.
+9. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
