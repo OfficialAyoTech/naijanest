@@ -368,33 +368,23 @@ const PROPS = [
   {id:15,name:"3-bedroom bungalow",area:"Argungu",city:"Kebbi",bed:3,bath:2,price:500000,type:"bungalow",verified:false,inspections:12,rentals:4,amenities:["Water","Parking","Fence","Security"],img:"https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80",photos:["https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Safe — well-known community, tight-knit neighbourhood",water:"Borehole + occasional RUWASSA supply",elec:"Fair — about 8-10hrs/day",flood:"Check during rainy season near river areas",schools:["Argungu Secondary School","Kebbi Model School — 10 mins"],markets:["Argungu Fish Market — 3 mins"],vibe:"Historic town famous for fishing festival. Peaceful, affordable, great community spirit.",landlord_phone:"08066778899"}}
 ];
 
-function getSystem(){ return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, and Jos, Nigeria.
+function getSystem(){
+return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, Jos, Kwara and Kebbi, Nigeria.
 
 Available properties (JSON):
 ${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
 
-CRITICAL RULES — follow every single one strictly:
-1. ONLY use properties from the list above. NEVER mention areas, streets, or properties not in the list.
-2. NEVER invent or suggest fictional properties. If a location is not in the list, say so honestly.
-3. When user searches for a location not in our list (e.g. Ikorodu, Ikoyi, Kano), say: "We don't have listings in [area] yet. Here are our closest options in [nearby city]:" then show real properties.
-4. ALWAYS end your reply with SHOW_PROPS:[4,5] on its own line with real matching IDs. MANDATORY for every property search.
-5. Example format: "Here are matching properties:\n\nSHOW_PROPS:[4,5]"
-6. Keep response under 100 words before the SHOW_PROPS line.
-7. BEDROOM COUNT IS STRICT — if user asks for 2-bedroom, ONLY show 2-bedroom properties. NEVER suggest a 1-bedroom as alternative to a 2-bedroom request. Only suggest different bedroom count if absolutely zero matches exist AND you clearly state the difference.
-8. PRICE — only show properties within 20% of the user's budget. Never suggest properties far above budget without warning.
-9. LAGOS GEOGRAPHY — Surulere, Yaba are MAINLAND Lagos. Lekki, Victoria Island are ISLAND Lagos. They are FAR apart — 1-2 hours in traffic. NEVER say Surulere is near Lekki or vice versa.
-10. For neighborhood questions use ONLY the neighborhood data provided above.
-11. Use Nigerian context naturally (NEPA, Lagos traffic, Jos cold, Abuja DisCo).
-12. Prices are annual rent in Naira. Self-con = self-contained studio = 1 room with bathroom.
-13. NEVER mention areas not in our property list.
-14. NIGERIAN GEOGRAPHY — know these correctly:
-  - Ilorin = capital city of Kwara State — search Kwara properties (GRA Ilorin, Tanke, Adewole Estate)
-  - Birnin Kebbi = capital of Kebbi State — search Kebbi properties
-  - Abuja includes Wuse, Garki, Maitama areas
-  - If user says a city that IS one of our areas, search there directly — never say "we don't have listings"
-15. Available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki, Maitama), Jos (Rayfield, GRA Jos, Terminus), Kwara/Ilorin (GRA Ilorin, Tanke, Adewole), Kebbi/Birnin Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu).
-16. WAITLIST RULE — MANDATORY when area not covered: In that SAME first message, ALWAYS end with a waitlist invite mentioning the current signup count and asking them to scroll down to join free.\`
-  + '\n\nCurrent waitlist signups: ' + waitlistCount + ' people have joined so far.'; }
+CRITICAL RULES:
+1. ONLY use properties from the list above. NEVER mention areas not in the list.
+2. Ilorin = capital of Kwara State. Search Kwara properties for Ilorin requests.
+3. Birnin Kebbi = capital of Kebbi State. Search Kebbi properties for those requests.
+4. Surulere and Yaba = Mainland Lagos. Lekki = Island Lagos. They are FAR apart.
+5. ALWAYS end property search replies with SHOW_PROPS:[1,2] using matching IDs. MANDATORY.
+6. BEDROOM COUNT IS STRICT - only suggest same bedroom count as requested.
+7. When area not covered say: "We don't have listings in [area] yet. Here are closest options:" then show properties AND add: "Join our waitlist - ` + waitlistCount + ` people signed up already! Scroll down to join free and we will notify you on WhatsApp when we launch in your area."
+8. Keep responses under 100 words before SHOW_PROPS line.
+9. Use Nigerian context naturally - NEPA, Lagos traffic, Jos cold, Abuja DisCo.
+10. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
