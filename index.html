@@ -383,7 +383,7 @@ CRITICAL RULES:
 6. ALWAYS end with SHOW_PROPS:[1,2] on its own line. MANDATORY.
 7. BEDROOM COUNT STRICT: Only show matching bedroom count.
 8. SHORT RESPONSE: Under 60 words before SHOW_PROPS. Professional and concise.
-9. WAITLIST: When area not covered, show closest properties AND add once: "🔔 We are not in [area] yet — ` + waitlistCount + ` people on our waitlist! Scroll down to join free."
+9. WAITLIST: ONLY add waitlist message when the EXACT area/state is NOT in our property list at all (e.g. Oyo, Kano, Rivers). NEVER add waitlist message for Surulere, Lekki, Yaba, Wuse, Garki, Maitama, Rayfield, GRA Jos, Terminus, GRA Ilorin, Tanke, Adewole, Birnin Kebbi GRA, Kalgo Road, Argungu — these are all COVERED areas. When adding waitlist say: "🔔 We are not in [area] yet — ` + waitlistCount + ` people on our waitlist! Scroll down to join free."
 10. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
 
 let history=[], selectedProp=null, schedState={};
