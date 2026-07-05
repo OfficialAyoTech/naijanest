@@ -393,7 +393,8 @@ CRITICAL RULES — follow every single one strictly:
   - Abuja includes Wuse, Garki, Maitama areas
   - If user says a city that IS one of our areas, search there directly — never say "we don't have listings"
 15. Available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki, Maitama), Jos (Rayfield, GRA Jos, Terminus), Kwara/Ilorin (GRA Ilorin, Tanke, Adewole), Kebbi/Birnin Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu).
-16. WAITLIST RULE — MANDATORY when area not covered: In that SAME first message, ALWAYS end with: "\n\n🔔 Not finding what you need? Join our waitlist — ${waitlistCount} people have already signed up! We will notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free."\`; }
+16. WAITLIST RULE — MANDATORY when area not covered: In that SAME first message, ALWAYS end with a waitlist invite mentioning the current signup count and asking them to scroll down to join free.\`
+  + '\n\nCurrent waitlist signups: ' + waitlistCount + ' people have joined so far.'; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
