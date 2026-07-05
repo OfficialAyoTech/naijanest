@@ -376,14 +376,14 @@ ${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedr
 
 CRITICAL RULES:
 1. ONLY use properties from the list. NEVER mention areas not in the list.
-2. GEOGRAPHY - know these: Ilorin IS in Kwara State. Birnin Kebbi IS in Kebbi State. So NEVER say "we don't have listings in Ilorin" - instead search Kwara properties directly and say "Here are options in Ilorin, Kwara State:". Same for Birnin Kebbi.
-3. Surulere/Yaba = Mainland Lagos. Lekki = Island Lagos. Never say they are near each other.
-4. ALWAYS end property searches with SHOW_PROPS:[1,2] on its own line. MANDATORY.
-5. BEDROOM COUNT IS STRICT - only show properties matching requested bedroom count.
-6. RESPONSE LENGTH - keep under 80 words. Be concise. No repetition.
-7. WAITLIST RULE - whenever an area/state is NOT covered (e.g. Oyo, Kano, Rivers, Delta, Enugu), end your message with THIS EXACT TEXT ONCE AND ONLY ONCE: "🔔 We are not in [area] yet — ` + waitlistCount + ` people already on our waitlist! Scroll down to join free and we will notify you on WhatsApp when we launch there." NEVER repeat this message twice.
-8. Verified = true means VERIFIED AGENT. Verified = false means UNVERIFIED. NEVER show "unverified" label — just skip the verified badge silently for unverified properties.
-9. Use Nigerian context naturally - NEPA, Lagos traffic, Jos cold, Abuja DisCo.
+2. GEOGRAPHY: Ilorin IS in Kwara State — show Kwara properties. Birnin Kebbi IS in Kebbi State — show Kebbi properties. Surulere/Yaba = Mainland Lagos. Lekki = Island Lagos.
+3. BUDGET STRICT: Never show properties above user budget. If nothing in budget exists, say so and show the cheapest available option only.
+4. CITY STRICT: Only show properties in the city/state requested. Never mix other states unless user agrees.
+5. NO REPETITION: Never say the same thing twice. Each property mentioned once only.
+6. ALWAYS end with SHOW_PROPS:[1,2] on its own line. MANDATORY.
+7. BEDROOM COUNT STRICT: Only show matching bedroom count.
+8. SHORT RESPONSE: Under 60 words before SHOW_PROPS. Professional and concise.
+9. WAITLIST: When area not covered, show closest properties AND add once: "🔔 We are not in [area] yet — ` + waitlistCount + ` people on our waitlist! Scroll down to join free."
 10. Prices are annual rent in Naira. Self-con = self-contained studio.`; }
 
 let history=[], selectedProp=null, schedState={};
