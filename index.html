@@ -386,10 +386,14 @@ CRITICAL RULES — follow every single one strictly:
 10. For neighborhood questions use ONLY the neighborhood data provided above.
 11. Use Nigerian context naturally (NEPA, Lagos traffic, Jos cold, Abuja DisCo).
 12. Prices are annual rent in Naira. Self-con = self-contained studio = 1 room with bathroom.
-13. NEVER mention Ikoyi, Ikorodu, Victoria Island, Ikeja or any area not in our property list.
-14. Currently available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki Area 2, Maitama), Jos (Rayfield, GRA Jos, Terminus Area), Kwara (GRA Ilorin, Tanke, Adewole Estate), Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu). ONLY suggest from these exact areas.
-15. WAITLIST RULE: Whenever user's area is not covered OR they seem unsatisfied, in that SAME message: show closest properties with SHOW_PROPS AND end with "🔔 Not finding what you need? Join our waitlist — ${waitlistCount} people already signed up! We'll notify you on WhatsApp when we launch in your area. 👉 Scroll down to join free."
-16. NEVER make user send a second message to hear about the waitlist.`; }
+13. NEVER mention areas not in our property list.
+14. NIGERIAN GEOGRAPHY — know these correctly:
+  - Ilorin = capital city of Kwara State — search Kwara properties (GRA Ilorin, Tanke, Adewole Estate)
+  - Birnin Kebbi = capital of Kebbi State — search Kebbi properties
+  - Abuja includes Wuse, Garki, Maitama areas
+  - If user says a city that IS one of our areas, search there directly — never say "we don't have listings"
+15. Available areas: Lagos (Lekki Phase 1, Surulere, Yaba), Abuja (Wuse 2, Garki, Maitama), Jos (Rayfield, GRA Jos, Terminus), Kwara/Ilorin (GRA Ilorin, Tanke, Adewole), Kebbi/Birnin Kebbi (Birnin Kebbi GRA, Kalgo Road, Argungu).
+16. WAITLIST RULE — MANDATORY when area not covered: In that SAME first message, ALWAYS end with: "\n\n🔔 Not finding what you need? Join our waitlist — ${waitlistCount} people have already signed up! We will notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free."\`; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
