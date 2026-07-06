@@ -7,22 +7,36 @@ export default async function handler(req, res) {
   try {
     const { messages, system } = req.body;
     const truncatedSystem = system && system.length > 8000 ? system.substring(0, 8000) : system;
-    const groqMessages = [{ role: 'system', content: truncatedSystem }, ...messages];
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 800, temperature: 0.3, messages: groqMessages })
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        system: truncatedSystem,
+        messages: messages
+      })
     });
+
     const data = await response.json();
+
     if (!response.ok) {
-      return res.status(200).json({ content: [{ type: 'text', text: 'I am having trouble connecting right now. Please try again.' }] });
+      console.error('Claude error:', data);
+      return res.status(200).json({ 
+        content: [{ type: 'text', text: 'I am having trouble connecting right now. Please try again.' }] 
+      });
     }
-    const text = data.choices?.[0]?.message?.content || 'Sorry, please try again.';
-    return res.status(200).json({ content: [{ type: 'text', text }] });
+
+    return res.status(200).json(data);
   } catch (error) {
-    return res.status(200).json({ content: [{ type: 'text', text: 'I am having trouble right now. Please try again.' }] });
+    console.error('Server error:', error);
+    return res.status(200).json({ 
+      content: [{ type: 'text', text: 'I am having trouble right now. Please try again.' }] 
+    });
   }
 }
