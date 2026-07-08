@@ -3,844 +3,304 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NaijaNest — Find Your Home in Nigeria</title>
+<title>NaijaNest — List Your Property</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --green:#1a6b3a;--green-light:#eaf5ef;--green-mid:#b3ddc4;--green-dark:#155730;
-  --text:#1a1a1a;--text-sec:#555;--text-muted:#888;--border:#e5e7eb;
-  --surface:#f9fafb;--white:#fff;--radius:10px;--shadow:0 2px 12px rgba(0,0,0,0.08);
-}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh}
-
-/* ---- LANDING PAGE ---- */
-#landingPage{min-height:100vh;display:flex;flex-direction:column}
-.nav{padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;background:var(--white);border-bottom:0.5px solid var(--border)}
-.logo{display:flex;align-items:center;gap:8px}
-.logo-icon{width:32px;height:32px;background:var(--green);border-radius:9px;display:flex;align-items:center;justify-content:center}
-.logo-icon i{color:#fff;font-size:18px}
-.logo-name{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-0.3px}
-.logo-name span{color:var(--green)}
-.nav-links{display:flex;gap:10px;align-items:center}
-.nav-link{font-size:13px;color:var(--text-sec);text-decoration:none;padding:6px 12px;border-radius:20px;border:0.5px solid var(--border)}
-.nav-link:hover{border-color:var(--green);color:var(--green)}
-.nav-cta{background:var(--green);color:#fff;border-color:var(--green);font-weight:500}
-.nav-cta:hover{background:var(--green-dark);color:#fff}
-
-.hero{padding:3rem 1.5rem 2rem;text-align:center;background:var(--white)}
-.hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border-radius:20px;background:var(--green-light);color:var(--green);border:0.5px solid var(--green-mid);margin-bottom:1.25rem;font-weight:500}
-.hero-title{font-size:clamp(26px,5vw,38px);font-weight:700;line-height:1.2;letter-spacing:-0.5px;margin-bottom:0.75rem}
-.hero-title span{color:var(--green)}
-.hero-sub{font-size:15px;color:var(--text-sec);max-width:480px;margin:0 auto 2rem;line-height:1.6}
-.hero-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 28px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;text-decoration:none}
-.hero-cta:hover{background:var(--green-dark)}
-.hero-cta-sec{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;background:transparent;color:var(--green);border:1.5px solid var(--green);border-radius:var(--radius);font-size:15px;font-weight:500;cursor:pointer;margin-left:10px;transition:all .15s;text-decoration:none}
-.hero-cta-sec:hover{background:var(--green-light)}
-.hero-btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:2rem}
-
-.stats-row{display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;padding:1.5rem;background:var(--green);color:#fff}
-.stat-item{text-align:center}
-.stat-num{font-size:22px;font-weight:700}
-.stat-label{font-size:12px;opacity:.85;margin-top:2px}
-
-.trust-section{padding:2rem 1.5rem;background:var(--surface);text-align:center}
-.section-title{font-size:18px;font-weight:700;margin-bottom:0.5rem}
-.section-sub{font-size:13.5px;color:var(--text-sec);margin-bottom:1.5rem}
-.trust-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:500px;margin:0 auto}
-.trust-card{background:var(--white);border-radius:12px;padding:1rem;text-align:left;border:0.5px solid var(--border)}
-.trust-icon{font-size:22px;margin-bottom:6px}
-.trust-title{font-size:13px;font-weight:600;margin-bottom:3px}
-.trust-desc{font-size:12px;color:var(--text-sec);line-height:1.5}
-
-.demo-section{padding:2rem 1.5rem;background:var(--white)}
-.demo-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
-.demo-chip{font-size:12.5px;padding:6px 14px;border-radius:20px;border:0.5px solid var(--border);background:var(--surface);color:var(--text-sec);cursor:pointer;transition:all .15s}
-.demo-chip:hover,.demo-chip.active{border-color:var(--green);color:var(--green);background:var(--green-light)}
-.prop-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
-.prop-card{min-width:220px;background:var(--white);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .15s;flex-shrink:0;box-shadow:var(--shadow)}
-.prop-card:hover{border-color:var(--green);transform:translateY(-2px)}
-.prop-img{width:100%;height:150px;object-fit:cover;object-position:center;display:block;background:#e5e7eb}
-.prop-body{padding:10px 12px}
-.prop-badges{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
-.badge-verified{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#dcfce7;color:#16a34a;font-weight:600;display:flex;align-items:center;gap:3px}
-.badge-inspect{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#dbeafe;color:#1d4ed8;font-weight:600}
-.prop-price{font-size:14px;font-weight:700;color:var(--green);margin-bottom:2px}
-.prop-name{font-size:12.5px;color:var(--text);margin-bottom:4px}
-.prop-meta{font-size:11.5px;color:var(--text-sec);display:flex;gap:8px}
-.prop-location{font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:3px;margin-top:3px}
-
-.waitlist-section{padding:2.5rem 1.5rem;background:var(--green);color:#fff;text-align:center}
-.waitlist-title{font-size:20px;font-weight:700;margin-bottom:6px}
-.waitlist-sub{font-size:13.5px;opacity:.9;margin-bottom:1.5rem}
-.waitlist-counter{font-size:13px;background:rgba(255,255,255,0.15);border-radius:20px;padding:5px 14px;display:inline-block;margin-bottom:1.5rem}
-.waitlist-form{background:rgba(255,255,255,0.1);border-radius:14px;padding:1.25rem;max-width:400px;margin:0 auto}
-.wl-field{margin-bottom:10px}
-.wl-input{width:100%;height:40px;border:none;border-radius:var(--radius);padding:0 12px;font-size:13.5px;background:rgba(255,255,255,0.95);color:var(--text);outline:none}
-.wl-select{width:100%;height:40px;border:none;border-radius:var(--radius);padding:0 12px;font-size:13.5px;background:rgba(255,255,255,0.95);color:var(--text);outline:none}
-.wl-btn{width:100%;padding:11px;background:#fff;color:var(--green);border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;transition:background .15s}
-.wl-btn:hover{background:var(--green-light)}
-.wl-success{background:rgba(255,255,255,0.2);border-radius:12px;padding:1.25rem;text-align:center;display:none}
-.wl-success-icon{font-size:32px;margin-bottom:8px}
-
-.footer{padding:1.5rem;background:var(--text);color:#aaa;text-align:center;font-size:12.5px}
-.footer a{color:var(--green-mid);text-decoration:none}
-
-/* ---- APP PAGE ---- */
-#appPage{display:none;min-height:100vh;flex-direction:column}
-#app{width:100%;max-width:500px;margin:0 auto;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;height:calc(100vh - 2rem);margin-top:1rem;position:relative}
-.app-header{padding:1rem 1.25rem 0.75rem;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
-.app-logo{display:flex;align-items:center;gap:7px}
-.app-logo-icon{width:28px;height:28px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
-.app-logo-icon i{color:#fff;font-size:15px}
-.app-logo-name{font-size:16px;font-weight:700;color:var(--text)}
-.app-logo-name span{color:var(--green)}
-.back-to-home{font-size:12px;color:var(--text-sec);cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:20px;border:0.5px solid var(--border)}
-.city-pills{display:flex;gap:5px;padding:6px 1.25rem;flex-shrink:0;overflow-x:auto}
-.city-pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--green-light);color:var(--green);border:0.5px solid var(--green-mid);white-space:nowrap}
-.chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.messages{flex:1;padding:1rem 1rem 0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
-.msg{display:flex;gap:7px;align-items:flex-start}
-.msg.user{flex-direction:row-reverse}
-.avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.avatar.ai{background:var(--green);color:#fff}
-.avatar.user{background:#dbeafe;color:#1d4ed8}
-.bubble{max-width:83%;padding:9px 12px;border-radius:12px;font-size:13.5px;line-height:1.55}
-.bubble.ai{background:var(--surface);border:0.5px solid var(--border);color:var(--text);border-top-left-radius:3px}
-.bubble.user{background:var(--green);color:#fff;border-top-right-radius:3px}
-.typing{display:flex;gap:4px;align-items:center;padding:2px 0}
-.typing span{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:bounce 1.2s infinite}
-.typing span:nth-child(2){animation-delay:.2s}
-.typing span:nth-child(3){animation-delay:.4s}
-@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
-.props-scroll{padding:0 1rem 4px;overflow-x:auto;display:flex;gap:9px;flex-shrink:0}
-.chat-prop-card{min-width:195px;max-width:195px;background:var(--white);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .15s;flex-shrink:0}
-.chat-prop-card:hover{border-color:var(--green)}
-.chat-prop-img{width:100%;height:120px;object-fit:cover;object-position:center;display:block;background:#e5e7eb}
-.chat-prop-body{padding:9px 11px}
-.chat-prop-price{font-size:13px;font-weight:700;color:var(--green)}
-.chat-prop-name{font-size:12px;color:var(--text);margin:2px 0 4px}
-.chat-prop-meta{font-size:11px;color:var(--text-sec);display:flex;gap:6px}
-.quick-chips{display:flex;gap:6px;padding:6px 1rem 4px;flex-wrap:wrap;flex-shrink:0}
-.chip{font-size:11.5px;padding:5px 10px;border-radius:20px;border:0.5px solid var(--border);background:var(--white);color:var(--text-sec);cursor:pointer;white-space:nowrap;transition:all .15s}
-.chip:hover{border-color:var(--green);color:var(--green)}
-.input-row{display:flex;gap:7px;padding:10px 1rem;border-top:0.5px solid var(--border);flex-shrink:0}
-.input-row input{flex:1;font-size:13.5px;padding:0 12px;height:38px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface);color:var(--text);outline:none}
-.input-row input:focus{border-color:var(--green)}
-.send-btn{width:38px;height:38px;border-radius:var(--radius);background:var(--green);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.send-btn:hover{background:var(--green-dark)}
-.send-btn i{color:#fff;font-size:17px}
-.send-btn:disabled{background:var(--surface);cursor:not-allowed}
-.send-btn:disabled i{color:var(--text-muted)}
-
-/* overlays */
-.overlay{position:absolute;inset:0;background:var(--white);z-index:10;display:flex;flex-direction:column;overflow:hidden}
-.overlay-header{padding:0.9rem 1rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
-.back-btn{width:30px;height:30px;border-radius:var(--radius);border:0.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-sec)}
-.overlay-body{flex:1;overflow-y:auto}
-.detail-img{width:100%;height:220px;object-fit:cover;object-position:center;display:block;background:#e5e7eb}
-.detail-body{padding:1rem}
-.detail-price{font-size:21px;font-weight:700;color:var(--green)}
-.detail-title{font-size:14px;color:var(--text);margin:3px 0 8px}
-.trust-badges-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.tbadge{font-size:11.5px;padding:4px 10px;border-radius:20px;font-weight:600;display:flex;align-items:center;gap:4px}
-.tbadge-green{background:#dcfce7;color:#16a34a}
-.tbadge-blue{background:#dbeafe;color:#1d4ed8}
-.tbadge-orange{background:#ffedd5;color:#ea580c}
-.badge-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
-.dbadge{font-size:11.5px;padding:4px 9px;border-radius:20px;background:var(--surface);border:0.5px solid var(--border);color:var(--text-sec);display:flex;align-items:center;gap:4px}
-.sec-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px}
-.nbhd-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.nbhd-item{background:var(--surface);border-radius:var(--radius);padding:9px 11px}
-.nbhd-label{font-size:10.5px;color:var(--text-muted);margin-bottom:3px;display:flex;align-items:center;gap:4px}
-.nbhd-val{font-size:12px;color:var(--text);display:flex;align-items:flex-start;gap:5px}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
-.dot-g{background:#16a34a}.dot-a{background:#d97706}
-.nbhd-full{background:var(--surface);border-radius:var(--radius);padding:9px 11px;margin-top:7px}
-.nbhd-label i{font-size:11px}
-.report-btn{width:100%;padding:9px;background:transparent;color:#dc2626;border:0.5px solid #dc2626;border-radius:var(--radius);font-size:13px;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px}
-.inspect-btn{width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px}
-.inspect-btn:hover{background:var(--green-dark)}
-.wa-btn{width:100%;padding:11px;background:#25d366;color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px}
-.field-group{margin-bottom:13px}
-.field-label{font-size:12.5px;color:var(--text-sec);margin-bottom:5px}
-.field-input{width:100%;height:38px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:13.5px;background:var(--surface);color:var(--text);outline:none}
-.field-input:focus{border-color:var(--green)}
-.slot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.slot-btn{padding:8px 4px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:11.5px;color:var(--text-sec);cursor:pointer;text-align:center;line-height:1.4}
-.slot-btn.sel{border-color:var(--green);background:var(--green-light);color:var(--green);font-weight:500}
-.date-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.date-btn{padding:7px 4px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:10.5px;color:var(--text-sec);cursor:pointer;text-align:center;line-height:1.4}
-.date-btn.sel{border-color:var(--green);background:var(--green-light);color:var(--green);font-weight:500}
-.ghost-btn{width:100%;padding:10px;background:transparent;color:var(--green);border:0.5px solid var(--green);border-radius:var(--radius);font-size:13.5px;cursor:pointer;margin-top:12px}
-.sched-pad{padding:1rem}
-.sched-prop-info{background:var(--surface);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:13px}
-.waitlist-cta-bubble{background:#eaf5ef;border:0.5px solid #b3ddc4;border-radius:12px;padding:10px 13px;margin:8px 1rem;font-size:13px;color:#1a6b3a;cursor:pointer}
-.waitlist-cta-bubble:hover{background:#d4edda}
-.photo-thumbs{display:flex;gap:6px;padding:8px 1rem;overflow-x:auto;background:#f9fafb}
-.photo-thumb{width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid transparent;flex-shrink:0}
-.photo-thumb.active{border-color:var(--green)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--green:#1a6b3a;--green-light:#eaf5ef;--green-mid:#b3ddc4;--green-dark:#155730;--text:#1a1a1a;--text-sec:#555;--border:#e0e0e0;--surface:#f8f8f8;--white:#fff;--radius:8px}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh;padding:1.5rem 1rem}
+  .container{max-width:560px;margin:0 auto}
+  .logo{display:flex;align-items:center;gap:8px;margin-bottom:1.5rem;text-decoration:none}
+  .logo-icon{width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .logo-icon i{color:#fff;font-size:17px}
+  .logo-name{font-size:19px;font-weight:600;color:var(--text)}
+  .logo-name span{color:var(--green)}
+  .card{background:var(--white);border-radius:16px;padding:1.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:1rem}
+  .card-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .card-title i{color:var(--green);font-size:18px}
+  .card-sub{font-size:13px;color:var(--text-sec);margin-bottom:1.25rem}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;color:var(--text-sec);margin-bottom:5px;font-weight:500}
+  .field input,.field select,.field textarea{width:100%;padding:0 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:13.5px;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s;font-family:inherit}
+  .field input,.field select{height:40px}
+  .field textarea{padding:10px 12px;height:90px;resize:vertical}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .amenity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .amenity-btn{padding:7px 4px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:11.5px;color:var(--text-sec);cursor:pointer;text-align:center;transition:all .15s}
+  .amenity-btn.sel{border-color:var(--green);background:var(--green-light);color:var(--green);font-weight:500}
+  .city-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+  .city-btn{padding:8px 4px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:12px;color:var(--text-sec);cursor:pointer;text-align:center;transition:all .15s}
+  .city-btn.sel{border-color:var(--green);background:var(--green-light);color:var(--green);font-weight:500}
+  .submit-btn{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:background .15s}
+  .submit-btn:hover{background:var(--green-dark)}
+  .submit-btn:disabled{background:#aaa;cursor:not-allowed}
+  .success-box{background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:1.5rem;text-align:center;display:none}
+  .success-icon{font-size:36px;color:var(--green);margin-bottom:10px}
+  .success-title{font-size:16px;font-weight:600;color:var(--green);margin-bottom:6px}
+  .success-sub{font-size:13px;color:#2d7a4a}
+  .note{font-size:12px;color:var(--text-sec);background:var(--surface);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;border-left:3px solid var(--green)}
+.photo-upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:border-color .15s;background:var(--surface);margin-bottom:10px}
+.photo-upload-area:hover{border-color:var(--green)}
+.photo-upload-area i{font-size:28px;color:var(--text-muted);display:block;margin-bottom:6px}
+.photo-upload-area p{font-size:13px;color:var(--text-sec)}
+.photo-upload-area span{font-size:11.5px;color:var(--text-muted)}
+.photo-previews{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photo-preview-wrap{position:relative;width:80px;height:80px}
+.photo-preview-img{width:80px;height:80px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border)}
+.photo-preview-remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--green);text-decoration:none;margin-bottom:1rem}
 </style>
 </head>
 <body>
+<div class="container">
+  <a href="index.html" class="back-link"><i class="ti ti-arrow-left"></i> Back to search</a>
+  <a href="index.html" class="logo"><div class="logo-icon"><i class="ti ti-home-2"></i></div><div class="logo-name">Naija<span>Nest</span></div></a>
 
-<!-- ========== LANDING PAGE ========== -->
-<div id="landingPage">
-  <nav class="nav">
-    <div class="logo">
-      <div class="logo-icon"><i class="ti ti-home-2"></i></div>
-      <div class="logo-name">Naija<span>Nest</span></div>
+  <div class="card" id="formCard">
+    <div class="card-title"><i class="ti ti-building-store"></i> List Your Property</div>
+    <div class="card-sub">Fill in the details below. Your property will be reviewed and published within 24 hours.</div>
+
+    <div class="note">⚠️ All submissions are manually verified before going live. Fake listings will be permanently banned.</div>
+
+    <div class="card-title" style="font-size:13px;margin-bottom:12px;margin-top:4px"><i class="ti ti-home"></i> Property Details</div>
+
+    <div class="field">
+      <label>Property title</label>
+      <input type="text" id="name" placeholder="e.g. Spacious 2-bedroom flat with parking"/>
     </div>
-    <div class="nav-links">
-      <a href="list-property.html" class="nav-link">List property</a>
-      <a href="#" class="nav-link nav-cta" onclick="showApp()">Find a house</a>
-    </div>
-  </nav>
 
-  <div class="hero">
-    <div class="hero-badge"><i class="ti ti-sparkles" style="font-size:13px"></i> Nigeria's first AI rental assistant</div>
-    <h1 class="hero-title">Find your next home in<br><span>Nigeria</span> — the smart way</h1>
-    <p class="hero-sub">Search rentals in Lagos, Abuja, and Jos using plain English. Get neighborhood insights on water, electricity, security, and flooding — before you inspect.</p>
-    <div class="hero-btns">
-      <a href="#" class="hero-cta" onclick="showApp()"><i class="ti ti-search"></i> Find My House</a>
-      <a href="#waitlist" class="hero-cta-sec"><i class="ti ti-bell"></i> Join Waitlist</a>
-    </div>
-  </div>
-
-  <div class="stats-row">
-    <div class="stat-item"><div class="stat-num">15+</div><div class="stat-label">Demo listings</div></div>
-    <div class="stat-item"><div class="stat-num">5</div><div class="stat-label">States covered</div></div>
-    <div class="stat-item"><div class="stat-num">0₦</div><div class="stat-label">Free to search</div></div>
-    <div class="stat-item"><div class="stat-num">24hr</div><div class="stat-label">Agent verification</div></div>
-  </div>
-
-  <div class="trust-section">
-    <div class="section-title">Why NaijaNest?</div>
-    <div class="section-sub">We're solving the biggest problems with renting in Nigeria</div>
-    <div class="trust-grid">
-      <div class="trust-card">
-        <div class="trust-icon">✅</div>
-        <div class="trust-title">Verified agents</div>
-        <div class="trust-desc">Every agent is verified with NIN before listing. Fake agents get banned permanently.</div>
-      </div>
-      <div class="trust-card">
-        <div class="trust-icon">🏠</div>
-        <div class="trust-title">Verified properties</div>
-        <div class="trust-desc">We manually review every listing before it goes live. No ghost houses.</div>
-      </div>
-      <div class="trust-card">
-        <div class="trust-icon">🤖</div>
-        <div class="trust-title">AI neighborhood guide</div>
-        <div class="trust-desc">Ask about water, NEPA, flooding, security — get honest answers instantly.</div>
-      </div>
-      <div class="trust-card">
-        <div class="trust-icon">🚨</div>
-        <div class="trust-title">Scam reporting</div>
-        <div class="trust-desc">Report suspicious listings. Community-powered fraud protection.</div>
+    <div class="field">
+      <label>City</label>
+      <div class="city-grid">
+        <button type="button" class="city-btn" onclick="selCity('Lagos',this)">Lagos</button>
+        <button type="button" class="city-btn" onclick="selCity('Abuja',this)">Abuja</button>
+        <button type="button" class="city-btn" onclick="selCity('Jos',this)">Jos</button>
+        <button type="button" class="city-btn" onclick="selCity('Kwara',this)">Kwara</button>
+        <button type="button" class="city-btn" onclick="selCity('Kebbi',this)">Kebbi</button>
       </div>
     </div>
-  </div>
 
-  <div class="demo-section">
-    <div class="section-title" style="margin-bottom:6px">Browse demo listings</div>
-    <div class="section-sub">These are sample properties to show you how it works</div>
-    <div class="demo-chips">
-      <span class="demo-chip active" onclick="filterDemo('all',this)">All</span>
-      <span class="demo-chip" onclick="filterDemo('Lagos',this)">Lagos</span>
-      <span class="demo-chip" onclick="filterDemo('Abuja',this)">Abuja</span>
-      <span class="demo-chip" onclick="filterDemo('Jos',this)">Jos</span>
-      <span class="demo-chip" onclick="filterDemo('Kwara',this)">Kwara</span>
-      <span class="demo-chip" onclick="filterDemo('Kebbi',this)">Kebbi</span>
+    <div class="field">
+      <label>Area / Neighbourhood</label>
+      <input type="text" id="area" placeholder="e.g. Lekki Phase 1, Wuse 2, Rayfield"/>
     </div>
-    <div class="prop-grid" id="demoGrid"></div>
-    <div style="text-align:center;margin-top:1.25rem">
-      <a href="#" class="hero-cta" onclick="showApp()" style="font-size:13.5px;padding:10px 22px"><i class="ti ti-message-circle"></i> Chat with AI to search</a>
-    </div>
-  </div>
 
-  <div class="waitlist-section" id="waitlist">
-    <div class="waitlist-title">🔔 Join the waitlist</div>
-    <div class="waitlist-sub">Be the first to know when we launch in your city with real listings</div>
-    <div class="waitlist-counter" id="wlCounter">🔥 Loading signups...</div>
-    <div class="waitlist-form" id="wlForm">
-      <div class="wl-field"><input class="wl-input" id="wlName" placeholder="Your full name"/></div>
-      <div class="wl-field"><input class="wl-input" id="wlWa" placeholder="WhatsApp number (e.g. 08012345678)"/></div>
-      <div class="wl-field">
-        <select class="wl-select" id="wlCity">
-          <option value="">Which city are you in?</option>
-          <option value="Lagos">Lagos</option>
-          <option value="Abuja">Abuja</option>
-          <option value="Jos">Jos</option>
-          <option value="Port Harcourt">Port Harcourt</option>
-          <option value="Kano">Kano</option>
-          <option value="Ibadan">Ibadan</option>
-          <option value="Other">Other</option>
+    <div class="field-row">
+      <div class="field">
+        <label>Property type</label>
+        <select id="type">
+          <option value="">Select type</option>
+          <option value="self-con">Self-contained</option>
+          <option value="mini-flat">Mini flat</option>
+          <option value="flat">Flat / Apartment</option>
+          <option value="duplex">Duplex</option>
+          <option value="bungalow">Bungalow</option>
+          <option value="terrace">Terrace</option>
+          <option value="mansion">Mansion</option>
         </select>
       </div>
-      <div class="wl-field">
-        <select class="wl-select" id="wlRole">
-          <option value="">I am a...</option>
-          <option value="tenant">Tenant looking to rent</option>
-          <option value="landlord">Landlord wanting to list</option>
-          <option value="agent">Agent / Property manager</option>
+      <div class="field">
+        <label>Annual rent (₦)</label>
+        <input type="number" id="price" placeholder="e.g. 800000"/>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Bedrooms</label>
+        <select id="bedrooms">
+          <option value="1">1 bedroom</option>
+          <option value="2">2 bedrooms</option>
+          <option value="3">3 bedrooms</option>
+          <option value="4">4 bedrooms</option>
+          <option value="5">5+ bedrooms</option>
         </select>
       </div>
-      <button class="wl-btn" onclick="joinWaitlist()">Join Waitlist — It's Free</button>
+      <div class="field">
+        <label>Bathrooms</label>
+        <select id="bathrooms">
+          <option value="1">1 bathroom</option>
+          <option value="2">2 bathrooms</option>
+          <option value="3">3 bathrooms</option>
+        </select>
+      </div>
     </div>
-    <div class="wl-success" id="wlSuccess">
-      <div class="wl-success-icon">🎉</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:6px">You're on the list!</div>
-      <div style="font-size:13px;opacity:.9">We'll WhatsApp you when we launch in your city. Tell a friend!</div>
+
+    <div class="field">
+      <label>Description</label>
+      <textarea id="description" placeholder="Describe the property — condition, what's included, any special features..."></textarea>
     </div>
+
+    <div class="field">
+      <label>Property photos <span style="color:#dc2626">*</span> (minimum 3 photos)</label>
+      <div class="photo-upload-area" onclick="document.getElementById('photoInput').click()">
+        <i class="ti ti-camera"></i>
+        <p>Click to upload property photos</p>
+        <span>Show living room, bedroom, kitchen, bathroom, exterior</span>
+      </div>
+      <input type="file" id="photoInput" multiple accept="image/*" style="display:none" onchange="previewPhotos(this)"/>
+      <div class="photo-previews" id="photoPreviews"></div>
+      <div id="photoCount" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+    </div>
+
+    <div class="field">
+      <label>Amenities (select all that apply)</label>
+      <div class="amenity-grid" id="amenityGrid">
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Water</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Electricity</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Security</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Generator</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Parking</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Borehole</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Fence</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">BQ</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">CCTV</button>
+      </div>
+    </div>
+
+    <div class="card-title" style="font-size:13px;margin:16px 0 12px"><i class="ti ti-user"></i> Your Details (Landlord / Agent)</div>
+
+    <div class="field">
+      <label>Full name</label>
+      <input type="text" id="landlord_name" placeholder="e.g. Chukwuemeka Obi"/>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Phone number</label>
+        <input type="tel" id="landlord_phone" placeholder="08012345678"/>
+      </div>
+      <div class="field">
+        <label>Email address</label>
+        <input type="email" id="landlord_email" placeholder="you@email.com"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>NIN (National ID Number)</label>
+      <input type="text" id="nin_number" placeholder="Your 11-digit NIN for verification"/>
+    </div>
+
+    <div class="note">🔒 Your NIN is used only for verification. It will never be shown publicly.</div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitProperty()">Submit Property for Review</button>
   </div>
 
-  <footer class="footer">
-    <div style="margin-bottom:6px"><strong style="color:#fff">NaijaNest</strong> — Nigeria's AI Rental Assistant</div>
-    <div>© 2026 NaijaNest by AyoTech · <a href="list-property.html">List your property</a> · <a href="admin.html">Admin</a></div>
-  </footer>
-</div>
-
-<!-- ========== APP PAGE ========== -->
-<div id="appPage" style="display:none;padding:0 1rem 1rem">
-  <div id="app">
-    <div class="app-header">
-      <div class="app-logo">
-        <div class="app-logo-icon"><i class="ti ti-home-2"></i></div>
-        <div class="app-logo-name">Naija<span>Nest</span></div>
-      </div>
-      <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
-    </div>
-    <div class="city-pills">
-      <span class="city-pill">📍 Lagos</span>
-      <span class="city-pill">📍 Abuja</span>
-      <span class="city-pill">📍 Jos</span>
-      <span class="city-pill">📍 Kwara</span>
-      <span class="city-pill">📍 Kebbi</span>
-    </div>
-    <div class="chat-area">
-      <div class="messages" id="messages"></div>
-      <div id="propsArea"></div>
-      <div class="quick-chips" id="chips">
-        <span class="chip" onclick="sendChip(this)">2-bedroom in Lekki under ₦1.2m</span>
-        <span class="chip" onclick="sendChip(this)">Self-con in Surulere</span>
-        <span class="chip" onclick="sendChip(this)">3-bedroom Abuja under ₦2m</span>
-        <span class="chip" onclick="sendChip(this)">Flat in Ilorin Kwara</span>
-        <span class="chip" onclick="sendChip(this)">Cheap house in Kebbi</span>
-      </div>
-      <div class="input-row">
-        <input type="text" id="userInput" placeholder="Describe what you're looking for..." onkeydown="if(event.key==='Enter')sendMsg()"/>
-        <button class="send-btn" id="sendBtn" onclick="sendMsg()"><i class="ti ti-send"></i></button>
-      </div>
-    </div>
-    <div class="overlay" id="detailOverlay" style="display:none">
-      <div class="overlay-header">
-        <button class="back-btn" onclick="closeDetail()"><i class="ti ti-arrow-left"></i></button>
-        <span style="font-size:14px;font-weight:600" id="detailHead"></span>
-      </div>
-      <div class="overlay-body" id="detailBody"></div>
-    </div>
-    <div class="overlay" id="schedOverlay" style="display:none">
-      <div class="overlay-header">
-        <button class="back-btn" onclick="closeSchedule()"><i class="ti ti-arrow-left"></i></button>
-        <span style="font-size:14px;font-weight:600">Schedule inspection</span>
-      </div>
-      <div class="overlay-body" id="schedBody"></div>
-    </div>
+  <div class="success-box" id="successBox">
+    <div class="success-icon"><i class="ti ti-circle-check"></i></div>
+    <div class="success-title">Property submitted!</div>
+    <div class="success-sub">Thank you! Your property has been submitted for review.<br>We'll verify your details and publish it within 24 hours.<br><br>We'll contact you on the phone number provided.</div>
+    <a href="index.html" style="display:inline-block;margin-top:1rem;padding:10px 20px;background:var(--green);color:#fff;border-radius:var(--radius);text-decoration:none;font-size:13.5px">Back to NaijaNest</a>
   </div>
 </div>
 
 <script>
-const PROPS = [
-  {id:1,name:"Spacious 2-bedroom flat",area:"Lekki Phase 1",city:"Lagos",bed:2,bath:1,price:1100000,type:"flat",verified:true,inspections:47,rentals:12,amenities:["Water","Security","Parking"],img:"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80",photos:["https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80","https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Very safe — gated estate with 24/7 security",water:"Steady borehole supply",elec:"Excellent — avg 18hrs/day",flood:"Low risk — elevated terrain",schools:["Lekki British School","Greensprings — 5 mins"],markets:["Lekki Market — 8 mins"],vibe:"Upscale and quiet. Perfect for young professionals and families.",landlord_phone:"08012345678"}},
-  {id:2,name:"Mini flat (self-con)",area:"Surulere",city:"Lagos",bed:1,bath:1,price:380000,type:"self-con",verified:true,inspections:89,rentals:31,amenities:["Security","Running water"],img:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80",photos:["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80"],nb:{sec:"Moderate — busy area, use deadbolt locks",water:"Street borehole, tenants contribute monthly",elec:"Average — about 12hrs/day",flood:"Moderate risk in rainy season",schools:["Anglican Girls Grammar","LASU Prep — 10 mins"],markets:["Tejuosho Market — 5 mins walk"],vibe:"Vibrant and central Lagos. Great for young workers and students.",landlord_phone:"08023456789"}},
-  {id:3,name:"3-bedroom duplex",area:"Yaba",city:"Lagos",bed:3,bath:2,price:1800000,type:"duplex",verified:true,inspections:34,rentals:8,amenities:["Water","Security","Parking","Generator"],img:"https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80",photos:["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80","https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80"],nb:{sec:"Safe — close-knit community, active residents association",water:"Lagos Water Corp + borehole backup",elec:"Good — avg 15hrs/day",flood:"Low risk — Yaba is elevated",schools:["CMS Grammar School","Unilag — 3 mins"],markets:["Tejuosho Market — 7 mins"],vibe:"Tech hub of Lagos. Near Unilag. Ideal for creatives and tech workers.",landlord_phone:"08034567890"}},
-  {id:4,name:"2-bedroom apartment",area:"Wuse 2",city:"Abuja",bed:2,bath:2,price:1500000,type:"apartment",verified:true,inspections:52,rentals:19,amenities:["Water","Security","Parking","Generator"],img:"https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80",photos:["https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Very safe — well-lit streets, police post nearby",water:"FCT Water Board supply, very reliable",elec:"Excellent — Abuja DisCo, avg 20hrs/day",flood:"No flooding risk",schools:["Greenfield Academy","American International School — 10 mins"],markets:["Wuse Market — 5 mins"],vibe:"Prime Abuja. Close to embassies, restaurants and offices.",landlord_phone:"08045678901"}},
-  {id:5,name:"Self-contained studio",area:"Garki Area 2",city:"Abuja",bed:1,bath:1,price:600000,type:"self-con",verified:true,inspections:61,rentals:24,amenities:["Security","Water"],img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80",photos:["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80"],nb:{sec:"Safe — government residential area, regular patrol",water:"Reliable FCT Water Board supply",elec:"Good — about 16hrs/day",flood:"Very low risk",schools:["Garki International School","Loyola Jesuit — 12 mins"],markets:["Garki Modern Market — 7 mins"],vibe:"Calm and established. Affordable for Abuja. Good for civil servants.",landlord_phone:"08056789012"}},
-  {id:6,name:"3-bedroom bungalow",area:"Maitama",city:"Abuja",bed:3,bath:3,price:2800000,type:"bungalow",verified:true,inspections:28,rentals:7,amenities:["Water","Security","Parking","Generator","BQ"],img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80",photos:["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80","https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80"],nb:{sec:"Extremely safe — private security everywhere",water:"Excellent — dedicated borehole + FCT supply",elec:"Best in Abuja — very stable",flood:"Zero risk",schools:["Hillside School","ABU Business School — 15 mins"],markets:["Sahad Stores — 3 mins"],vibe:"Most prestigious part of Abuja. Ambassadors, executives. Very quiet.",landlord_phone:"08067890123"}},
-  {id:7,name:"2-bedroom flat",area:"Rayfield",city:"Jos",bed:2,bath:1,price:420000,type:"flat",verified:true,inspections:43,rentals:16,amenities:["Water","Security"],img:"https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80",photos:["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Relatively safe — quiet residential area, mostly families",water:"Borehole + occasional JWESA supply",elec:"Fair — about 10hrs/day",flood:"No flooding — elevated hilly terrain",schools:["Hill Station School","St. Murumba College — 8 mins"],markets:["Terminus Market — 12 mins"],vibe:"Peaceful and family-friendly. Great Jos weather. Civil servants area.",landlord_phone:"08078901234"}},
-  {id:8,name:"Mini flat",area:"GRA Jos",city:"Jos",bed:1,bath:1,price:280000,type:"mini-flat",verified:false,inspections:22,rentals:9,amenities:["Security","Running water"],img:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80",photos:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80"],nb:{sec:"Safe — Government Residential Area",water:"Borehole, ₦500/month water levy",elec:"Average — 8-12hrs/day",flood:"Low risk",schools:["Federal Gov't College Jos","JEMA Primary — 5 mins"],markets:["Farin Gada Market — 10 mins"],vibe:"Classic GRA feel — leafy, quiet, spacious compounds. Good for families.",landlord_phone:"08089012345"}},
-  {id:9,name:"3-bedroom terrace",area:"Terminus Area",city:"Jos",bed:3,bath:2,price:750000,type:"terrace",verified:true,inspections:38,rentals:14,amenities:["Water","Parking","Security"],img:"https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80",photos:["https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Moderate — busy commercial zone",water:"Borehole with overhead tank",elec:"About 10-14hrs/day",flood:"Slight flood risk in heavy rain",schools:["JEMA Secondary","University of Jos — 15 mins"],markets:["Terminus Market — 3 mins walk"],vibe:"Central Jos. Walking distance to banks, markets, transport. Great for business.",landlord_phone:"08090123456"}},
-  {id:10,name:"2-bedroom flat",area:"GRA Ilorin",city:"Kwara",bed:2,bath:1,price:450000,type:"flat",verified:true,inspections:29,rentals:11,amenities:["Water","Security","Parking"],img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80",photos:["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Very safe — quiet government residential area",water:"Ilorin Water Corporation supply, fairly reliable",elec:"Good — avg 14hrs/day, improving since new transformer",flood:"Low risk — well-elevated area",schools:["University of Ilorin Staff School","Cherubim School — 5 mins"],markets:["Mandate Market — 10 mins drive"],vibe:"Calm and peaceful. Mostly civil servants and university staff. Great for families.",landlord_phone:"08011223344"}},
-  {id:11,name:"Self-contained studio",area:"Tanke",city:"Kwara",bed:1,bath:1,price:220000,type:"self-con",verified:true,inspections:41,rentals:18,amenities:["Security","Borehole"],img:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80",photos:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80"],nb:{sec:"Safe — student-friendly area, busy but well-patrolled",water:"Borehole supply, very consistent",elec:"Average — about 10hrs/day, students use solar",flood:"Low risk",schools:["University of Ilorin — 5 mins","Kwara State Polytechnic — 8 mins"],markets:["Tanke Market — 3 mins walk"],vibe:"Vibrant student area near UNILORIN. Great for students and young workers. Very affordable.",landlord_phone:"08022334455"}},
-  {id:12,name:"3-bedroom bungalow",area:"Adewole Estate",city:"Kwara",bed:3,bath:2,price:700000,type:"bungalow",verified:false,inspections:17,rentals:5,amenities:["Water","Security","Parking","Fence"],img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80",photos:["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Safe — estate with security gate and fence",water:"Private borehole, very reliable",elec:"Good — avg 12-16hrs/day",flood:"No flooding — elevated estate",schools:["Adewole Primary School","Government Secondary — 7 mins"],markets:["Ipata Market — 12 mins"],vibe:"Family estate in Ilorin. Quiet and secure. Good for families relocating to Kwara.",landlord_phone:"08033445566"}},
-  {id:13,name:"2-bedroom flat",area:"Birnin Kebbi GRA",city:"Kebbi",bed:2,bath:1,price:350000,type:"flat",verified:true,inspections:19,rentals:7,amenities:["Water","Security","Parking"],img:"https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80",photos:["https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80"],nb:{sec:"Safe — GRA area, government presence and patrols",water:"Kebbi Water Board supply + borehole backup",elec:"Average — about 10hrs/day, improving",flood:"Low risk — GRA is elevated",schools:["GSS Birnin Kebbi","Federal Government College — 10 mins"],markets:["Birnin Kebbi Main Market — 8 mins"],vibe:"Quiet and peaceful capital city. Mostly civil servants and state workers. Very affordable.",landlord_phone:"08044556677"}},
-  {id:14,name:"Self-contained studio",area:"Kalgo Road",city:"Kebbi",bed:1,bath:1,price:180000,type:"self-con",verified:true,inspections:25,rentals:10,amenities:["Security","Borehole"],img:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80",photos:["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Moderate — busy road, adequate community security",water:"Borehole water, consistent supply",elec:"About 8-12hrs/day average",flood:"Low risk",schools:["Kalgo Primary School","Kebbi State University — 15 mins"],markets:["Kalgo Market — 5 mins walk"],vibe:"Affordable and accessible. Great for NYSC corpers and young workers in Kebbi State.",landlord_phone:"08055667788"}},
-  {id:15,name:"3-bedroom bungalow",area:"Argungu",city:"Kebbi",bed:3,bath:2,price:500000,type:"bungalow",verified:false,inspections:12,rentals:4,amenities:["Water","Parking","Fence","Security"],img:"https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80",photos:["https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Safe — well-known community, tight-knit neighbourhood",water:"Borehole + occasional RUWASSA supply",elec:"Fair — about 8-10hrs/day",flood:"Check during rainy season near river areas",schools:["Argungu Secondary School","Kebbi Model School — 10 mins"],markets:["Argungu Fish Market — 3 mins"],vibe:"Historic town famous for fishing festival. Peaceful, affordable, great community spirit.",landlord_phone:"08066778899"}}
-];
+let selectedCity = '';
+let selectedAmenities = [];
 
-function getSystem(){
-return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, Jos, Kwara and Kebbi, Nigeria.
-
-Available properties (JSON):
-${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
-
-CRITICAL RULES:
-1. ONLY use properties from the list. NEVER mention areas not in the list.
-
-2. STATE vs CITY:
-   - "Kebbi" or "Kebbi State" = ALL Kebbi: ids 13,14,15
-   - "Kwara" or "Ilorin" = ALL Kwara: ids 10,11,12
-   - "Lagos" = ids 1,2,3
-   - "Abuja" = ids 4,5,6
-   - "Jos" or "Plateau" = ids 7,8,9
-   - Always show ALL properties in requested state.
-
-3. SHOW_PROPS IS MANDATORY: Every property search MUST end with SHOW_PROPS:[id1,id2] on its own line. Without this, cards will NOT appear.
-
-4. BUDGET STRICT: Never show properties above budget. If nothing matches, show cheapest available.
-
-5. BEDROOM COUNT STRICT: Only show matching bedroom count.
-
-6. NO REPETITION: Say each thing once only.
-
-7. Prices are annual rent in Naira. Self-con = self-contained studio.
-
----EXAMPLES OF PERFECT RESPONSES (follow these exactly)---
-
-EXAMPLE 1 - Property search:
-User: "Looking for a 2 bedroom in Lekki, budget 1.5m"
-Response: "Lekki is a great pick — plenty of young professionals love it there! 🏡
-
-Good news, I found options that fit your ₦1.5m budget. Water and light are usually steady in these areas, and most come with fenced compounds for extra security 🔒
-
-Here are your options 👇
-
-SHOW_PROPS:[1]"
-
-EXAMPLE 2 - Uncovered area:
-User: "Do you have anything in Calabar?"
-Response: "Ah, we don't have listings in Calabar just yet but we're expanding every month, so that could change soon! 🌍
-
-In the meantime, I can help you find something in one of our active locations — Lagos, Abuja, Jos, Kebbi, or Kwara.
-
-Would any of those work for you? If not, join our waitlist — ` + waitlistCount + ` people have already signed up! We'll notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free.
-
-SHOW_PROPS:[1,2,3]"
-
-EXAMPLE 3 - Neighborhood/safety question:
-User: "Is this area safe? I'm moving with my family"
-Response: "That's such an important question, especially when you're moving with family 👨‍👩‍👧
-
-Based on our neighborhood data:
-🔒 Security — check the property card below
-💧 Water — details in the card
-⚡ Electricity — details in the card
-🌊 Flooding — details in the card
-
-I'd always recommend visiting in person before signing anything, just for your own peace of mind 🙏
-
-Tap the property card and hit 'Contact on WhatsApp' to chat with the verified agent directly 👇"
-
-EXAMPLE 4a - Price negotiation:
-User: "Is the price negotiable?"
-Response: "Good question! 💬 Pricing is set by the property owner, so I can't confirm a discount myself — but many agents are open to a conversation, especially for longer leases or upfront payment.
-
-Your best bet is to ask the verified agent directly — tap the property card and hit 'Contact on WhatsApp' 👇
-
-If it turns out to be outside your budget, let me know and I can show you similar options nearby that might fit better."
-
-EXAMPLE 4b - Too expensive:
-User: "This is too expensive for me, I can only do 400k"
-Response: "I hear you — 400k is a solid budget, let's work with that! 💪
-
-Let me find you options closer to that range. They may not have every feature but they're solid, safe picks for the price 👇
-
-SHOW_PROPS:[2,8,14]"
-
-EXAMPLE 5 - Book inspection:
-User: "I want to see this house, how do I book a viewing?"
-Response: "Great — seeing it in person before you commit is always a smart move! 👍
-
-You can book an inspection directly:
-1. Tap the property card below
-2. Hit 'Schedule Inspection' 🗓️
-3. Pick a date and time that works for you
-
-The agent will confirm the visit and meet you there. If you'd rather speak with them first, tap 'Contact on WhatsApp' on the same card 👇"
-
-EXAMPLE 6a - How NaijaNest works:
-User: "How does NaijaNest work?"
-Response: "Good question! Here's the short version 👇
-
-1. You search or tell me what you're looking for (location, budget, bedrooms)
-2. I show you verified listings with real photos, pricing, and neighborhood info
-3. You can chat with the property agent directly on WhatsApp
-4. If you like it, you schedule an inspection to see it in person before committing
-
-Every listing goes through a verification process, so you're not dealing with random unverified posts 🔒
-
-Want me to help you start a search right now?"
-
-EXAMPLE 6b - Trust agents:
-User: "Can I trust the agents here?"
-Response: "Totally fair to ask — this matters a lot when it comes to housing 🙏
-
-Every agent on NaijaNest goes through our verification process before their listings go live, and you'll see a 'Verified Agent' badge on their properties. You can also see number of successful rentals and inspections completed.
-
-That said — always inspect in person, don't send money before viewing, and use the 'Report suspicious listing' button if anything feels off 🚨
-
-Want me to show you verified listings in your preferred area?"
-
-EXAMPLE 6c - vs Jiji:
-User: "What makes you different from Jiji?"
-Response: "Good question! The biggest difference is verification and focus 🔒
-
-NaijaNest is built specifically for rentals — every listing goes through agent verification, and you get neighborhood details like security, water, and electricity ratings upfront, not just photos and a price.
-
-You can also chat directly with the verified agent and book an inspection right from the app 📱
-
-Want to start a search and see the difference for yourself?"
-
-EXAMPLE 7 - Price pushback:
-User: "700k is too expensive for me, I can only do 400k"
-Response: "I hear you — 400k is a solid budget, let's work with that! 💪
-
-That particular one at 700k is a bit out of range, but I've got a few options closer to your number. They won't have all the extras like a generator or fenced compound, but they're solid, safe options for the price 👇
-
-SHOW_PROPS:[2,8,14]"
-
-EXAMPLE 8 - Frustrated user (first time):
-User: "This your app is useless, nothing you show me is correct"
-Response: "I'm really sorry you're having this experience — that's not how we want NaijaNest to feel for anyone 🙏
-
-Let's fix this together. Can you tell me exactly what went wrong — wrong price, wrong location, or property that's not actually available? I'll get it sorted or find you something that actually matches.
-
-If you'd rather talk to a real person right now, I can connect you to our support team too."
-
-EXAMPLE 9 - Frustrated user (second time / escalation):
-User: "I said this app is useless, are you even listening?"
-Response: "You're right to be frustrated, and I don't want to waste more of your time going back and forth 🙏
-
-I'm connecting you to our support team right now — they can pull up your details directly and sort this out properly.
-
-You'll hear from someone within the next few hours. Ticket ref: #NN-4821"
-
-ESCALATION POLICY:
-- If user expresses frustration: respond with empathy ONCE and offer a concrete fix.
-- If user remains hostile after that ONE attempt: immediately hand off to support. Do NOT keep re-explaining or de-escalating.
-- Handoff response: acknowledge without over-apologizing, state a human is taking over, give ticket number and timeframe.
-
----END OF EXAMPLES---`; }
-
-let history=[], selectedProp=null, schedState={};
-function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
-
-function showApp(){
-  document.getElementById('landingPage').style.display='none';
-  document.getElementById('appPage').style.display='block';
-  if(!history.length){
-    setTimeout(()=>{addMsg('ai','Welcome to NaijaNest! 🏠 I can help you find a rental in Lagos, Abuja, Jos, Kwara, or Kebbi — and give you the real gist on the neighborhood: water supply, NEPA situation, security, flooding, and more. What are you looking for?')},300);
-  }
-  return false;
+function selCity(city, el) {
+  selectedCity = city;
+  document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
 }
 
-function showLanding(){
-  document.getElementById('appPage').style.display='none';
-  document.getElementById('landingPage').style.display='block';
-  return false;
-}
-
-function addMsg(role,text,typing=false){
-  const msgs=document.getElementById('messages');
-  const div=document.createElement('div');
-  div.className='msg '+(role==='user'?'user':'ai');
-  const av=document.createElement('div');
-  av.className='avatar '+(role==='user'?'user':'ai');
-  av.textContent=role==='user'?'U':'N';
-  const bub=document.createElement('div');
-  bub.className='bubble '+(role==='user'?'user':'ai');
-  if(typing){bub.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';div.id='typing-el';}
-  else{bub.textContent=text;}
-  div.appendChild(av);div.appendChild(bub);
-  msgs.appendChild(div);
-  msgs.scrollTop=msgs.scrollHeight;
-  return div;
-}
-
-function showProps(ids){
-  const area=document.getElementById('propsArea');
-  if(!ids||!ids.length){area.innerHTML='';return;}
-  const props=ids.map(id=>PROPS.find(p=>p.id===id)).filter(Boolean);
-  if(!props.length){area.innerHTML='';return;}
-  let html='<div class="props-scroll" style="padding:8px 1rem 4px">';
-  props.forEach(p=>{
-    html+=`<div class="chat-prop-card" onclick="openDetail(${p.id})">
-      <img class="chat-prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
-      <div class="chat-prop-body">
-        <div style="display:flex;gap:4px;margin-bottom:4px">
-          ${p.verified?'<span style="font-size:10px;padding:2px 6px;border-radius:20px;background:#dcfce7;color:#16a34a;font-weight:600">✅ Verified</span>':''}
-          <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:#dbeafe;color:#1d4ed8;font-weight:600">📅 Inspect</span>
-        </div>
-        <div class="chat-prop-price">${fmt(p.price)}</div>
-        <div class="chat-prop-name">${p.name}</div>
-        <div class="chat-prop-meta"><span>📍 ${p.area}</span><span>🛏 ${p.bed}bd</span></div>
-      </div>
-    </div>`;
-  });
-  area.innerHTML=html+'</div>';
-}
-
-async function sendMsg(){
-  const input=document.getElementById('userInput');
-  const text=input.value.trim();
-  if(!text)return;
-  input.value='';
-  document.getElementById('chips').style.display='none';
-  document.getElementById('sendBtn').disabled=true;
-  addMsg('user',text);
-  history.push({role:'user',content:text + ' [Current NaijaNest waitlist signups: ' + waitlistCount + ' people]'});
-  const typingEl=addMsg('ai','',true);
-  try{
-    const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history,system:getSystem()})});
-    const data=await resp.json();
-    if(data.error)throw new Error(typeof data.error==='string'?data.error:JSON.stringify(data.error));
-    const full=data.content.map(c=>c.text||'').join('');
-    const match=full.match(/SHOW_PROPS:\[([^\]]*)\]/);
-    const ids=match?match[1].split(',').map(s=>parseInt(s.trim())).filter(Boolean):[];
-    const display=full.replace(/SHOW_PROPS:\[[^\]]*\]/,'').trim();
-    typingEl.remove();
-    addMsg('ai',display);
-    history.push({role:'assistant',content:full});
-    showProps(ids);
-  }catch(e){
-    typingEl.remove();
-    addMsg('ai','Sorry, something went wrong. Please try again.');
-  }
-  document.getElementById('sendBtn').disabled=false;
-}
-
-function sendChip(el){document.getElementById('userInput').value=el.textContent;sendMsg();}
-
-function openDetail(id){
-  selectedProp=PROPS.find(p=>p.id===id);
-  if(!selectedProp)return;
-  const p=selectedProp;const nb=p.nb;
-  document.getElementById('detailHead').textContent=p.area+', '+p.city;
-  const secDot=['very safe','extremely safe'].some(w=>nb.sec.toLowerCase().includes(w))?'dot-g':'dot-a';
-  const floodDot=['low','no flood','zero','elevated'].some(w=>nb.flood.toLowerCase().includes(w))?'dot-g':'dot-a';
-  const photos = p.photos || [p.img];
-  const thumbsHtml = photos.map((ph,i)=>`<img class="photo-thumb${i===0?' active':''}" src="${ph}" onclick="switchPhoto('${ph}',this)" onerror="this.style.display='none'"/>`).join('');
-  document.getElementById('detailBody').innerHTML=`
-    <div class="photo-gallery">
-      <img id="mainPhoto" src="${photos[0]}" alt="${p.name}" onerror="this.style.background='#e5e7eb'" style="width:100%;height:220px;object-fit:cover;display:block"/>
-      ${photos.length>1?`<div class="photo-thumbs">${thumbsHtml}</div>`:''}
-    </div>
-    <div class="detail-body">
-      <div class="detail-price">${fmt(p.price)}</div>
-      <div class="detail-title">${p.name} — ${p.area}, ${p.city}</div>
-      <div class="trust-badges-row">
-        ${p.verified?'<span class="tbadge tbadge-green"><i class="ti ti-shield-check"></i> Verified Agent</span>':'<span class="tbadge tbadge-orange"><i class="ti ti-clock"></i> Pending Verification</span>'}
-        <span class="tbadge tbadge-blue"><i class="ti ti-calendar"></i> Inspection available</span>
-        <span class="tbadge tbadge-green"><i class="ti ti-users"></i> ${p.rentals} successful rentals</span>
-      </div>
-      <div class="badge-row">
-        <span class="dbadge"><i class="ti ti-bed"></i> ${p.bed} bedroom${p.bed>1?'s':''}</span>
-        <span class="dbadge"><i class="ti ti-bath"></i> ${p.bath} bathroom${p.bath>1?'s':''}</span>
-        <span class="dbadge"><i class="ti ti-home"></i> ${p.type}</span>
-        <span class="dbadge"><i class="ti ti-eye"></i> ${p.inspections} inspections</span>
-      </div>
-      <div class="badge-row">${p.amenities.map(a=>`<span class="dbadge">${a}</span>`).join('')}</div>
-      <div class="sec-title">Neighborhood intelligence</div>
-      <div class="nbhd-grid">
-        <div class="nbhd-item"><div class="nbhd-label"><i class="ti ti-shield"></i> Security</div><div class="nbhd-val"><span class="dot ${secDot}"></span>${nb.sec.split('—')[0].trim()}</div></div>
-        <div class="nbhd-item"><div class="nbhd-label"><i class="ti ti-droplet"></i> Water</div><div class="nbhd-val"><span class="dot dot-g"></span>${nb.water.split(',')[0]}</div></div>
-        <div class="nbhd-item"><div class="nbhd-label"><i class="ti ti-bolt"></i> Electricity</div><div class="nbhd-val"><span class="dot dot-g"></span>${nb.elec.split('—')[0].trim()}</div></div>
-        <div class="nbhd-item"><div class="nbhd-label"><i class="ti ti-cloud-rain"></i> Flooding</div><div class="nbhd-val"><span class="dot ${floodDot}"></span>${nb.flood.split('—')[0]}</div></div>
-      </div>
-      <div class="nbhd-full" style="margin-top:7px"><div class="nbhd-label"><i class="ti ti-info-circle"></i> Area vibe</div><div style="font-size:12.5px;color:var(--text);margin-top:4px">${nb.vibe}</div></div>
-      <div class="nbhd-full"><div class="nbhd-label"><i class="ti ti-school"></i> Nearby schools</div><div style="font-size:12.5px;color:var(--text);margin-top:4px">${nb.schools.join(' · ')}</div></div>
-      <button class="wa-btn" onclick="contactWhatsApp('${nb.landlord_phone||'08000000000'}','${p.name}')"><i class="ti ti-brand-whatsapp" style="font-size:18px"></i> Contact on WhatsApp</button>
-      <button class="inspect-btn" onclick="openSchedule(${p.id})">📅 Schedule Inspection</button>
-      <button class="report-btn" onclick="alert('Thank you for reporting. Our team will investigate within 24 hours.')"><i class="ti ti-alert-triangle"></i> Report suspicious listing</button>
-    </div>`;
-  document.getElementById('detailOverlay').style.display='flex';
-}
-
-function contactWhatsApp(phone, propName){
-  const clean = phone.replace(/\D/g,'');
-  const intl = clean.startsWith('0') ? '234'+clean.substring(1) : clean;
-  const msg = encodeURIComponent(`Hello, I found your property "${propName}" on NaijaNest and I'm interested. Can we talk?`);
-  window.open(`https://wa.me/${intl}?text=${msg}`,'_blank');
-}
-
-function closeDetail(){document.getElementById('detailOverlay').style.display='none';}
-function switchPhoto(src,el){
-  document.getElementById('mainPhoto').src=src;
-  document.querySelectorAll('.photo-thumb').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-}
-
-function openSchedule(id){
-  selectedProp=PROPS.find(p=>p.id===id);
-  schedState={date:null,slot:null};
-  renderSched();
-  document.getElementById('schedOverlay').style.display='flex';
-}
-function closeSchedule(){document.getElementById('schedOverlay').style.display='none';}
-
-function renderSched(){
-  const p=selectedProp,days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],today=new Date();
-  let dates='';
-  for(let i=1;i<=8;i++){
-    const d=new Date(today);d.setDate(today.getDate()+i);
-    const val=d.toISOString().split('T')[0];
-    dates+=`<button class="date-btn${schedState.date===val?' sel':''}" onclick="selDate('${val}',this)">${days[d.getDay()]}<br>${d.getDate()}/${d.getMonth()+1}</button>`;
-  }
-  const slots=['Morning<br>8–11am','Afternoon<br>12–3pm','Evening<br>4–6pm'];
-  document.getElementById('schedBody').innerHTML=`
-    <div class="sched-pad">
-      <div class="sched-prop-info"><strong>${p.name}</strong><br>${p.area}, ${p.city} · ${fmt(p.price)}</div>
-      <div class="field-group"><div class="field-label">Pick a date</div><div class="date-grid">${dates}</div></div>
-      <div class="field-group"><div class="field-label">Preferred time</div><div class="slot-grid">${slots.map((s,i)=>`<button class="slot-btn${schedState.slot===i?' sel':''}" onclick="selSlot(${i},this)">${s}</button>`).join('')}</div></div>
-      <div class="field-group"><div class="field-label">Your name</div><input class="field-input" id="nameInp" placeholder="e.g. Amina Bello"/></div>
-      <div class="field-group"><div class="field-label">Phone number</div><input class="field-input" id="phoneInp" placeholder="e.g. 08012345678"/></div>
-      <button class="inspect-btn" onclick="confirmInspect()">Confirm Inspection</button>
-    </div>`;
-}
-
-function selDate(val,el){schedState.date=val;document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
-function selSlot(i,el){schedState.slot=i;document.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
-
-function confirmInspect(){
-  const name=document.getElementById('nameInp').value.trim();
-  const phone=document.getElementById('phoneInp').value.trim();
-  if(!schedState.date||schedState.slot===null||!name||!phone){alert('Please fill in all details.');return;}
-  const slots=['Morning (8–11am)','Afternoon (12–3pm)','Evening (4–6pm)'];
-  const d=new Date(schedState.date);
-  document.getElementById('schedBody').innerHTML=`
-    <div class="sched-pad" style="padding-top:2rem">
-      <div style="background:#eaf5ef;border:0.5px solid #b3ddc4;border-radius:12px;padding:1.25rem;text-align:center">
-        <div style="font-size:32px;color:#1a6b3a;margin-bottom:8px"><i class="ti ti-circle-check"></i></div>
-        <div style="font-size:15px;font-weight:700;color:#1a6b3a;margin-bottom:4px">Inspection booked! 🎉</div>
-        <div style="font-size:13px;color:#2d7a4a;margin-bottom:12px">You're all set, ${name}.</div>
-        <div style="font-size:13px;color:#1a6b3a;line-height:1.8"><strong>${selectedProp.name}</strong><br>${selectedProp.area}, ${selectedProp.city}<br>${d.toDateString()} · ${slots[schedState.slot]}<br>Contact: ${phone}</div>
-        <div style="margin-top:12px;font-size:11.5px;color:#2d7a4a">The landlord's agent will contact you on WhatsApp to confirm. Arrive 10 minutes early.</div>
-      </div>
-      <button class="ghost-btn" onclick="closeSchedule();closeDetail();">Back to search</button>
-    </div>`;
-}
-
-// ---- LANDING DEMO GRID ----
-function renderDemoGrid(filter='all'){
-  const filtered = filter==='all' ? PROPS : PROPS.filter(p=>p.city===filter);
-  const grid = document.getElementById('demoGrid');
-  grid.innerHTML = filtered.map(p=>`
-    <div class="prop-card" onclick="showApp()">
-      <img class="prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
-      <div class="prop-body">
-        <div class="prop-badges">
-          ${p.verified?'<span class="badge-verified"><i class="ti ti-shield-check" style="font-size:10px"></i> Verified</span>':''}
-          <span class="badge-inspect">📅 Inspect</span>
-        </div>
-        <div class="prop-price">${fmt(p.price)}</div>
-        <div class="prop-name">${p.name}</div>
-        <div class="prop-meta"><span>🛏 ${p.bed} bed</span><span>🚿 ${p.bath} bath</span><span>✅ ${p.rentals} rentals</span></div>
-        <div class="prop-location"><i class="ti ti-map-pin" style="font-size:11px"></i> ${p.area}, ${p.city}</div>
-      </div>
-    </div>`).join('');
-}
-
-function filterDemo(city, el){
-  document.querySelectorAll('.demo-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  renderDemoGrid(city);
-}
-
-// ---- WAITLIST ----
-async function joinWaitlist(){
-  const name=document.getElementById('wlName').value.trim();
-  const whatsapp=document.getElementById('wlWa').value.trim();
-  const city=document.getElementById('wlCity').value;
-  const role=document.getElementById('wlRole').value;
-  if(!name||!whatsapp||!city||!role){alert('Please fill in all fields.');return;}
-  try{
-    const resp=await fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,whatsapp,city,role})});
-    const data=await resp.json();
-    if(data.success){
-      document.getElementById('wlForm').style.display='none';
-      document.getElementById('wlSuccess').style.display='block';
-      loadWaitlistCount();
-    } else { throw new Error(JSON.stringify(data.error)); }
-  }catch(e){
-    alert('Something went wrong. Please try again.');
+function togAmenity(el) {
+  el.classList.toggle('sel');
+  const amenity = el.textContent;
+  if (el.classList.contains('sel')) {
+    selectedAmenities.push(amenity);
+  } else {
+    selectedAmenities = selectedAmenities.filter(a => a !== amenity);
   }
 }
 
-// Load real properties from Supabase and merge
-async function loadRealProperties(){
-  try{
-    const resp=await fetch('/api/get-properties');
-    const realProps=await resp.json();
-    if(Array.isArray(realProps)&&realProps.length>0){
-      const formatted=realProps.map(p=>({
-        id:p.id+1000,name:p.name,area:p.area,city:p.city,bed:p.bedrooms,bath:p.bathrooms,
-        price:p.price,type:p.type,verified:false,inspections:0,rentals:0,
-        amenities:p.amenities||[],
-        img:"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80",
-        nb:{sec:'Contact landlord for details',water:'Contact landlord',elec:'Contact landlord',flood:'Contact landlord',schools:['Contact landlord'],markets:['Contact landlord'],vibe:p.description||'Contact landlord for more details.',landlord_phone:p.landlord_phone},
-        isReal:true
-      }));
-      PROPS.unshift(...formatted);
-    }
-  }catch(e){console.log('Could not load real properties');}
+let selectedPhotos = [];
+
+function previewPhotos(input) {
+  const files = Array.from(input.files);
+  selectedPhotos = files;
+  const previews = document.getElementById('photoPreviews');
+  const count = document.getElementById('photoCount');
+  previews.innerHTML = files.map((f,i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="photo-preview-wrap">
+      <img class="photo-preview-img" src="${url}" alt="Photo ${i+1}"/>
+      <button class="photo-preview-remove" onclick="removePhoto(${i})">×</button>
+    </div>`;
+  }).join('');
+  count.textContent = files.length > 0 ? `${files.length} photo${files.length>1?'s':''} selected` : '';
+  if(files.length < 3) {
+    count.style.color = '#dc2626';
+    count.textContent += files.length > 0 ? ' — please add at least 3 photos' : '';
+  } else {
+    count.style.color = '#16a34a';
+    count.textContent += ' ✓';
+  }
 }
 
-// waitlist counter (fake for now, real when supabase has data)
-// Fetch real waitlist count from Supabase
-async function loadWaitlistCount() {
+function removePhoto(index) {
+  selectedPhotos.splice(index, 1);
+  const dt = new DataTransfer();
+  selectedPhotos.forEach(f => dt.items.add(f));
+  document.getElementById('photoInput').files = dt.files;
+  previewPhotos(document.getElementById('photoInput'));
+}
+
+async function submitProperty() {
+  const name = document.getElementById('name').value.trim();
+  const area = document.getElementById('area').value.trim();
+  const type = document.getElementById('type').value;
+  const price = document.getElementById('price').value;
+  const bedrooms = document.getElementById('bedrooms').value;
+  const bathrooms = document.getElementById('bathrooms').value;
+  const description = document.getElementById('description').value.trim();
+  const landlord_name = document.getElementById('landlord_name').value.trim();
+  const landlord_phone = document.getElementById('landlord_phone').value.trim();
+  const landlord_email = document.getElementById('landlord_email').value.trim();
+  const nin_number = document.getElementById('nin_number').value.trim();
+
+  // Trim all fields to remove accidental spaces
+  const nameVal = name.trim();
+  const areaVal = area.trim();
+  const landlordNameVal = landlord_name.trim();
+  const landlordPhoneVal = landlord_phone.trim();
+  const ninVal = nin_number.trim();
+
+  if (!nameVal) { alert('Please enter the property title.'); return; }
+  if (!selectedCity) { alert('Please select a city by clicking one of the city buttons.'); return; }
+  if (!areaVal) { alert('Please enter the area/neighbourhood.'); return; }
+  if (!type) { alert('Please select the property type.'); return; }
+  if (!price) { alert('Please enter the annual rent price.'); return; }
+  if (!landlordNameVal) { alert('Please enter your full name.'); return; }
+  if (!landlordPhoneVal) { alert('Please enter your phone number.'); return; }
+  if (!ninVal) { alert('Please enter your NIN number.'); return; }
+  if (selectedPhotos.length < 3) {
+    alert('Please upload at least 3 photos of the property.');
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
   try {
-    const resp = await fetch('https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/waitlist?select=id', {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Prefer': 'count=exact',
-        'Range': '0-0'
-      }
+    const resp = await fetch('/api/submit-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal })
     });
-    const countHeader = resp.headers.get('content-range');
-    let count = 1;
-    if (countHeader) {
-      const match = countHeader.match(/\/(\d+)/);
-      if (match) count = parseInt(match[1]);
+    const data = await resp.json();
+    if (data.success) {
+      document.getElementById('formCard').style.display = 'none';
+      document.getElementById('successBox').style.display = 'block';
+    } else {
+      throw new Error(JSON.stringify(data.error));
     }
-    const display = count < 10 ? count : count; 
-    document.getElementById('wlCounter').textContent = `🔥 ${display} ${display === 1 ? 'person has' : 'people have'} already signed up`;
-  } catch(e) {
-    document.getElementById('wlCounter').textContent = '🔥 Be among the first to sign up!';
+  } catch (e) {
+    alert('Something went wrong: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Submit Property for Review';
   }
 }
-loadWaitlistCount();
-
-let waitlistCount = 0;
-
-async function fetchWaitlistCount() {
-  try {
-    const resp = await fetch('https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/waitlist?select=id', {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Prefer': 'count=exact',
-        'Range': '0-0'
-      }
-    });
-    const countHeader = resp.headers.get('content-range');
-    if (countHeader) {
-      const match = countHeader.match(/\/(\d+)/);
-      if (match) waitlistCount = parseInt(match[1]);
-    }
-    // Update counter on landing page
-    const el = document.getElementById('wlCounter');
-    if(el) el.textContent = waitlistCount === 0 ? '🔥 Be among the first to sign up!' : `🔥 ${waitlistCount} ${waitlistCount === 1 ? 'person has' : 'people have'} already signed up`;
-  } catch(e) {
-    waitlistCount = 0;
-  }
-}
-
-window.addEventListener('load',()=>{
-  renderDemoGrid();
-  loadRealProperties();
-  fetchWaitlistCount();
-});
 </script>
 </body>
 </html>
