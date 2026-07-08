@@ -73,9 +73,11 @@
     <div class="field">
       <label>City</label>
       <div class="city-grid">
-        <button class="city-btn" onclick="selCity('Lagos',this)">Lagos</button>
-        <button class="city-btn" onclick="selCity('Abuja',this)">Abuja</button>
-        <button class="city-btn" onclick="selCity('Jos',this)">Jos</button>
+        <button type="button" class="city-btn" onclick="selCity('Lagos',this)">Lagos</button>
+        <button type="button" class="city-btn" onclick="selCity('Abuja',this)">Abuja</button>
+        <button type="button" class="city-btn" onclick="selCity('Jos',this)">Jos</button>
+        <button type="button" class="city-btn" onclick="selCity('Kwara',this)">Kwara</button>
+        <button type="button" class="city-btn" onclick="selCity('Kebbi',this)">Kebbi</button>
       </div>
     </div>
 
@@ -145,15 +147,15 @@
     <div class="field">
       <label>Amenities (select all that apply)</label>
       <div class="amenity-grid" id="amenityGrid">
-        <button class="amenity-btn" onclick="togAmenity(this)">Water</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">Electricity</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">Security</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">Generator</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">Parking</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">Borehole</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">Fence</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">BQ</button>
-        <button class="amenity-btn" onclick="togAmenity(this)">CCTV</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Water</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Electricity</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Security</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Generator</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Parking</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Borehole</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">Fence</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">BQ</button>
+        <button class="amenity-btn" type="button" onclick="togAmenity(this)">CCTV</button>
       </div>
     </div>
 
@@ -256,10 +258,21 @@ async function submitProperty() {
   const landlord_email = document.getElementById('landlord_email').value.trim();
   const nin_number = document.getElementById('nin_number').value.trim();
 
-  if (!name || !selectedCity || !area || !type || !price || !landlord_name || !landlord_phone || !nin_number) {
-    alert('Please fill in all required fields including your NIN.');
-    return;
-  }
+  // Trim all fields to remove accidental spaces
+  const nameVal = name.trim();
+  const areaVal = area.trim();
+  const landlordNameVal = landlord_name.trim();
+  const landlordPhoneVal = landlord_phone.trim();
+  const ninVal = nin_number.trim();
+
+  if (!nameVal) { alert('Please enter the property title.'); return; }
+  if (!selectedCity) { alert('Please select a city by clicking one of the city buttons.'); return; }
+  if (!areaVal) { alert('Please enter the area/neighbourhood.'); return; }
+  if (!type) { alert('Please select the property type.'); return; }
+  if (!price) { alert('Please enter the annual rent price.'); return; }
+  if (!landlordNameVal) { alert('Please enter your full name.'); return; }
+  if (!landlordPhoneVal) { alert('Please enter your phone number.'); return; }
+  if (!ninVal) { alert('Please enter your NIN number.'); return; }
   if (selectedPhotos.length < 3) {
     alert('Please upload at least 3 photos of the property.');
     return;
@@ -273,7 +286,7 @@ async function submitProperty() {
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, area, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name, landlord_phone, landlord_email, nin_number })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal })
     });
     const data = await resp.json();
     if (data.success) {
