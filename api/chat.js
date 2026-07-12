@@ -23,11 +23,17 @@ export default async function handler(req, res) {
     });
     const data = await response.json();
     if (!response.ok) {
-      return res.status(200).json({ content: [{ type: 'text', text: 'I am having trouble connecting right now. Please try again.' }] });
+      console.error('Groq error:', JSON.stringify(data));
+      return res.status(200).json({ 
+        content: [{ type: 'text', text: 'Hi! 👋 Our AI assistant is taking a short break right now. Please try again in a few minutes, or send a WhatsApp message to our support team for immediate help finding your perfect home 🏠' }] 
+      });
     }
     const text = data.choices?.[0]?.message?.content || 'Sorry, please try again.';
     return res.status(200).json({ content: [{ type: 'text', text }] });
   } catch (error) {
-    return res.status(200).json({ content: [{ type: 'text', text: 'I am having trouble right now. Please try again.' }] });
+    console.error('Server error:', error);
+    return res.status(200).json({ 
+      content: [{ type: 'text', text: 'Hi! 👋 Our AI assistant is taking a short break right now. Please try again in a few minutes, or send a WhatsApp message to our support team for immediate help finding your perfect home 🏠' }] 
+    });
   }
 }
