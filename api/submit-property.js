@@ -20,7 +20,11 @@ export default async function handler(req, res) {
         price: parseInt(body.price), type: body.type, description: body.description,
         amenities: body.amenities, landlord_name: body.landlord_name,
         landlord_phone: body.landlord_phone, landlord_email: body.landlord_email,
-        nin_number: body.nin_number, status: 'pending'
+        nin_number: body.nin_number,
+        security_info: body.security_info, water_info: body.water_info,
+        electricity_info: body.electricity_info, flood_risk: body.flood_risk,
+        nearby_schools: body.nearby_schools, nearby_markets: body.nearby_markets,
+        status: 'pending'
       })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
