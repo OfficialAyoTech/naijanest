@@ -258,6 +258,10 @@ function renderProps() {
         <div class="prop-title">${escapeHtml(p.name)}</div>
         <span class="prop-city">${escapeHtml(p.city)}</span>
       </div>
+      ${(Array.isArray(p.photo_urls) && p.photo_urls.length) ? `
+      <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px">
+        ${p.photo_urls.map(url=>`<img src="${escapeHtml(url)}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;border:0.5px solid var(--border)" onclick="window.open('${escapeHtml(url)}','_blank')"/>`).join('')}
+      </div>` : `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ No photos uploaded</div>`}
       <div class="prop-meta">
         <strong>Location:</strong> ${escapeHtml(p.area)}, ${escapeHtml(p.city)}<br>
         <strong>Type:</strong> ${escapeHtml(p.type)} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>

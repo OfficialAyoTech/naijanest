@@ -806,18 +806,20 @@ async function joinWaitlist(){
 }
 
 // Load real, approved properties from Supabase — this is now the ONLY data source.
-// NOTE: photos aren't wired up to real storage yet, so every real listing shows
-// a generic placeholder image until Phase 2.5 (Supabase Storage) is built.
 async function loadRealProperties(){
   try{
     const resp=await fetch('/api/get-properties');
     const realProps=await resp.json();
     if(Array.isArray(realProps)){
-      PROPS = realProps.map(p=>({
+      const placeholder="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&q=80";
+      PROPS = realProps.map(p=>{
+        const photos = (Array.isArray(p.photo_urls) && p.photo_urls.length) ? p.photo_urls : [placeholder];
+        return {
         id:p.id,name:p.name,area:p.area,city:p.city,bed:p.bedrooms,bath:p.bathrooms,
         price:p.price,type:p.type,verified:true,inspections:0,rentals:0,
         amenities:p.amenities||[],
-        img:"https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&q=80",
+        img:photos[0],
+        photos:photos,
         nb:{
           sec:p.security_info||'Contact landlord for details',
           water:p.water_info||'Contact landlord for details',
@@ -829,7 +831,7 @@ async function loadRealProperties(){
           landlord_phone:p.landlord_phone
         },
         isReal:true
-      }));
+      };});
     }
   }catch(e){
     console.log('Could not load real properties');

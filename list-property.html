@@ -168,7 +168,7 @@
     </div>
 
     <div class="field">
-      <label>Property photos <span style="color:#dc2626">*</span> (minimum 3 photos)</label>
+      <label>Property photos <span style="color:#dc2626">*</span> (3–6 photos)</label>
       <div class="photo-upload-area" onclick="document.getElementById('photoInput').click()">
         <i class="ti ti-camera"></i>
         <p>Click to upload property photos</p>
@@ -251,7 +251,11 @@ function togAmenity(el) {
 let selectedPhotos = [];
 
 function previewPhotos(input) {
-  const files = Array.from(input.files);
+  let files = Array.from(input.files);
+  if (files.length > 6) {
+    alert('Max 6 photos — using the first 6 you selected.');
+    files = files.slice(0, 6);
+  }
   selectedPhotos = files;
   const previews = document.getElementById('photoPreviews');
   const count = document.getElementById('photoCount');
@@ -278,6 +282,47 @@ function removePhoto(index) {
   selectedPhotos.forEach(f => dt.items.add(f));
   document.getElementById('photoInput').files = dt.files;
   previewPhotos(document.getElementById('photoInput'));
+}
+
+// Resize + compress a photo client-side (max 1280px edge, JPEG q0.7) before upload —
+// keeps uploads fast and cheap on mobile data, and stays well under the API's size limit.
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const MAX_EDGE = 1280;
+      let { width, height } = img;
+      if (width > height && width > MAX_EDGE) { height = Math.round(height * MAX_EDGE / width); width = MAX_EDGE; }
+      else if (height > MAX_EDGE) { width = Math.round(width * MAX_EDGE / height); height = MAX_EDGE; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      resolve(dataUrl.split(',')[1]); // strip the "data:image/jpeg;base64," prefix
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAllPhotos(files, onProgress) {
+  const urls = [];
+  for (let i = 0; i < files.length; i++) {
+    onProgress(i + 1, files.length);
+    const base64 = await compressImage(files[i]);
+    const resp = await fetch('/api/upload-photo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: base64, mimeType: 'image/jpeg' })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || `Failed to upload photo ${i + 1}`);
+    urls.push(data.url);
+  }
+  return urls;
 }
 
 async function submitProperty() {
@@ -325,13 +370,18 @@ async function submitProperty() {
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'Submitting...';
 
   try {
+    btn.textContent = 'Uploading photos...';
+    const photo_urls = await uploadAllPhotos(selectedPhotos, (done, total) => {
+      btn.textContent = `Uploading photo ${done} of ${total}...`;
+    });
+
+    btn.textContent = 'Submitting...';
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameVal, area: areaVal, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls })
     });
     const data = await resp.json();
     if (data.success) {
