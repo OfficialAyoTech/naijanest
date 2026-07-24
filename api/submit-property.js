@@ -24,6 +24,7 @@ export default async function handler(req, res) {
         security_info: body.security_info, water_info: body.water_info,
         electricity_info: body.electricity_info, flood_risk: body.flood_risk,
         nearby_schools: body.nearby_schools, nearby_markets: body.nearby_markets,
+        photo_urls: body.photo_urls || [],
         status: 'pending'
       })
     });
