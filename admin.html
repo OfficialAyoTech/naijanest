@@ -7,25 +7,37 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  :root{--green:#1a6b3a;--green-light:#eaf5ef;--border:#e0e0e0;--surface:#f8f8f8;--white:#fff;--radius:8px;--text:#1a1a1a;--text-sec:#555}
+  :root{--green:#1a6b3a;--green-light:#eaf5ef;--border:#e0e0e0;--surface:#f8f8f8;--white:#fff;--radius:8px;--text:#1a1a1a;--text-sec:#555;--amber:#d97706;--red:#dc2626}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh;padding:1.5rem 1rem}
-  .container{max-width:700px;margin:0 auto}
+  .container{max-width:900px;margin:0 auto}
   .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
   .logo{display:flex;align-items:center;gap:8px}
   .logo-icon{width:30px;height:30px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
   .logo-icon i{color:#fff;font-size:16px}
   .logo-name{font-size:17px;font-weight:600}
   .logo-name span{color:var(--green)}
+  .header-right{display:flex;align-items:center;gap:10px}
   .admin-badge{font-size:11px;padding:3px 8px;background:#fef3c7;color:#d97706;border-radius:20px;font-weight:600}
+  .logout-btn{font-size:12px;color:var(--text-sec);background:none;border:0.5px solid var(--border);border-radius:20px;padding:4px 10px;cursor:pointer}
   .login-card{background:var(--white);border-radius:16px;padding:2rem;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-width:360px;margin:3rem auto;text-align:center}
   .login-title{font-size:16px;font-weight:600;margin-bottom:1rem}
   .login-input{width:100%;height:40px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:14px;outline:none;margin-bottom:10px}
   .login-input:focus{border-color:var(--green)}
   .login-btn{width:100%;padding:10px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer}
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem}
+  .login-error{color:var(--red);font-size:12px;margin-top:8px;display:none}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
   .stat{background:var(--white);border-radius:12px;padding:1rem;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-  .stat-num{font-size:24px;font-weight:600;color:var(--green)}
-  .stat-label{font-size:12px;color:var(--text-sec);margin-top:2px}
+  .stat-num{font-size:22px;font-weight:600;color:var(--green)}
+  .stat-label{font-size:11px;color:var(--text-sec);margin-top:2px}
+  .city-breakdown{background:var(--white);border-radius:12px;padding:1rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+  .city-breakdown h3{font-size:13px;margin-bottom:10px;color:var(--text-sec);font-weight:600}
+  .city-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--surface)}
+  .city-row:last-child{border-bottom:none}
+  .main-tabs{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+  .main-tab{padding:8px 16px;border-radius:20px;border:0.5px solid var(--border);background:var(--white);font-size:13px;color:var(--text-sec);cursor:pointer;font-weight:500}
+  .main-tab.active{background:var(--text);color:#fff;border-color:var(--text)}
+  .view{display:none}
+  .view.active{display:block}
   .tabs{display:flex;gap:8px;margin-bottom:1rem}
   .tab{padding:7px 16px;border-radius:20px;border:0.5px solid var(--border);background:var(--white);font-size:13px;color:var(--text-sec);cursor:pointer}
   .tab.active{background:var(--green);color:#fff;border-color:var(--green)}
@@ -38,12 +50,21 @@
   .prop-actions{display:flex;gap:8px}
   .approve-btn{flex:1;padding:8px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:13px;cursor:pointer;font-weight:500}
   .reject-btn{flex:1;padding:8px;background:#fff;color:#dc2626;border:0.5px solid #dc2626;border-radius:var(--radius);font-size:13px;cursor:pointer}
+  .unpublish-btn{flex:1;padding:8px;background:#fff;color:#d97706;border:0.5px solid #d97706;border-radius:var(--radius);font-size:13px;cursor:pointer}
   .status-badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
   .status-approved{background:#dcfce7;color:#16a34a}
   .status-rejected{background:#fee2e2;color:#dc2626}
   .status-pending{background:#fef3c7;color:#d97706}
   .empty{text-align:center;padding:2rem;color:var(--text-sec);font-size:14px}
+  .search-input{width:100%;height:38px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:13px;margin-bottom:1rem;outline:none}
+  .search-input:focus{border-color:var(--green)}
+  .wl-card{background:var(--white);border-radius:10px;padding:.8rem 1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .wl-name{font-size:13px;font-weight:500}
+  .wl-meta{font-size:11px;color:var(--text-sec);margin-top:2px}
+  .wl-role{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--green-light);color:var(--green);font-weight:500;text-transform:capitalize}
   #adminPanel{display:none}
+  .refresh-btn{font-size:12px;color:var(--green);background:none;border:none;cursor:pointer;font-weight:500;margin-bottom:1rem}
+  @media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -53,62 +74,134 @@
       <div class="logo-icon"><i class="ti ti-home-2"></i></div>
       <div class="logo-name">Naija<span>Nest</span></div>
     </div>
-    <span class="admin-badge">ADMIN PANEL</span>
+    <div class="header-right">
+      <span class="admin-badge">ADMIN DASHBOARD</span>
+      <button class="logout-btn" id="logoutBtn" style="display:none" onclick="logout()">Log out</button>
+    </div>
   </div>
 
   <div class="login-card" id="loginCard">
     <div class="login-title">🔐 Admin Login</div>
     <input type="password" class="login-input" id="pwInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')login()"/>
     <button class="login-btn" onclick="login()">Login</button>
+    <div class="login-error" id="loginError">Wrong password, or server isn't configured yet.</div>
   </div>
 
   <div id="adminPanel">
+    <button class="refresh-btn" onclick="refresh()">↻ Refresh data</button>
+
     <div class="stats">
       <div class="stat"><div class="stat-num" id="totalCount">0</div><div class="stat-label">Total listings</div></div>
       <div class="stat"><div class="stat-num" id="pendingCount" style="color:#d97706">0</div><div class="stat-label">Pending review</div></div>
       <div class="stat"><div class="stat-num" id="approvedCount">0</div><div class="stat-label">Live listings</div></div>
+      <div class="stat"><div class="stat-num" id="waitlistCount">0</div><div class="stat-label">Waitlist signups</div></div>
     </div>
 
-    <div class="tabs">
-      <button class="tab active" onclick="filterProps('pending',this)">Pending</button>
-      <button class="tab" onclick="filterProps('approved',this)">Approved</button>
-      <button class="tab" onclick="filterProps('rejected',this)">Rejected</button>
-      <button class="tab" onclick="filterProps('all',this)">All</button>
+    <div class="main-tabs">
+      <button class="main-tab active" onclick="showView('overview',this)">Overview</button>
+      <button class="main-tab" onclick="showView('submissions',this)">Submissions</button>
+      <button class="main-tab" onclick="showView('waitlist',this)">Waitlist</button>
     </div>
 
-    <div id="propsList"></div>
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="city-breakdown">
+        <h3>Listings by city</h3>
+        <div id="cityBreakdown"></div>
+      </div>
+      <div class="city-breakdown">
+        <h3>Waitlist by city</h3>
+        <div id="wlCityBreakdown"></div>
+      </div>
+      <div class="city-breakdown">
+        <h3>Waitlist by role</h3>
+        <div id="wlRoleBreakdown"></div>
+      </div>
+    </div>
+
+    <!-- SUBMISSIONS -->
+    <div class="view" id="view-submissions">
+      <div class="tabs">
+        <button class="tab active" onclick="filterProps('pending',this)">Pending</button>
+        <button class="tab" onclick="filterProps('approved',this)">Live</button>
+        <button class="tab" onclick="filterProps('rejected',this)">Rejected</button>
+        <button class="tab" onclick="filterProps('all',this)">All</button>
+      </div>
+      <div id="propsList"></div>
+    </div>
+
+    <!-- WAITLIST -->
+    <div class="view" id="view-waitlist">
+      <input type="text" class="search-input" id="wlSearch" placeholder="Search by name, WhatsApp, or city..." oninput="renderWaitlist()"/>
+      <div id="waitlistList"></div>
+    </div>
   </div>
 </div>
 
 <script>
-let adminPassword = '';
+let adminPassword = sessionStorage.getItem('naijanest_admin_pw') || '';
 let allProps = [];
+let allWaitlist = [];
 let currentFilter = 'pending';
+
+if (adminPassword) { loadData(); }
 
 async function login() {
   const pw = document.getElementById('pwInput').value;
   if (!pw) return;
   adminPassword = pw;
-  await loadProperties();
+  const ok = await loadData();
+  if (ok) {
+    sessionStorage.setItem('naijanest_admin_pw', pw);
+  }
 }
 
-async function loadProperties() {
+function logout() {
+  sessionStorage.removeItem('naijanest_admin_pw');
+  adminPassword = '';
+  allProps = [];
+  allWaitlist = [];
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('loginCard').style.display = 'block';
+  document.getElementById('pwInput').value = '';
+}
+
+async function refresh() { await loadData(); }
+
+async function loadData() {
   try {
-    const resp = await fetch(`https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/properties?order=created_at.desc`, {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk'
-      }
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_password: adminPassword })
     });
-    allProps = await resp.json();
-    if (!Array.isArray(allProps)) throw new Error('Invalid response');
+    if (resp.status === 401) {
+      document.getElementById('loginError').style.display = 'block';
+      adminPassword = '';
+      sessionStorage.removeItem('naijanest_admin_pw');
+      return false;
+    }
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Failed to load');
+
+    allProps = data.properties || [];
+    allWaitlist = data.waitlist || [];
+
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    document.getElementById('loginError').style.display = 'none';
+
     updateStats();
+    renderOverview();
     renderProps();
-  } catch(e) {
-    alert('Login failed or wrong password. Try again.');
-    adminPassword = '';
+    renderWaitlist();
+    return true;
+  } catch (e) {
+    document.getElementById('loginError').textContent = 'Error: ' + e.message;
+    document.getElementById('loginError').style.display = 'block';
+    return false;
   }
 }
 
@@ -116,11 +209,41 @@ function updateStats() {
   document.getElementById('totalCount').textContent = allProps.length;
   document.getElementById('pendingCount').textContent = allProps.filter(p=>p.status==='pending').length;
   document.getElementById('approvedCount').textContent = allProps.filter(p=>p.status==='approved').length;
+  document.getElementById('waitlistCount').textContent = allWaitlist.length;
+}
+
+function showView(name, el) {
+  document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-' + name).classList.add('active');
+}
+
+function countBy(arr, key) {
+  const counts = {};
+  arr.forEach(item => {
+    const val = item[key] || 'Unknown';
+    counts[val] = (counts[val] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+}
+
+function renderOverview() {
+  const cityRow = (label, count) => `<div class="city-row"><span>${label}</span><strong>${count}</strong></div>`;
+
+  document.getElementById('cityBreakdown').innerHTML =
+    countBy(allProps, 'city').map(([city,c])=>cityRow(city,c)).join('') || '<div class="empty">No data yet</div>';
+
+  document.getElementById('wlCityBreakdown').innerHTML =
+    countBy(allWaitlist, 'city').map(([city,c])=>cityRow(city,c)).join('') || '<div class="empty">No data yet</div>';
+
+  document.getElementById('wlRoleBreakdown').innerHTML =
+    countBy(allWaitlist, 'role').map(([role,c])=>cityRow(role,c)).join('') || '<div class="empty">No data yet</div>';
 }
 
 function filterProps(status, el) {
   currentFilter = status;
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#view-submissions .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   renderProps();
 }
@@ -132,16 +255,16 @@ function renderProps() {
   list.innerHTML = props.map(p=>`
     <div class="prop-card" id="card-${p.id}">
       <div class="prop-top">
-        <div class="prop-title">${p.name}</div>
-        <span class="prop-city">${p.city}</span>
+        <div class="prop-title">${escapeHtml(p.name)}</div>
+        <span class="prop-city">${escapeHtml(p.city)}</span>
       </div>
       <div class="prop-meta">
-        <strong>Location:</strong> ${p.area}, ${p.city}<br>
-        <strong>Type:</strong> ${p.type} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>
-        <strong>Landlord:</strong> ${p.landlord_name} · <strong>Phone:</strong> ${p.landlord_phone}<br>
-        <strong>Email:</strong> ${p.landlord_email||'—'} · <strong>NIN:</strong> ${p.nin_number}<br>
-        <strong>Description:</strong> ${p.description||'—'}<br>
-        <strong>Amenities:</strong> ${(p.amenities||[]).join(', ')||'—'}<br>
+        <strong>Location:</strong> ${escapeHtml(p.area)}, ${escapeHtml(p.city)}<br>
+        <strong>Type:</strong> ${escapeHtml(p.type)} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>
+        <strong>Landlord:</strong> ${escapeHtml(p.landlord_name)} · <strong>Phone:</strong> ${escapeHtml(p.landlord_phone)}<br>
+        <strong>Email:</strong> ${escapeHtml(p.landlord_email)||'—'} · <strong>NIN:</strong> ${escapeHtml(p.nin_number)}<br>
+        <strong>Description:</strong> ${escapeHtml(p.description)||'—'}<br>
+        <strong>Amenities:</strong> ${(p.amenities||[]).map(escapeHtml).join(', ')||'—'}<br>
         <strong>Status:</strong> <span class="status-badge status-${p.status}">${p.status}</span>
       </div>
       ${p.status==='pending'?`
@@ -149,6 +272,27 @@ function renderProps() {
         <button class="approve-btn" onclick="updateProp(${p.id},'approved')">✅ Approve & Publish</button>
         <button class="reject-btn" onclick="updateProp(${p.id},'rejected')">❌ Reject</button>
       </div>`:''}
+      ${p.status==='approved'?`
+      <div class="prop-actions">
+        <button class="unpublish-btn" onclick="updateProp(${p.id},'pending')">⏸ Unpublish</button>
+      </div>`:''}
+    </div>`).join('');
+}
+
+function renderWaitlist() {
+  const q = (document.getElementById('wlSearch').value || '').toLowerCase();
+  const filtered = allWaitlist.filter(w =>
+    !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q)
+  );
+  const list = document.getElementById('waitlistList');
+  if (!filtered.length) { list.innerHTML = '<div class="empty">No waitlist entries found</div>'; return; }
+  list.innerHTML = filtered.map(w => `
+    <div class="wl-card">
+      <div>
+        <div class="wl-name">${escapeHtml(w.name)}</div>
+        <div class="wl-meta">${escapeHtml(w.whatsapp)} · ${escapeHtml(w.city)}</div>
+      </div>
+      <span class="wl-role">${escapeHtml(w.role)||'—'}</span>
     </div>`).join('');
 }
 
@@ -164,6 +308,7 @@ async function updateProp(id, status) {
       const prop = allProps.find(p=>p.id===id);
       if (prop) prop.status = status;
       updateStats();
+      renderOverview();
       renderProps();
     } else {
       alert('Error: ' + JSON.stringify(data.error));
@@ -171,6 +316,11 @@ async function updateProp(id, status) {
   } catch(e) {
     alert('Something went wrong: ' + e.message);
   }
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 </script>
 </body>
