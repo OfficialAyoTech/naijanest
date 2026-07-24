@@ -354,23 +354,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <script>
-const PROPS = [
-  {id:1,name:"Spacious 2-bedroom flat",area:"Lekki Phase 1",city:"Lagos",bed:2,bath:1,price:1100000,type:"flat",verified:true,inspections:47,rentals:12,amenities:["Water","Security","Parking"],img:"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80",photos:["https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80","https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Very safe — gated estate with 24/7 security",water:"Steady borehole supply",elec:"Excellent — avg 18hrs/day",flood:"Low risk — elevated terrain",schools:["Lekki British School","Greensprings — 5 mins"],markets:["Lekki Market — 8 mins"],vibe:"Upscale and quiet. Perfect for young professionals and families.",landlord_phone:"08012345678"}},
-  {id:2,name:"Mini flat (self-con)",area:"Surulere",city:"Lagos",bed:1,bath:1,price:380000,type:"self-con",verified:true,inspections:89,rentals:31,amenities:["Security","Running water"],img:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80",photos:["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80"],nb:{sec:"Moderate — busy area, use deadbolt locks",water:"Street borehole, tenants contribute monthly",elec:"Average — about 12hrs/day",flood:"Moderate risk in rainy season",schools:["Anglican Girls Grammar","LASU Prep — 10 mins"],markets:["Tejuosho Market — 5 mins walk"],vibe:"Vibrant and central Lagos. Great for young workers and students.",landlord_phone:"08023456789"}},
-  {id:3,name:"3-bedroom duplex",area:"Yaba",city:"Lagos",bed:3,bath:2,price:1800000,type:"duplex",verified:true,inspections:34,rentals:8,amenities:["Water","Security","Parking","Generator"],img:"https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80",photos:["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80","https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80"],nb:{sec:"Safe — close-knit community, active residents association",water:"Lagos Water Corp + borehole backup",elec:"Good — avg 15hrs/day",flood:"Low risk — Yaba is elevated",schools:["CMS Grammar School","Unilag — 3 mins"],markets:["Tejuosho Market — 7 mins"],vibe:"Tech hub of Lagos. Near Unilag. Ideal for creatives and tech workers.",landlord_phone:"08034567890"}},
-  {id:4,name:"2-bedroom apartment",area:"Wuse 2",city:"Abuja",bed:2,bath:2,price:1500000,type:"apartment",verified:true,inspections:52,rentals:19,amenities:["Water","Security","Parking","Generator"],img:"https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80",photos:["https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Very safe — well-lit streets, police post nearby",water:"FCT Water Board supply, very reliable",elec:"Excellent — Abuja DisCo, avg 20hrs/day",flood:"No flooding risk",schools:["Greenfield Academy","American International School — 10 mins"],markets:["Wuse Market — 5 mins"],vibe:"Prime Abuja. Close to embassies, restaurants and offices.",landlord_phone:"08045678901"}},
-  {id:5,name:"Self-contained studio",area:"Garki Area 2",city:"Abuja",bed:1,bath:1,price:600000,type:"self-con",verified:true,inspections:61,rentals:24,amenities:["Security","Water"],img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80",photos:["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80"],nb:{sec:"Safe — government residential area, regular patrol",water:"Reliable FCT Water Board supply",elec:"Good — about 16hrs/day",flood:"Very low risk",schools:["Garki International School","Loyola Jesuit — 12 mins"],markets:["Garki Modern Market — 7 mins"],vibe:"Calm and established. Affordable for Abuja. Good for civil servants.",landlord_phone:"08056789012"}},
-  {id:6,name:"3-bedroom bungalow",area:"Maitama",city:"Abuja",bed:3,bath:3,price:2800000,type:"bungalow",verified:true,inspections:28,rentals:7,amenities:["Water","Security","Parking","Generator","BQ"],img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80",photos:["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80","https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80"],nb:{sec:"Extremely safe — private security everywhere",water:"Excellent — dedicated borehole + FCT supply",elec:"Best in Abuja — very stable",flood:"Zero risk",schools:["Hillside School","ABU Business School — 15 mins"],markets:["Sahad Stores — 3 mins"],vibe:"Most prestigious part of Abuja. Ambassadors, executives. Very quiet.",landlord_phone:"08067890123"}},
-  {id:7,name:"2-bedroom flat",area:"Rayfield",city:"Jos",bed:2,bath:1,price:420000,type:"flat",verified:true,inspections:43,rentals:16,amenities:["Water","Security"],img:"https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80",photos:["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Relatively safe — quiet residential area, mostly families",water:"Borehole + occasional JWESA supply",elec:"Fair — about 10hrs/day",flood:"No flooding — elevated hilly terrain",schools:["Hill Station School","St. Murumba College — 8 mins"],markets:["Terminus Market — 12 mins"],vibe:"Peaceful and family-friendly. Great Jos weather. Civil servants area.",landlord_phone:"08078901234"}},
-  {id:8,name:"Mini flat",area:"GRA Jos",city:"Jos",bed:1,bath:1,price:280000,type:"mini-flat",verified:false,inspections:22,rentals:9,amenities:["Security","Running water"],img:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80",photos:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80"],nb:{sec:"Safe — Government Residential Area",water:"Borehole, ₦500/month water levy",elec:"Average — 8-12hrs/day",flood:"Low risk",schools:["Federal Gov't College Jos","JEMA Primary — 5 mins"],markets:["Farin Gada Market — 10 mins"],vibe:"Classic GRA feel — leafy, quiet, spacious compounds. Good for families.",landlord_phone:"08089012345"}},
-  {id:9,name:"3-bedroom terrace",area:"Terminus Area",city:"Jos",bed:3,bath:2,price:750000,type:"terrace",verified:true,inspections:38,rentals:14,amenities:["Water","Parking","Security"],img:"https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80",photos:["https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Moderate — busy commercial zone",water:"Borehole with overhead tank",elec:"About 10-14hrs/day",flood:"Slight flood risk in heavy rain",schools:["JEMA Secondary","University of Jos — 15 mins"],markets:["Terminus Market — 3 mins walk"],vibe:"Central Jos. Walking distance to banks, markets, transport. Great for business.",landlord_phone:"08090123456"}},
-  {id:10,name:"2-bedroom flat",area:"GRA Ilorin",city:"Kwara",bed:2,bath:1,price:450000,type:"flat",verified:true,inspections:29,rentals:11,amenities:["Water","Security","Parking"],img:"https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80",photos:["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Very safe — quiet government residential area",water:"Ilorin Water Corporation supply, fairly reliable",elec:"Good — avg 14hrs/day, improving since new transformer",flood:"Low risk — well-elevated area",schools:["University of Ilorin Staff School","Cherubim School — 5 mins"],markets:["Mandate Market — 10 mins drive"],vibe:"Calm and peaceful. Mostly civil servants and university staff. Great for families.",landlord_phone:"08011223344"}},
-  {id:11,name:"Self-contained studio",area:"Tanke",city:"Kwara",bed:1,bath:1,price:220000,type:"self-con",verified:true,inspections:41,rentals:18,amenities:["Security","Borehole"],img:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80",photos:["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80","https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80"],nb:{sec:"Safe — student-friendly area, busy but well-patrolled",water:"Borehole supply, very consistent",elec:"Average — about 10hrs/day, students use solar",flood:"Low risk",schools:["University of Ilorin — 5 mins","Kwara State Polytechnic — 8 mins"],markets:["Tanke Market — 3 mins walk"],vibe:"Vibrant student area near UNILORIN. Great for students and young workers. Very affordable.",landlord_phone:"08022334455"}},
-  {id:12,name:"3-bedroom bungalow",area:"Adewole Estate",city:"Kwara",bed:3,bath:2,price:700000,type:"bungalow",verified:false,inspections:17,rentals:5,amenities:["Water","Security","Parking","Fence"],img:"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80",photos:["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80","https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Safe — estate with security gate and fence",water:"Private borehole, very reliable",elec:"Good — avg 12-16hrs/day",flood:"No flooding — elevated estate",schools:["Adewole Primary School","Government Secondary — 7 mins"],markets:["Ipata Market — 12 mins"],vibe:"Family estate in Ilorin. Quiet and secure. Good for families relocating to Kwara.",landlord_phone:"08033445566"}},
-  {id:13,name:"2-bedroom flat",area:"Birnin Kebbi GRA",city:"Kebbi",bed:2,bath:1,price:350000,type:"flat",verified:true,inspections:19,rentals:7,amenities:["Water","Security","Parking"],img:"https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80",photos:["https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&q=80","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&q=80","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80"],nb:{sec:"Safe — GRA area, government presence and patrols",water:"Kebbi Water Board supply + borehole backup",elec:"Average — about 10hrs/day, improving",flood:"Low risk — GRA is elevated",schools:["GSS Birnin Kebbi","Federal Government College — 10 mins"],markets:["Birnin Kebbi Main Market — 8 mins"],vibe:"Quiet and peaceful capital city. Mostly civil servants and state workers. Very affordable.",landlord_phone:"08044556677"}},
-  {id:14,name:"Self-contained studio",area:"Kalgo Road",city:"Kebbi",bed:1,bath:1,price:180000,type:"self-con",verified:true,inspections:25,rentals:10,amenities:["Security","Borehole"],img:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80",photos:["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=80","https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&q=80"],nb:{sec:"Moderate — busy road, adequate community security",water:"Borehole water, consistent supply",elec:"About 8-12hrs/day average",flood:"Low risk",schools:["Kalgo Primary School","Kebbi State University — 15 mins"],markets:["Kalgo Market — 5 mins walk"],vibe:"Affordable and accessible. Great for NYSC corpers and young workers in Kebbi State.",landlord_phone:"08055667788"}},
-  {id:15,name:"3-bedroom bungalow",area:"Argungu",city:"Kebbi",bed:3,bath:2,price:500000,type:"bungalow",verified:false,inspections:12,rentals:4,amenities:["Water","Parking","Fence","Security"],img:"https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80",photos:["https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&q=80","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&q=80"],nb:{sec:"Safe — well-known community, tight-knit neighbourhood",water:"Borehole + occasional RUWASSA supply",elec:"Fair — about 8-10hrs/day",flood:"Check during rainy season near river areas",schools:["Argungu Secondary School","Kebbi Model School — 10 mins"],markets:["Argungu Fish Market — 3 mins"],vibe:"Historic town famous for fishing festival. Peaceful, affordable, great community spirit.",landlord_phone:"08066778899"}}
-];
+// PROPS is populated entirely from real, approved Supabase listings —
+// see loadRealProperties(). No demo/placeholder data ships in production.
+let PROPS = [];
+let propertiesLoaded = false;
 
 function getSystem(){
 return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, Jos, Kwara and Kebbi, Nigeria.
@@ -393,13 +380,9 @@ Want to know more about how we verify listings, or would you rather jump into a 
 
 NEVER shorten this. NEVER paraphrase this. Use it EXACTLY as written above.
 
-2. STATE vs CITY:
-   - "Kebbi" or "Kebbi State" = ALL Kebbi: ids 13,14,15
-   - "Kwara" or "Ilorin" = ALL Kwara: ids 10,11,12
-   - "Lagos" = ids 1,2,3
-   - "Abuja" = ids 4,5,6
-   - "Jos" or "Plateau" = ids 7,8,9
-   - Always show ALL properties in requested state.
+2. STATE vs CITY: Match the requested location against the "city" field in the JSON list above (case-insensitive). "Ilorin" means city="Kwara". "Plateau" or "Jos" means city="Jos". "FCT" means city="Abuja". Always show ALL properties whose city field matches the requested state.
+
+2b. EMPTY INVENTORY: If the JSON list above is completely empty, or has no properties matching the requested city, tell the user warmly that NaijaNest doesn't have verified listings there yet, that new ones are added as landlords are verified, and invite them to join the waitlist so they're notified. Do NOT invent or hallucinate any property. Do NOT output a SHOW_PROPS line if there is nothing to show.
 
 3. SHOW_PROPS IS MANDATORY: Every property search MUST end with SHOW_PROPS:[id1,id2] on its own line. Without this, cards will NOT appear.
 
@@ -766,10 +749,20 @@ function confirmInspect(){
     </div>`;
 }
 
-// ---- LANDING DEMO GRID ----
+// ---- LANDING GRID (real listings only) ----
 function renderDemoGrid(filter='all'){
   const filtered = filter==='all' ? PROPS : PROPS.filter(p=>p.city===filter);
   const grid = document.getElementById('demoGrid');
+  if (!filtered.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:2rem 1rem;color:#666;font-size:13.5px">
+      ${propertiesLoaded
+        ? (filter==='all'
+            ? '🏡 We\'re onboarding our first verified listings right now — check back soon, or join the waitlist below to get notified!'
+            : `🏡 No verified listings in ${filter} yet — check back soon, or join the waitlist below to get notified!`)
+        : 'Loading listings…'}
+    </div>`;
+    return;
+  }
   grid.innerHTML = filtered.map(p=>`
     <div class="prop-card" onclick="showApp()">
       <img class="prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
@@ -805,85 +798,64 @@ async function joinWaitlist(){
     if(data.success){
       document.getElementById('wlForm').style.display='none';
       document.getElementById('wlSuccess').style.display='block';
-      loadWaitlistCount();
+      fetchWaitlistCount();
     } else { throw new Error(JSON.stringify(data.error)); }
   }catch(e){
     alert('Something went wrong. Please try again.');
   }
 }
 
-// Load real properties from Supabase and merge
+// Load real, approved properties from Supabase — this is now the ONLY data source.
+// NOTE: photos aren't wired up to real storage yet, so every real listing shows
+// a generic placeholder image until Phase 2.5 (Supabase Storage) is built.
 async function loadRealProperties(){
   try{
     const resp=await fetch('/api/get-properties');
     const realProps=await resp.json();
-    if(Array.isArray(realProps)&&realProps.length>0){
-      const formatted=realProps.map(p=>({
-        id:p.id+1000,name:p.name,area:p.area,city:p.city,bed:p.bedrooms,bath:p.bathrooms,
-        price:p.price,type:p.type,verified:false,inspections:0,rentals:0,
+    if(Array.isArray(realProps)){
+      PROPS = realProps.map(p=>({
+        id:p.id,name:p.name,area:p.area,city:p.city,bed:p.bedrooms,bath:p.bathrooms,
+        price:p.price,type:p.type,verified:true,inspections:0,rentals:0,
         amenities:p.amenities||[],
-        img:"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80",
-        nb:{sec:'Contact landlord for details',water:'Contact landlord',elec:'Contact landlord',flood:'Contact landlord',schools:['Contact landlord'],markets:['Contact landlord'],vibe:p.description||'Contact landlord for more details.',landlord_phone:p.landlord_phone},
+        img:"https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&q=80",
+        nb:{
+          sec:p.security_info||'Contact landlord for details',
+          water:p.water_info||'Contact landlord for details',
+          elec:p.electricity_info||'Contact landlord for details',
+          flood:p.flood_risk||'Contact landlord for details',
+          schools:(p.nearby_schools?p.nearby_schools.split(',').map(s=>s.trim()):['Contact landlord for details']),
+          markets:(p.nearby_markets?p.nearby_markets.split(',').map(s=>s.trim()):['Contact landlord for details']),
+          vibe:p.description||'Contact landlord for more details.',
+          landlord_phone:p.landlord_phone
+        },
         isReal:true
       }));
-      PROPS.unshift(...formatted);
     }
-  }catch(e){console.log('Could not load real properties');}
-}
-
-// waitlist counter (fake for now, real when supabase has data)
-// Fetch real waitlist count from Supabase
-async function loadWaitlistCount() {
-  try {
-    const resp = await fetch('https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/waitlist?select=id', {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Prefer': 'count=exact',
-        'Range': '0-0'
-      }
-    });
-    const countHeader = resp.headers.get('content-range');
-    let count = 1;
-    if (countHeader) {
-      const match = countHeader.match(/\/(\d+)/);
-      if (match) count = parseInt(match[1]);
-    }
-    const display = count < 10 ? count : count; 
-    document.getElementById('wlCounter').textContent = `🔥 ${display} ${display === 1 ? 'person has' : 'people have'} already signed up`;
-  } catch(e) {
-    document.getElementById('wlCounter').textContent = '🔥 Be among the first to sign up!';
+  }catch(e){
+    console.log('Could not load real properties');
+    PROPS = [];
   }
+  propertiesLoaded = true;
+  renderDemoGrid();
 }
-loadWaitlistCount();
 
+// Waitlist counter — goes through a public, PII-free count endpoint
+// (the anon key can no longer read the waitlist table directly since RLS locked it down)
 let waitlistCount = 0;
-
 async function fetchWaitlistCount() {
   try {
-    const resp = await fetch('https://ymojmrqdnnomgdclmnlz.supabase.co/rest/v1/waitlist?select=id', {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk',
-        'Prefer': 'count=exact',
-        'Range': '0-0'
-      }
-    });
-    const countHeader = resp.headers.get('content-range');
-    if (countHeader) {
-      const match = countHeader.match(/\/(\d+)/);
-      if (match) waitlistCount = parseInt(match[1]);
-    }
-    // Update counter on landing page
-    const el = document.getElementById('wlCounter');
-    if(el) el.textContent = waitlistCount === 0 ? '🔥 Be among the first to sign up!' : `🔥 ${waitlistCount} ${waitlistCount === 1 ? 'person has' : 'people have'} already signed up`;
+    const resp = await fetch('/api/waitlist-count');
+    const data = await resp.json();
+    waitlistCount = data.count || 0;
   } catch(e) {
     waitlistCount = 0;
   }
+  const el = document.getElementById('wlCounter');
+  if(el) el.textContent = waitlistCount === 0 ? '🔥 Be among the first to sign up!' : `🔥 ${waitlistCount} ${waitlistCount === 1 ? 'person has' : 'people have'} already signed up`;
 }
 
 window.addEventListener('load',()=>{
-  renderDemoGrid();
+  renderDemoGrid(); // shows "Loading listings…" until real data arrives
   loadRealProperties();
   fetchWaitlistCount();
 });
