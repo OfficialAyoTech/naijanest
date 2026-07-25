@@ -6,6 +6,23 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const body = req.body;
+
+    // Verify identity server-side — never trust a client-supplied user_id.
+    const accessToken = body.access_token;
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Please sign in to list a property' });
+    }
+    const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!userResp.ok) {
+      return res.status(401).json({ error: 'Your session has expired — please sign in again' });
+    }
+    const user = await userResp.json();
+
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties`, {
       method: 'POST',
       headers: {
@@ -25,6 +42,7 @@ export default async function handler(req, res) {
         electricity_info: body.electricity_info, flood_risk: body.flood_risk,
         nearby_schools: body.nearby_schools, nearby_markets: body.nearby_markets,
         photo_urls: body.photo_urls || [],
+        user_id: user.id,
         status: 'pending'
       })
     });
