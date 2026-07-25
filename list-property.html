@@ -52,12 +52,20 @@
   .back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--green);text-decoration:none;margin-bottom:1rem}
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/auth.js"></script>
 <body>
 <div class="container">
   <a href="index.html" class="back-link"><i class="ti ti-arrow-left"></i> Back to search</a>
   <a href="index.html" class="logo"><div class="logo-icon"><i class="ti ti-home-2"></i></div><div class="logo-name">Naija<span>Nest</span></div></a>
 
-  <div class="card" id="formCard">
+  <div class="card" id="loginGateCard" style="display:none;text-align:center;padding:2.5rem 1.5rem">
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px">Sign in to list a property</div>
+    <div style="font-size:13px;color:#666;margin-bottom:1.25rem">This lets you track your listing's review status and manage it later from "My Listings".</div>
+    <button onclick="NaijaAuth.openLoginModal()" style="padding:11px 24px;background:#1a6b3a;color:#fff;border:none;border-radius:24px;font-size:13.5px;font-weight:500;cursor:pointer">Sign in to continue</button>
+  </div>
+
+  <div class="card" id="formCard" style="display:none">
     <div class="card-title"><i class="ti ti-building-store"></i> List Your Property</div>
     <div class="card-sub">Fill in the details below. Your property will be reviewed and published within 24 hours.</div>
 
@@ -378,10 +386,12 @@ async function submitProperty() {
     });
 
     btn.textContent = 'Submitting...';
+    const session = await NaijaAuth.client.auth.getSession();
+    const access_token = session.data.session ? session.data.session.access_token : null;
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameVal, area: areaVal, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: selectedCity, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, access_token })
     });
     const data = await resp.json();
     if (data.success) {
@@ -396,6 +406,18 @@ async function submitProperty() {
     btn.textContent = 'Submit Property for Review';
   }
 }
+
+function renderGate(){
+  const loggedIn = NaijaAuth.isLoggedIn();
+  document.getElementById('loginGateCard').style.display = loggedIn ? 'none' : 'block';
+  document.getElementById('formCard').style.display = loggedIn ? 'block' : 'none';
+}
+function initGate(){
+  NaijaAuth.onChange(renderGate);
+  renderGate();
+}
+document.addEventListener('DOMContentLoaded', initGate);
+if(document.readyState !== 'loading') initGate();
 </script>
 </body>
 </html>

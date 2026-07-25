@@ -186,6 +186,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .photo-thumb.active{border-color:var(--green)}
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/auth.js"></script>
 <body>
 
 <!-- ========== LANDING PAGE ========== -->
@@ -198,6 +200,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-links">
       <a href="list-property.html" class="nav-link">List property</a>
       <a href="#" class="nav-link nav-cta" onclick="showApp()">Find a house</a>
+      <div id="acctBtnLanding" style="margin-left:4px"></div>
     </div>
   </nav>
 
@@ -313,6 +316,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="app-logo-name">Naija<span>Nest</span></div>
       </div>
       <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
+      <div id="acctBtnApp"></div>
     </div>
     <div class="city-pills">
       <span class="city-pill">📍 Lagos</span>
@@ -349,6 +353,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span style="font-size:14px;font-weight:600">Schedule inspection</span>
       </div>
       <div class="overlay-body" id="schedBody"></div>
+    </div>
+    <div class="overlay" id="favOverlay" style="display:none">
+      <div class="overlay-header">
+        <button class="back-btn" onclick="closeFavorites()"><i class="ti ti-arrow-left"></i></button>
+        <span style="font-size:14px;font-weight:600">❤️ My Favorites</span>
+      </div>
+      <div class="overlay-body" id="favBody" style="padding:1rem"></div>
     </div>
   </div>
 </div>
@@ -631,6 +642,7 @@ async function sendMsg(){
     addMsg('ai',display);
     history.push({role:'assistant',content:full});
     showProps(ids);
+    saveChatHistory();
   }catch(e){
     typingEl.remove();
     addMsg('ai','Sorry, something went wrong. Please try again.');
@@ -655,7 +667,10 @@ function openDetail(id){
       ${photos.length>1?`<div class="photo-thumbs">${thumbsHtml}</div>`:''}
     </div>
     <div class="detail-body">
-      <div class="detail-price">${fmt(p.price)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="detail-price">${fmt(p.price)}</div>
+        <button id="favBtn" onclick="toggleFavorite(${p.id})" style="background:none;border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#1a1a1a">🤍 Save</button>
+      </div>
       <div class="detail-title">${p.name} — ${p.area}, ${p.city}</div>
       <div class="trust-badges-row">
         ${p.verified?'<span class="tbadge tbadge-green"><i class="ti ti-shield-check"></i> Verified Agent</span>':'<span class="tbadge tbadge-orange"><i class="ti ti-clock"></i> Pending Verification</span>'}
@@ -683,6 +698,7 @@ function openDetail(id){
       <button class="report-btn" onclick="alert('Thank you for reporting. Our team will investigate within 24 hours.')"><i class="ti ti-alert-triangle"></i> Report suspicious listing</button>
     </div>`;
   document.getElementById('detailOverlay').style.display='flex';
+  updateFavButton(p.id);
 }
 
 function contactWhatsApp(phone, propName){
@@ -855,6 +871,94 @@ async function fetchWaitlistCount() {
   const el = document.getElementById('wlCounter');
   if(el) el.textContent = waitlistCount === 0 ? '🔥 Be among the first to sign up!' : `🔥 ${waitlistCount} ${waitlistCount === 1 ? 'person has' : 'people have'} already signed up`;
 }
+
+// ---- FAVORITES ----
+let favoriteIds = new Set();
+
+async function loadFavorites(){
+  favoriteIds = new Set();
+  if(!NaijaAuth.isLoggedIn())return;
+  try{
+    const {data} = await NaijaAuth.client.from('favorites').select('property_id').eq('user_id', NaijaAuth.currentUser.id);
+    favoriteIds = new Set((data||[]).map(f=>f.property_id));
+  }catch(e){ console.log('Could not load favorites'); }
+}
+
+async function toggleFavorite(id){
+  if(!NaijaAuth.isLoggedIn()){ NaijaAuth.openLoginModal(); return; }
+  try{
+    if(favoriteIds.has(id)){
+      await NaijaAuth.client.from('favorites').delete().eq('user_id', NaijaAuth.currentUser.id).eq('property_id', id);
+      favoriteIds.delete(id);
+    } else {
+      await NaijaAuth.client.from('favorites').insert({user_id: NaijaAuth.currentUser.id, property_id: id});
+      favoriteIds.add(id);
+    }
+    updateFavButton(id);
+  }catch(e){ alert('Could not update favorites — please try again.'); }
+}
+
+function updateFavButton(id){
+  const btn = document.getElementById('favBtn');
+  if(btn) btn.textContent = favoriteIds.has(id) ? '❤️ Saved' : '🤍 Save';
+}
+
+window.naOpenFavorites = async function(){
+  const body = document.getElementById('favBody');
+  body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">Loading...</div>';
+  document.getElementById('appPage').style.display='block';
+  document.getElementById('landingPage').style.display='none';
+  document.getElementById('favOverlay').style.display='flex';
+  await loadFavorites();
+  const favProps = PROPS.filter(p=>favoriteIds.has(p.id));
+  if(!favProps.length){
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">No saved properties yet. Tap 🤍 Save on any listing to keep it here.</div>';
+    return;
+  }
+  body.innerHTML = favProps.map(p=>`
+    <div class="chat-prop-card" style="width:100%;margin-bottom:10px" onclick="closeFavorites();openDetail(${p.id})">
+      <img class="chat-prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
+      <div class="chat-prop-body">
+        <div class="chat-prop-price">${fmt(p.price)}</div>
+        <div class="chat-prop-name">${p.name}</div>
+        <div class="chat-prop-meta"><span>📍 ${p.area}</span><span>🛏 ${p.bed}bd</span></div>
+      </div>
+    </div>`).join('');
+};
+function closeFavorites(){ document.getElementById('favOverlay').style.display='none'; }
+
+// ---- MY LISTINGS (landlord dashboard) ----
+window.naOpenMyListings = function(){
+  window.location.href = 'my-listings.html';
+};
+
+// ---- CHAT HISTORY (auto-save transcript for signed-in users) ----
+let currentChatSessionId = null;
+async function saveChatHistory(){
+  if(!NaijaAuth.isLoggedIn() || history.length===0) return;
+  try{
+    const firstUserMsg = (history.find(m=>m.role==='user')||{}).content || 'Chat';
+    const title = firstUserMsg.slice(0,60);
+    if(currentChatSessionId){
+      await NaijaAuth.client.from('chat_sessions').update({messages: history, updated_at: new Date().toISOString()}).eq('id', currentChatSessionId);
+    } else {
+      const {data} = await NaijaAuth.client.from('chat_sessions').insert({user_id: NaijaAuth.currentUser.id, title, messages: history}).select().maybeSingle();
+      if(data) currentChatSessionId = data.id;
+    }
+  }catch(e){ console.log('Could not save chat history'); }
+}
+
+// ---- INIT ACCOUNT UI ----
+function initAccountUI(){
+  const landingEl = document.getElementById('acctBtnLanding');
+  const appEl = document.getElementById('acctBtnApp');
+  if(landingEl) NaijaAuth.renderAccountButton(landingEl);
+  if(appEl) NaijaAuth.renderAccountButton(appEl);
+  NaijaAuth.onChange(()=>{ loadFavorites(); });
+  loadFavorites();
+}
+document.addEventListener('DOMContentLoaded', initAccountUI);
+if(document.readyState !== 'loading') initAccountUI();
 
 window.addEventListener('load',()=>{
   renderDemoGrid(); // shows "Loading listings…" until real data arrives
