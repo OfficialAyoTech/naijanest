@@ -32,6 +32,7 @@
   .status-pending{background:#fef3c7;color:#d97706}
   .empty-state, .login-gate{text-align:center;padding:3rem 1rem;color:var(--text-sec);font-size:14px}
   .login-gate button{margin-top:1rem;padding:10px 22px;background:var(--green);color:#fff;border:none;border-radius:24px;font-size:13.5px;font-weight:500;cursor:pointer}
+  .feature-btn{padding:6px 12px;background:#fff;border:1px solid #d97706;color:#d97706;border-radius:20px;font-size:11.5px;font-weight:500;cursor:pointer}
 </style>
 </head>
 <body>
@@ -78,18 +79,64 @@ async function render(){
         <div class="empty-state">You haven't submitted any listings yet.</div>`;
       return;
     }
-    content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List another property</a>` +
-      data.map(p => `
+    content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List another property</a>
+      <div id="paymentBanner"></div>` +
+      data.map(p => {
+        const isFeatured = p.featured && p.featured_until && new Date(p.featured_until) > new Date();
+        return `
         <div class="listing-card">
           <img class="listing-thumb" src="${(p.photo_urls&&p.photo_urls[0])||''}" onerror="this.style.background='#e5e7eb'"/>
           <div class="listing-info">
-            <div class="listing-name">${escapeHtml(p.name)}</div>
+            <div class="listing-name">${escapeHtml(p.name)} ${isFeatured ? '<span style="font-size:11px;color:#d97706">⭐ Featured</span>' : ''}</div>
             <div class="listing-meta">${escapeHtml(p.area)}, ${escapeHtml(p.city)} · ${fmt(p.price)}/yr</div>
             <span class="status-badge status-${p.status}">${p.status === 'approved' ? '✅ Live' : p.status === 'rejected' ? '❌ Rejected' : '⏳ Pending review'}</span>
+            ${p.status==='approved' && !isFeatured ? `<div style="margin-top:8px"><button class="feature-btn" data-id="${p.id}" onclick="featureListing(${p.id})">⭐ Feature this listing — ₦5,000/30 days</button></div>` : ''}
+            ${isFeatured ? `<div style="font-size:11px;color:#666;margin-top:4px">Featured until ${new Date(p.featured_until).toLocaleDateString()}</div>` : ''}
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
   }catch(e){
     content.innerHTML = `<div class="empty-state">Could not load your listings. Please try again.</div>`;
+  }
+}
+
+async function featureListing(propertyId){
+  const btn = document.querySelector(`.feature-btn[data-id="${propertyId}"]`);
+  if(btn){ btn.disabled = true; btn.textContent = 'Starting payment...'; }
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-initialize', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ property_id: propertyId, access_token })
+    });
+    const data = await resp.json();
+    if(!data.authorization_url) throw new Error(data.error || 'Could not start payment');
+    window.location.href = data.authorization_url;
+  }catch(e){
+    alert('Could not start payment: ' + e.message);
+    if(btn){ btn.disabled = false; btn.textContent = '⭐ Feature this listing — ₦5,000/30 days'; }
+  }
+}
+
+async function checkPaymentReturn(){
+  const params = new URLSearchParams(window.location.search);
+  const reference = params.get('reference') || params.get('trxref');
+  if(!reference) return;
+  history.replaceState(null, '', window.location.pathname);
+  const banner = document.getElementById('paymentBanner');
+  if(banner) banner.innerHTML = `<div style="background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">Confirming payment...</div>`;
+  try{
+    const resp = await fetch(`/api/paystack-verify?reference=${encodeURIComponent(reference)}`);
+    const data = await resp.json();
+    if(data.success){
+      if(banner) banner.innerHTML = `<div style="background:#dcfce7;color:#16a34a;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">✅ Payment successful — your listing is now featured!</div>`;
+    } else {
+      if(banner) banner.innerHTML = `<div style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">❌ ${escapeHtml(data.error||'Payment was not completed')}</div>`;
+    }
+    await render();
+  }catch(e){
+    if(banner) banner.innerHTML = `<div style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">Could not confirm payment — contact support if you were charged.</div>`;
   }
 }
 
@@ -101,7 +148,7 @@ function escapeHtml(str){
 function init(){
   NaijaAuth.renderAccountButton(document.getElementById('acctBtn'));
   NaijaAuth.onChange(render);
-  render();
+  render().then(checkPaymentReturn);
 }
 document.addEventListener('DOMContentLoaded', init);
 if(document.readyState !== 'loading') init();

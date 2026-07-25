@@ -668,7 +668,7 @@ function openDetail(id){
     </div>
     <div class="detail-body">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="detail-price">${fmt(p.price)}</div>
+        <div class="detail-price">${fmt(p.price)}${p.featured?' <span style="font-size:11px;color:#d97706;font-weight:500;vertical-align:middle">⭐ Featured</span>':''}</div>
         <button id="favBtn" onclick="toggleFavorite(${p.id})" style="background:none;border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#1a1a1a">🤍 Save</button>
       </div>
       <div class="detail-title">${p.name} — ${p.area}, ${p.city}</div>
@@ -784,6 +784,7 @@ function renderDemoGrid(filter='all'){
       <img class="prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
       <div class="prop-body">
         <div class="prop-badges">
+          ${p.featured?'<span class="badge-verified" style="background:#fef3c7;color:#d97706"><i class="ti ti-star" style="font-size:10px"></i> Featured</span>':''}
           ${p.verified?'<span class="badge-verified"><i class="ti ti-shield-check" style="font-size:10px"></i> Verified</span>':''}
           <span class="badge-inspect">📅 Inspect</span>
         </div>
@@ -836,6 +837,7 @@ async function loadRealProperties(){
         amenities:p.amenities||[],
         img:photos[0],
         photos:photos,
+        featured: !!(p.featured && p.featured_until && new Date(p.featured_until) > new Date()),
         nb:{
           sec:p.security_info||'Contact landlord for details',
           water:p.water_info||'Contact landlord for details',
@@ -848,6 +850,7 @@ async function loadRealProperties(){
         },
         isReal:true
       };});
+      PROPS.sort((a,b)=>(b.featured?1:0)-(a.featured?1:0));
     }
   }catch(e){
     console.log('Could not load real properties');

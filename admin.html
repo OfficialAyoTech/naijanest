@@ -256,7 +256,10 @@ function renderProps() {
     <div class="prop-card" id="card-${p.id}">
       <div class="prop-top">
         <div class="prop-title">${escapeHtml(p.name)}</div>
-        <span class="prop-city">${escapeHtml(p.city)}</span>
+        <div style="display:flex;gap:6px">
+          ${p.featured?'<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#fef3c7;color:#d97706;font-weight:500">⭐ Featured</span>':''}
+          <span class="prop-city">${escapeHtml(p.city)}</span>
+        </div>
       </div>
       ${(Array.isArray(p.photo_urls) && p.photo_urls.length) ? `
       <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px">
