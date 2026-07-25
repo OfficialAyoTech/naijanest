@@ -8,6 +8,10 @@
   const SUPABASE_URL = 'https://ymojmrqdnnomgdclmnlz.supabase.co';
   // Anon key — safe to ship in client code by design (RLS enforces real security server-side)
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk';
+  // Flip to true once custom SMTP (Resend/SendGrid + a verified domain) is set up in Supabase.
+  // Until then, real users won't receive confirmation/reset emails at all — so this stays off
+  // and Google is the only sign-in method shown.
+  const EMAIL_AUTH_ENABLED = false;
   // Flip to true once a phone/SMS provider is configured in Supabase Auth → Providers → Phone
   const PHONE_AUTH_ENABLED = false;
 
@@ -28,7 +32,11 @@
       this.currentUser = session ? session.user : null;
       if (this.currentUser) await this._ensureProfile();
       this._notify();
-      sb.auth.onAuthStateChange(async (_event, session) => {
+      sb.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          openResetPasswordModal();
+          return;
+        }
         this.currentUser = session ? session.user : null;
         if (this.currentUser) await this._ensureProfile();
         else this.currentProfile = null;
@@ -54,16 +62,37 @@
       await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href.split('#')[0] } });
     },
 
-    async sendPhoneOtp(phoneE164) {
-      const { error } = await sb.auth.signInWithOtp({ phone: phoneE164 });
+    // Creates the account and sends a one-time confirmation link to the user's email.
+    // The account can't sign in with a password until that link is clicked.
+    async signUpWithPassword(email, password) {
+      const { data, error } = await sb.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: window.location.href.split('#')[0] }
+      });
+      if (error) throw error;
+      // If email confirmation is required, Supabase returns a user but no session yet.
+      return { needsConfirmation: !data.session };
+    },
+
+    async signInWithPassword(email, password) {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
     },
 
-    async sendMagicLink(email) {
-      const { error } = await sb.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.href.split('#')[0], shouldCreateUser: true }
+    async sendPasswordReset(email) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.href.split('#')[0]
       });
+      if (error) throw error;
+    },
+
+    async updatePassword(newPassword) {
+      const { error } = await sb.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+    },
+
+    async sendPhoneOtp(phoneE164) {
+      const { error } = await sb.auth.signInWithOtp({ phone: phoneE164 });
       if (error) throw error;
     },
 
@@ -118,6 +147,8 @@
     }
   };
 
+  let mode = 'login'; // 'login' | 'signup' | 'forgot'
+
   function injectModal() {
     if (document.getElementById('naAuthModal')) return;
     const wrap = document.createElement('div');
@@ -125,24 +156,33 @@
     wrap.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:1rem';
     wrap.innerHTML = `
       <div style="background:#fff;border-radius:16px;padding:1.75rem;max-width:340px;width:100%;text-align:center;font-family:inherit">
-        <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#1a1a1a">Sign in to NaijaNest</div>
-        <div style="font-size:12.5px;color:#666;margin-bottom:18px">Save favorites, track your listings, and pick up your chat where you left off.</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#1a1a1a" id="naModalTitle">Sign in to NaijaNest</div>
+        <div style="font-size:12.5px;color:#666;margin-bottom:18px" id="naModalSub">Save favorites, track your listings, and pick up your chat where you left off.</div>
 
         <button id="naGoogleBtn" style="width:100%;padding:11px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;color:#1a1a1a">
           <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4 24 4c-7.5 0-14 4.2-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.5-2.1 14.2-5.6l-6.6-5.4C29.6 34.7 26.9 36 24 36c-5.3 0-9.6-3.3-11.3-7.9l-6.6 5C9.9 39.7 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.6 5.4C41.4 36.4 44 30.7 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
           Continue with Google
         </button>
 
-        <div style="font-size:11px;color:#999;margin:10px 0">— or —</div>
+        <div style="font-size:11px;color:#999;margin:10px 0;display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}">— or —</div>
 
-        <div id="naEmailStep1">
+        <div id="naAuthForm" style="display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}">
           <input id="naEmailInput" type="email" placeholder="you@example.com" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box"/>
-          <button id="naSendLinkBtn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#1a6b3a;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer">Email me a verification link</button>
+          <input id="naPasswordInput" type="password" placeholder="Password (min 6 characters)" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box"/>
+          <button id="naSubmitBtn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#1a6b3a;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;margin-bottom:10px">Log in</button>
+          <div style="font-size:12px;color:#666">
+            <span id="naModeSwitchPrompt">New here?</span>
+            <a href="#" id="naModeSwitchLink" style="color:#1a6b3a;font-weight:500;text-decoration:none">Create an account</a>
+          </div>
+          <div style="margin-top:8px">
+            <a href="#" id="naForgotLink" style="font-size:12px;color:#999;text-decoration:none">Forgot password?</a>
+          </div>
         </div>
-        <div id="naEmailSent" style="display:none;padding:8px 0">
+
+        <div id="naCheckEmail" style="display:none;padding:8px 0">
           <div style="font-size:28px;margin-bottom:6px">📧</div>
-          <div style="font-size:13px;color:#1a1a1a;font-weight:500;margin-bottom:4px">Check your email</div>
-          <div style="font-size:12px;color:#666">We sent a verification link to <span id="naEmailSentAddr" style="font-weight:500"></span>. Click it to sign in — this window will update automatically.</div>
+          <div style="font-size:13px;color:#1a1a1a;font-weight:500;margin-bottom:4px" id="naCheckEmailTitle">Check your email</div>
+          <div style="font-size:12px;color:#666" id="naCheckEmailBody"></div>
         </div>
 
         <div style="font-size:11px;color:#999;margin:10px 0;display:${PHONE_AUTH_ENABLED ? 'block' : 'none'}">— or —</div>
@@ -164,21 +204,60 @@
 
     document.getElementById('naGoogleBtn').onclick = () => NaijaAuth.signInWithGoogle();
 
-    document.getElementById('naSendLinkBtn').onclick = async () => {
+    document.getElementById('naModeSwitchLink').onclick = (e) => {
+      e.preventDefault();
+      mode = mode === 'login' ? 'signup' : 'login';
+      renderAuthFormMode();
+    };
+    document.getElementById('naForgotLink').onclick = (e) => {
+      e.preventDefault();
+      mode = 'forgot';
+      renderAuthFormMode();
+    };
+
+    document.getElementById('naSubmitBtn').onclick = async () => {
       const email = document.getElementById('naEmailInput').value.trim();
+      const password = document.getElementById('naPasswordInput').value;
       if (!email || !email.includes('@')) return showAuthError('Enter a valid email address');
-      const btn = document.getElementById('naSendLinkBtn');
-      btn.disabled = true; btn.textContent = 'Sending...';
-      try {
-        await NaijaAuth.sendMagicLink(email);
-        document.getElementById('naEmailStep1').style.display = 'none';
-        document.getElementById('naEmailSentAddr').textContent = email;
-        document.getElementById('naEmailSent').style.display = 'block';
-        hideAuthError();
-      } catch (e) {
-        showAuthError(e.message || 'Could not send verification link');
+      const btn = document.getElementById('naSubmitBtn');
+
+      if (mode === 'forgot') {
+        btn.disabled = true; btn.textContent = 'Sending...';
+        try {
+          await NaijaAuth.sendPasswordReset(email);
+          showCheckEmail('Check your email', `We sent a password reset link to <strong>${email}</strong>.`);
+          hideAuthError();
+        } catch (e) {
+          showAuthError(e.message || 'Could not send reset link');
+        }
+        btn.disabled = false; btn.textContent = 'Send reset link';
+        return;
       }
-      btn.disabled = false; btn.textContent = 'Email me a verification link';
+
+      if (!password || password.length < 6) return showAuthError('Password must be at least 6 characters');
+
+      if (mode === 'signup') {
+        btn.disabled = true; btn.textContent = 'Creating account...';
+        try {
+          const { needsConfirmation } = await NaijaAuth.signUpWithPassword(email, password);
+          if (needsConfirmation) {
+            showCheckEmail('Confirm your email', `We sent a verification link to <strong>${email}</strong>. Click it to activate your account, then come back and log in.`);
+          }
+          hideAuthError();
+        } catch (e) {
+          showAuthError(e.message || 'Could not create account');
+        }
+        btn.disabled = false; btn.textContent = 'Create account';
+      } else {
+        btn.disabled = true; btn.textContent = 'Logging in...';
+        try {
+          await NaijaAuth.signInWithPassword(email, password);
+          hideAuthError();
+        } catch (e) {
+          showAuthError(e.message || 'Could not log in');
+        }
+        btn.disabled = false; btn.textContent = 'Log in';
+      }
     };
 
     let pendingPhone = '';
@@ -216,6 +295,51 @@
     };
   }
 
+  function renderAuthFormMode() {
+    document.getElementById('naAuthForm').style.display = EMAIL_AUTH_ENABLED ? 'block' : 'none';
+    document.getElementById('naCheckEmail').style.display = 'none';
+    hideAuthError();
+    const pwInput = document.getElementById('naPasswordInput');
+    const submitBtn = document.getElementById('naSubmitBtn');
+    const switchPrompt = document.getElementById('naModeSwitchPrompt');
+    const switchLink = document.getElementById('naModeSwitchLink');
+    const forgotLink = document.getElementById('naForgotLink');
+
+    if (mode === 'login') {
+      document.getElementById('naModalTitle').textContent = 'Log in to NaijaNest';
+      pwInput.style.display = 'block';
+      submitBtn.textContent = 'Log in';
+      switchPrompt.textContent = 'New here?';
+      switchLink.textContent = 'Create an account';
+      forgotLink.style.display = 'block';
+    } else if (mode === 'signup') {
+      document.getElementById('naModalTitle').textContent = 'Create your NaijaNest account';
+      pwInput.style.display = 'block';
+      submitBtn.textContent = 'Create account';
+      switchPrompt.textContent = 'Already have an account?';
+      switchLink.textContent = 'Log in';
+      forgotLink.style.display = 'none';
+    } else if (mode === 'forgot') {
+      document.getElementById('naModalTitle').textContent = 'Reset your password';
+      pwInput.style.display = 'none';
+      submitBtn.textContent = 'Send reset link';
+      switchPrompt.textContent = 'Remembered it?';
+      switchLink.textContent = 'Back to log in';
+      forgotLink.style.display = 'none';
+      switchLink.onclick = (e) => { e.preventDefault(); mode = 'login'; renderAuthFormMode(); };
+    }
+    if (mode !== 'forgot') {
+      switchLink.onclick = (e) => { e.preventDefault(); mode = mode === 'login' ? 'signup' : 'login'; renderAuthFormMode(); };
+    }
+  }
+
+  function showCheckEmail(title, bodyHtml) {
+    document.getElementById('naAuthForm').style.display = 'none';
+    document.getElementById('naCheckEmail').style.display = 'block';
+    document.getElementById('naCheckEmailTitle').textContent = title;
+    document.getElementById('naCheckEmailBody').innerHTML = bodyHtml;
+  }
+
   function showAuthError(msg) {
     const el = document.getElementById('naAuthError');
     el.textContent = msg; el.style.display = 'block';
@@ -225,9 +349,10 @@
   }
   function openLoginModal() {
     injectModal();
-    document.getElementById('naEmailStep1').style.display = 'block';
-    document.getElementById('naEmailSent').style.display = 'none';
+    mode = 'login';
     document.getElementById('naEmailInput').value = '';
+    document.getElementById('naPasswordInput').value = '';
+    renderAuthFormMode();
     document.getElementById('naPhoneStep1').style.display = PHONE_AUTH_ENABLED ? 'block' : 'none';
     document.getElementById('naPhoneStep2').style.display = 'none';
     document.getElementById('naAuthModal').style.display = 'flex';
@@ -235,6 +360,46 @@
   function closeModal() {
     const el = document.getElementById('naAuthModal');
     if (el) el.style.display = 'none';
+  }
+
+  // Shown when the user arrives via a "reset password" email link.
+  function openResetPasswordModal() {
+    if (document.getElementById('naResetModal')) {
+      document.getElementById('naResetModal').style.display = 'flex';
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.id = 'naResetModal';
+    wrap.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:1rem';
+    wrap.innerHTML = `
+      <div style="background:#fff;border-radius:16px;padding:1.75rem;max-width:340px;width:100%;text-align:center;font-family:inherit">
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#1a1a1a">Set a new password</div>
+        <div style="font-size:12.5px;color:#666;margin-bottom:16px">Choose a new password for your account.</div>
+        <input id="naNewPasswordInput" type="password" placeholder="New password (min 6 characters)" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:12px;outline:none;box-sizing:border-box"/>
+        <button id="naNewPasswordBtn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#1a6b3a;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer">Update password</button>
+        <div id="naResetError" style="color:#dc2626;font-size:12px;margin-top:10px;display:none"></div>
+        <div id="naResetSuccess" style="color:#16a34a;font-size:12.5px;margin-top:10px;display:none">✅ Password updated — you're signed in.</div>
+      </div>`;
+    document.body.appendChild(wrap);
+    document.getElementById('naNewPasswordBtn').onclick = async () => {
+      const pw = document.getElementById('naNewPasswordInput').value;
+      const errEl = document.getElementById('naResetError');
+      if (!pw || pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; return; }
+      const btn = document.getElementById('naNewPasswordBtn');
+      btn.disabled = true; btn.textContent = 'Updating...';
+      try {
+        await NaijaAuth.updatePassword(pw);
+        errEl.style.display = 'none';
+        document.getElementById('naNewPasswordInput').style.display = 'none';
+        btn.style.display = 'none';
+        document.getElementById('naResetSuccess').style.display = 'block';
+        setTimeout(() => { wrap.style.display = 'none'; }, 1800);
+      } catch (e) {
+        errEl.textContent = e.message || 'Could not update password';
+        errEl.style.display = 'block';
+      }
+      btn.disabled = false; btn.textContent = 'Update password';
+    };
   }
 
   window.NaijaAuth = NaijaAuth;
