@@ -96,7 +96,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ---- APP PAGE ---- */
 #appPage{display:none;min-height:100vh;flex-direction:column}
 #app{width:100%;max-width:500px;margin:0 auto;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;height:calc(100vh - 2rem);margin-top:1rem;position:relative}
-.app-header{padding:1rem 1.25rem 0.75rem;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.app-header{padding:1rem 1.25rem 0.75rem;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.app-header>#acctBtnApp{flex-shrink:0;margin-left:auto}
 .app-logo{display:flex;align-items:center;gap:7px}
 .app-logo-icon{width:28px;height:28px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
 .app-logo-icon i{color:#fff;font-size:15px}

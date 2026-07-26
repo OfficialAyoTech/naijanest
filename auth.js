@@ -403,5 +403,7 @@
   }
 
   window.NaijaAuth = NaijaAuth;
-  NaijaAuth.init();
+  function startInit() { NaijaAuth.init(); }
+  if (document.body) startInit();
+  else document.addEventListener('DOMContentLoaded', startInit);
 })();
