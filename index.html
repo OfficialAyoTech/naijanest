@@ -4,6 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>NaijaNest — Find Your Home in Nigeria</title>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#1a6b3a"/>
+<link rel="icon" href="/icons/favicon-32.png"/>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="NaijaNest"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -200,6 +207,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-links">
       <a href="list-property.html" class="nav-link">List property</a>
       <a href="#" class="nav-link nav-cta" onclick="showApp()">Find a house</a>
+      <button id="naInstallBtn" style="display:none;background:none;border:0.5px solid #ddd;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:12.5px;color:#1a6b3a;font-weight:500;margin-right:4px" onclick="triggerInstall()">📲 Install App</button>
       <div id="acctBtnLanding" style="margin-left:4px"></div>
     </div>
   </nav>
@@ -962,6 +970,34 @@ function initAccountUI(){
 }
 document.addEventListener('DOMContentLoaded', initAccountUI);
 if(document.readyState !== 'loading') initAccountUI();
+
+// ---- PWA: service worker + install prompt ----
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  });
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('naInstallBtn');
+  if (btn) btn.style.display = 'inline-block';
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('naInstallBtn');
+  if (btn) btn.style.display = 'none';
+});
+async function triggerInstall(){
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('naInstallBtn');
+  if (btn) btn.style.display = 'none';
+}
 
 window.addEventListener('load',()=>{
   renderDemoGrid(); // shows "Loading listings…" until real data arrives

@@ -4,6 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>NaijaNest — List Your Property</title>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#1a6b3a"/>
+<link rel="icon" href="/icons/favicon-32.png"/>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="NaijaNest"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -418,6 +425,13 @@ function initGate(){
 }
 document.addEventListener('DOMContentLoaded', initGate);
 if(document.readyState !== 'loading') initGate();
+
+// ---- PWA: service worker ----
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
