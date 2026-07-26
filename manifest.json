@@ -1,0 +1,16 @@
+{
+  "name": "NaijaNest — Find a House in Nigeria",
+  "short_name": "NaijaNest",
+  "description": "AI-powered house rental search for Lagos, Abuja, Jos, Kwara & Kebbi",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f2f4f0",
+  "theme_color": "#1a6b3a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
