@@ -26,10 +26,14 @@ async function handleIncoming(req, res) {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0];
     const message = change?.value?.messages?.[0];
-    if (!message || message.type !== 'text') return; // ignore statuses, non-text, etc.
+    if (!message || message.type !== 'text') {
+      console.log('whatsapp webhook: no text message in payload, ignoring. Raw:', JSON.stringify(req.body).slice(0, 500));
+      return;
+    }
 
     const from = message.from; // sender's WhatsApp number, E.164 digits, no '+'
     const text = message.text.body;
+    console.log('whatsapp webhook: received message from', from, '-', text);
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
@@ -39,26 +43,32 @@ async function handleIncoming(req, res) {
       `${process.env.SUPABASE_URL}/rest/v1/whatsapp_sessions?phone=eq.${from}&select=messages`,
       { headers }
     );
+    if (!sessionResp.ok) console.error('whatsapp webhook: session load failed:', await sessionResp.text());
     const sessionRows = await sessionResp.json();
     let history = (sessionRows[0]?.messages) || [];
 
     history.push({ role: 'user', content: text });
     if (history.length > 20) history = history.slice(-20); // keep context bounded
 
+    console.log('whatsapp webhook: building system prompt...');
     const system = await buildSystemPrompt();
+    console.log('whatsapp webhook: calling Groq...');
     const reply = await callGroq(system, history);
+    console.log('whatsapp webhook: Groq replied:', reply.slice(0, 200));
 
     history.push({ role: 'assistant', content: reply });
 
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/whatsapp_sessions`, {
+    const saveResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/whatsapp_sessions`, {
       method: 'POST',
       headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
       body: JSON.stringify({ phone: from, messages: history, updated_at: new Date().toISOString() }),
     });
+    if (!saveResp.ok) console.error('whatsapp webhook: session save failed:', await saveResp.text());
 
+    console.log('whatsapp webhook: sending reply via WhatsApp...');
     await sendWhatsAppText(from, reply);
   } catch (error) {
-    console.error('whatsapp webhook error:', error.message);
+    console.error('whatsapp webhook error:', error.message, error.stack);
   }
 }
 
@@ -122,7 +132,7 @@ async function callGroq(system, history) {
 }
 
 async function sendWhatsAppText(to, body) {
-  await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+  const resp = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
@@ -135,4 +145,10 @@ async function sendWhatsAppText(to, body) {
       text: { body },
     }),
   });
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error('WhatsApp send failed:', resp.status, errText);
+  } else {
+    console.log('WhatsApp send succeeded to', to);
+  }
 }
