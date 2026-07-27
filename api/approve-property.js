@@ -8,14 +8,78 @@ export default async function handler(req, res) {
     const { id, status, admin_password } = req.body;
     if (admin_password !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
+
+    // Fetch details first so we can notify the landlord after a successful update
+    const propResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}&select=name,landlord_name,landlord_phone`,
+      { headers }
+    );
+    const propRows = await propResp.json();
+    const property = propRows[0];
+
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Prefer': 'return=minimal' },
+      headers: { ...headers, 'Prefer': 'return=minimal' },
       body: JSON.stringify({ status })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
+
+    // Best-effort WhatsApp notification — never let this fail the approve/reject action itself.
+    // Awaited (not fire-and-forget) because Vercel can freeze the function shortly after
+    // the response is sent, which would kill an in-flight, un-awaited request.
+    if (property && (status === 'approved' || status === 'rejected')) {
+      try {
+        await notifyLandlord(property, status);
+      } catch (e) {
+        console.error('WhatsApp notify failed:', e.message);
+      }
+    }
+
     return res.status(200).json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
+}
+
+// Sends a pre-approved WhatsApp template ("listing_status_update") to the landlord.
+// Requires WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID env vars and the template to be
+// approved in Meta's WhatsApp Manager. Silently no-ops if not configured or no phone.
+async function notifyLandlord(property, status) {
+  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
+  if (!property.landlord_phone) return;
+
+  const digits = String(property.landlord_phone).replace(/\D/g, '');
+  const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+
+  const statusText = status === 'approved' ? 'approved and is now live!' : 'not approved this time';
+  const closingText = status === 'approved'
+    ? 'View it at naijanest.vercel.app'
+    : 'Contact support if you have questions.';
+
+  await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: e164,
+      type: 'template',
+      template: {
+        name: 'listing_status_update',
+        language: { code: 'en' },
+        components: [{
+          type: 'body',
+          parameters: [
+            { type: 'text', text: property.landlord_name || 'there' },
+            { type: 'text', text: property.name },
+            { type: 'text', text: statusText },
+            { type: 'text', text: closingText },
+          ],
+        }],
+      },
+    }),
+  });
 }
