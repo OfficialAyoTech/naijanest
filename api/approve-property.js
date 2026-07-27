@@ -7,9 +7,10 @@ export default async function handler(req, res) {
   try {
     const { id, status, admin_password } = req.body;
     if (admin_password !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'apikey': process.env.SUPABASE_ANON_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`, 'Prefer': 'return=minimal' },
+      headers: { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Prefer': 'return=minimal' },
       body: JSON.stringify({ status })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
