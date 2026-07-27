@@ -129,15 +129,15 @@
                 <a href="#" id="naSignOutLink" style="display:block;padding:10px 14px;font-size:13px;color:#dc2626;text-decoration:none">Sign out</a>
               </div>
             </div>`;
-          document.getElementById('naAcctBtn').onclick = (e) => {
+          el.querySelector('#naAcctBtn').onclick = (e) => {
             e.stopPropagation();
-            const menu = document.getElementById('naAcctMenu');
+            const menu = el.querySelector('#naAcctMenu');
             menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
           };
-          document.addEventListener('click', () => { const m = document.getElementById('naAcctMenu'); if (m) m.style.display = 'none'; }, { once: true });
-          document.getElementById('naSignOutLink').onclick = (e) => { e.preventDefault(); this.signOut(); };
-          document.getElementById('naFavLink').onclick = (e) => { e.preventDefault(); if (typeof window.naOpenFavorites === 'function') window.naOpenFavorites(); };
-          document.getElementById('naListingsLink').onclick = (e) => { e.preventDefault(); if (typeof window.naOpenMyListings === 'function') window.naOpenMyListings(); else window.location.href = 'list-property.html#my-listings'; };
+          document.addEventListener('click', () => { const m = el.querySelector('#naAcctMenu'); if (m) m.style.display = 'none'; });
+          el.querySelector('#naSignOutLink').onclick = (e) => { e.preventDefault(); this.signOut(); };
+          el.querySelector('#naFavLink').onclick = (e) => { e.preventDefault(); if (typeof window.naOpenFavorites === 'function') window.naOpenFavorites(); else window.location.href = 'index.html'; };
+          el.querySelector('#naListingsLink').onclick = (e) => { e.preventDefault(); if (typeof window.naOpenMyListings === 'function') window.naOpenMyListings(); else window.location.href = 'my-listings.html'; };
         } else {
           el.innerHTML = `<button onclick="NaijaAuth.openLoginModal()" style="background:none;border:0.5px solid #ddd;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:12.5px;color:#1a1a1a">Sign in</button>`;
         }
