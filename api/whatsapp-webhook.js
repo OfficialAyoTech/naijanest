@@ -18,17 +18,13 @@ function handleVerification(req, res) {
 }
 
 async function handleIncoming(req, res) {
-  // Always 200 quickly — Meta retries aggressively on non-200, and we don't
-  // want a slow AI call to trigger duplicate webhook deliveries.
-  res.status(200).send('EVENT_RECEIVED');
-
   try {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0];
     const message = change?.value?.messages?.[0];
     if (!message || message.type !== 'text') {
       console.log('whatsapp webhook: no text message in payload, ignoring. Raw:', JSON.stringify(req.body).slice(0, 500));
-      return;
+      return res.status(200).send('EVENT_RECEIVED');
     }
 
     const from = message.from; // sender's WhatsApp number, E.164 digits, no '+'
@@ -67,8 +63,15 @@ async function handleIncoming(req, res) {
 
     console.log('whatsapp webhook: sending reply via WhatsApp...');
     await sendWhatsAppText(from, reply);
+
+    // Only respond once everything above has actually finished — sending early
+    // let Vercel freeze the function mid-flight before the real work completed.
+    return res.status(200).send('EVENT_RECEIVED');
   } catch (error) {
     console.error('whatsapp webhook error:', error.message, '| cause:', error.cause, '| stack:', error.stack);
+    // Still 200 — a non-200 makes Meta retry aggressively, and retrying won't
+    // fix a code error, it'll just multiply it.
+    return res.status(200).send('EVENT_RECEIVED');
   }
 }
 
