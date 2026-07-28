@@ -68,7 +68,7 @@ async function handleIncoming(req, res) {
     console.log('whatsapp webhook: sending reply via WhatsApp...');
     await sendWhatsAppText(from, reply);
   } catch (error) {
-    console.error('whatsapp webhook error:', error.message, error.stack);
+    console.error('whatsapp webhook error:', error.message, '| cause:', error.cause, '| stack:', error.stack);
   }
 }
 
