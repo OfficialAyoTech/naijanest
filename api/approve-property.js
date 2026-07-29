@@ -1,3 +1,59 @@
+import crypto from 'crypto';
+
+const MAX_ATTEMPTS = 5;
+const WINDOW_MINUTES = 15;
+
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function safeCompare(a, b) {
+  const bufA = Buffer.from(String(a || ''));
+  const bufB = Buffer.from(String(b || ''));
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+async function checkAdminAuth(req, providedPassword, serviceKey) {
+  const ip = getClientIp(req);
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
+
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/admin_login_attempts?ip=eq.${encodeURIComponent(ip)}&created_at=gte.${since}&select=id`,
+      { headers }
+    );
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows.length >= MAX_ATTEMPTS) {
+        return { ok: false, status: 429, error: 'Too many failed attempts. Try again in a few minutes.' };
+      }
+    }
+  } catch (e) {
+    console.error('admin auth: rate-limit check failed:', e.message);
+  }
+
+  const correct = safeCompare(providedPassword, process.env.ADMIN_PASSWORD);
+  if (!correct) {
+    try {
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/admin_login_attempts`, {
+        method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({ ip }),
+      });
+    } catch (e) {
+      console.error('admin auth: failed to log attempt:', e.message);
+    }
+    return { ok: false, status: 401, error: 'Unauthorized' };
+  }
+  return { ok: true };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -6,11 +62,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const { id, status, admin_password } = req.body;
-    if (admin_password !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const auth = await checkAdminAuth(req, admin_password, serviceKey);
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
     const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
 
-    // Fetch details first so we can notify the landlord after a successful update
     const propResp = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}&select=name,landlord_name,landlord_phone`,
       { headers }
@@ -25,9 +81,6 @@ export default async function handler(req, res) {
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
 
-    // Best-effort WhatsApp notification — never let this fail the approve/reject action itself.
-    // Awaited (not fire-and-forget) because Vercel can freeze the function shortly after
-    // the response is sent, which would kill an in-flight, un-awaited request.
     if (property && (status === 'approved' || status === 'rejected')) {
       try {
         await notifyLandlord(property, status);
@@ -42,9 +95,6 @@ export default async function handler(req, res) {
   }
 }
 
-// Sends a pre-approved WhatsApp template ("listing_status_update") to the landlord.
-// Requires WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID env vars and the template to be
-// approved in Meta's WhatsApp Manager. Silently no-ops if not configured or no phone.
 async function notifyLandlord(property, status) {
   if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
   if (!property.landlord_phone) return;
