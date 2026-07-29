@@ -7,7 +7,6 @@ export default async function handler(req, res) {
   try {
     const body = req.body;
 
-    // Verify identity server-side — never trust a client-supplied user_id.
     const accessToken = body.access_token;
     if (!accessToken) {
       return res.status(401).json({ error: 'Please sign in to list a property' });
@@ -19,7 +18,7 @@ export default async function handler(req, res) {
       },
     });
     if (!userResp.ok) {
-      return res.status(401).json({ error: 'Your session has expired — please sign in again' });
+      return res.status(401).json({ error: 'Your session has expired - please sign in again' });
     }
     const user = await userResp.json();
 
@@ -47,8 +46,36 @@ export default async function handler(req, res) {
       })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
+
+    try {
+      await tagAsLandlordIfNeeded(user.id);
+    } catch (e) {
+      console.error('submit-property: role auto-tag failed:', e.message);
+    }
+
     return res.status(200).json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
+}
+
+async function tagAsLandlordIfNeeded(userId) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const profResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=role`,
+    { headers }
+  );
+  if (!profResp.ok) return;
+  const rows = await profResp.json();
+  const currentRole = rows[0]?.role;
+
+  if (currentRole === 'landlord' || currentRole === 'agent') return;
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+    method: 'PATCH',
+    headers: { ...headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ role: 'landlord' }),
+  });
 }
