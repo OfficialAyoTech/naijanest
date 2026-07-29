@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-<meta name="apple-mobile-web-app-title" content="NaijaNest"/>
+<meta name="apple-mobile-web-app-title" content="NaijaNest"/>F
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -325,6 +325,8 @@ function compressImage(file) {
 }
 
 async function uploadAllPhotos(files, onProgress) {
+  const session = await NaijaAuth.client.auth.getSession();
+  const access_token = session.data.session ? session.data.session.access_token : null;
   const urls = [];
   for (let i = 0; i < files.length; i++) {
     onProgress(i + 1, files.length);
@@ -332,7 +334,7 @@ async function uploadAllPhotos(files, onProgress) {
     const resp = await fetch('/api/upload-photo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: base64, mimeType: 'image/jpeg' })
+      body: JSON.stringify({ data: base64, mimeType: 'image/jpeg', access_token })
     });
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || `Failed to upload photo ${i + 1}`);
