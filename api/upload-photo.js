@@ -1,6 +1,3 @@
-// Uploads ONE property photo to Supabase Storage and returns its public URL.
-// Client compresses/resizes the image before sending (see list-property.html)
-// so this stays well under Vercel's request body limit even on slow connections.
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -9,7 +6,18 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { data, mimeType } = req.body || {};
+    const { data, mimeType, access_token } = req.body || {};
+
+    if (!access_token) {
+      return res.status(401).json({ error: 'Please sign in to upload photos' });
+    }
+    const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: process.env.SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}` },
+    });
+    if (!userResp.ok) {
+      return res.status(401).json({ error: 'Your session has expired - please sign in again' });
+    }
+
     if (!data || !mimeType) {
       return res.status(400).json({ error: 'Missing image data or mimeType' });
     }
@@ -18,9 +26,9 @@ export default async function handler(req, res) {
     }
 
     const buffer = Buffer.from(data, 'base64');
-    const MAX_BYTES = 2.5 * 1024 * 1024; // decoded size; base64 wire payload is ~33% larger, stays under Vercel's body limit
+    const MAX_BYTES = 2.5 * 1024 * 1024;
     if (buffer.length > MAX_BYTES) {
-      return res.status(400).json({ error: 'Image too large — please try a smaller photo' });
+      return res.status(400).json({ error: 'Image too large - please try a smaller photo' });
     }
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
