@@ -1,8 +1,21 @@
-// WhatsApp Cloud API webhook (Meta direct — no BSP markup).
+import crypto from 'crypto';
+
+// Vercel must not pre-parse the body - we need the exact raw bytes to verify Meta's
+// X-Hub-Signature-256 header, same reasoning as paystack-webhook.js.
+export const config = { api: { bodyParser: false } };
+
+function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => { data += chunk; });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
+
+// WhatsApp Cloud API webhook (Meta direct - no BSP markup).
 // GET  = Meta's one-time webhook verification handshake.
 // POST = incoming message events.
-// Everything is inline in this one exported function (no delegate helper for
-// the request handling itself) to match every other endpoint in this project.
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -18,8 +31,34 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
+  const rawBody = await getRawBody(req);
+
+  const signatureHeader = req.headers['x-hub-signature-256'];
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) {
+    console.error('whatsapp webhook: META_APP_SECRET is not set - rejecting all requests until configured');
+    return res.status(500).send('Server misconfigured');
+  }
+  const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
+  const signatureValid =
+    typeof signatureHeader === 'string' &&
+    signatureHeader.length === expectedSignature.length &&
+    crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expectedSignature));
+
+  if (!signatureValid) {
+    console.error('whatsapp webhook: invalid or missing X-Hub-Signature-256, rejecting');
+    return res.status(401).send('Invalid signature');
+  }
+
+  let body;
   try {
-    const entry = req.body?.entry?.[0];
+    body = JSON.parse(rawBody);
+  } catch (e) {
+    return res.status(400).send('Invalid JSON');
+  }
+
+  try {
+    const entry = body?.entry?.[0];
     const change = entry?.changes?.[0];
     const message = change?.value?.messages?.[0];
     if (!message || message.type !== 'text') {
@@ -27,7 +66,7 @@ export default async function handler(req, res) {
       return res.status(200).send('EVENT_RECEIVED');
     }
 
-    const from = message.from; // sender's WhatsApp number, E.164 digits, no '+'
+    const from = message.from;
     const text = message.text.body;
     console.log('whatsapp webhook: received message from', from, '-', text);
 
@@ -45,9 +84,8 @@ export default async function handler(req, res) {
     let history = (sessionRows[0]?.messages) || [];
 
     history.push({ role: 'user', content: text });
-    if (history.length > 20) history = history.slice(-20); // keep context bounded
+    if (history.length > 20) history = history.slice(-20);
 
-    // ---- Build the system prompt from real, approved listings ----
     console.log('whatsapp webhook: fetching properties...');
     let properties = [];
     try {
@@ -68,10 +106,10 @@ export default async function handler(req, res) {
     const system = `You are the NaijaNest AI assistant, chatting with a user over WhatsApp. NaijaNest is Nigeria's AI-powered house rental assistant, covering Lagos, Abuja, Jos, Kwara, and Kebbi.
 
 RULES:
-1. Only ever mention properties from the JSON list below — never invent a property, price, or address.
+1. Only ever mention properties from the JSON list below - never invent a property, price, or address.
 2. Match a requested state/city against each property's "city" field (case-insensitive). "Ilorin" means city="Kwara". "Jos" or "Plateau" means city="Jos". "FCT" means city="Abuja".
 3. If the list is empty, or nothing matches the requested city, say NaijaNest doesn't have verified listings there yet and that new ones are added regularly. Do not invent one.
-4. This is WhatsApp — plain text only. No markdown tables, no special card syntax. Keep replies short and scannable: a few lines per property (name, area, price, one line of neighborhood info), not paragraphs.
+4. This is WhatsApp - plain text only. No markdown tables, no special card syntax. Keep replies short and scannable: a few lines per property (name, area, price, one line of neighborhood info), not paragraphs.
 5. Answer questions about security, water, electricity, and flood risk using the fields provided for that property.
 6. If asked how to submit a property, tell them to visit naijanest.vercel.app/list-property.html.
 7. Be warm and conversational, like a knowledgeable friend, not a formal customer service bot.
@@ -79,7 +117,6 @@ RULES:
 CURRENT VERIFIED LISTINGS (JSON):
 ${JSON.stringify(propsForPrompt)}`;
 
-    // ---- Call Groq, with the same model fallback as the web chat ----
     console.log('whatsapp webhook: calling Groq...');
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
     const messages = [{ role: 'system', content: system }, ...history];
