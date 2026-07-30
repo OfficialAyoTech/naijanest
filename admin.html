@@ -56,6 +56,7 @@
   .status-approved{background:#dcfce7;color:#16a34a}
   .status-rejected{background:#fee2e2;color:#dc2626}
   .status-pending{background:#fef3c7;color:#d97706}
+  .status-rented{background:#e0e7ff;color:#4338ca}
   .empty{text-align:center;padding:2rem;color:var(--text-sec);font-size:14px}
   .search-input{width:100%;height:38px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:13px;margin-bottom:1rem;outline:none}
   .search-input:focus{border-color:var(--green)}
@@ -285,7 +286,15 @@ function renderProps() {
       ${p.status==='approved'?`
       <div class="prop-actions">
         <button class="unpublish-btn" onclick="updateProp(${p.id},'pending')">⏸ Unpublish</button>
+        <button class="unpublish-btn" onclick="updateProp(${p.id},'rented')">🏠 Mark as Rented</button>
       </div>`:''}
+      ${p.status==='rented'?`
+      <div class="prop-actions">
+        <button class="unpublish-btn" onclick="updateProp(${p.id},'approved')">↩ Mark Available Again</button>
+      </div>`:''}
+      <div class="prop-actions">
+        <button class="reject-btn" onclick="deleteProp(${p.id},'${escapeHtml(p.name)}')">🗑 Delete Permanently</button>
+      </div>
     </div>`).join('');
 }
 
@@ -317,6 +326,30 @@ async function updateProp(id, status) {
     if (data.success) {
       const prop = allProps.find(p=>p.id===id);
       if (prop) prop.status = status;
+      updateStats();
+      renderOverview();
+      renderProps();
+    } else {
+      alert('Error: ' + JSON.stringify(data.error));
+    }
+  } catch(e) {
+    alert('Something went wrong: ' + e.message);
+  }
+}
+
+async function deleteProp(id, name) {
+  if (!confirm(`Permanently delete "${name}"? This cannot be undone — the listing and its photos will be gone for good. Use "Mark as Rented" instead if this property was just rented out and you want to keep the record.`)) {
+    return;
+  }
+  try {
+    const resp = await fetch('/api/delete-property', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id, admin_password: adminPassword })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      allProps = allProps.filter(p=>p.id!==id);
       updateStats();
       renderOverview();
       renderProps();

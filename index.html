@@ -218,7 +218,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="hero">
     <div class="hero-badge"><i class="ti ti-sparkles" style="font-size:13px"></i> Nigeria's first AI rental assistant</div>
     <h1 class="hero-title">Find your next home in<br><span>Nigeria</span> — the smart way</h1>
-    <p class="hero-sub">Search rentals in Lagos, Abuja, and Jos using plain English. Get neighborhood insights on water, electricity, security, and flooding — before you inspect.</p>
+    <p class="hero-sub">Search rentals across Nigeria using plain English. Get neighborhood insights on water, electricity, security, and flooding — before you inspect.</p>
     <div class="hero-btns">
       <a href="#" class="hero-cta" onclick="showApp()"><i class="ti ti-search"></i> Find My House</a>
       <a href="#waitlist" class="hero-cta-sec"><i class="ti ti-bell"></i> Join Waitlist</a>
@@ -226,8 +226,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <div class="stats-row">
-    <div class="stat-item"><div class="stat-num">15+</div><div class="stat-label">Demo listings</div></div>
-    <div class="stat-item"><div class="stat-num">5</div><div class="stat-label">States covered</div></div>
+    <div class="stat-item"><div class="stat-num" id="statListings">0</div><div class="stat-label">Live listings</div></div>
+    <div class="stat-item"><div class="stat-num" id="statStates">0</div><div class="stat-label">States covered</div></div>
     <div class="stat-item"><div class="stat-num">0₦</div><div class="stat-label">Free to search</div></div>
     <div class="stat-item"><div class="stat-num">24hr</div><div class="stat-label">Agent verification</div></div>
   </div>
@@ -382,7 +382,13 @@ let PROPS = [];
 let propertiesLoaded = false;
 
 function getSystem(){
-return `You are NaijaNest, a friendly Nigerian house rental AI assistant. You help people find rentals in Lagos, Abuja, Jos, Kwara and Kebbi, Nigeria.
+const activeCities = [...new Set(PROPS.map(p=>p.city))];
+const coverageLine = activeCities.length
+  ? `You currently have verified listings in: ${activeCities.join(', ')}.`
+  : `You don't have any verified listings yet — new ones are added regularly.`;
+return `You are NaijaNest, a friendly Nigerian house rental AI assistant helping people find rentals across Nigeria.
+
+${coverageLine}
 
 Available properties (JSON):
 ${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
@@ -441,7 +447,7 @@ EXAMPLE 2 - Uncovered area:
 User: "Do you have anything in Calabar?"
 Response: "Ah, we don't have listings in Calabar just yet but we're expanding every month, so that could change soon! 🌍
 
-In the meantime, I can help you find something in one of our active locations — Lagos, Abuja, Jos, Kebbi, or Kwara.
+In the meantime, I can help you find something in one of our active locations — ${activeCities.join(', ')}.
 
 Would any of those work for you? If not, join our waitlist — ` + waitlistCount + ` people have already signed up! We'll notify you on WhatsApp the moment we launch in your area. 👉 Scroll down to join free.
 
@@ -579,7 +585,7 @@ function showApp(){
   document.getElementById('landingPage').style.display='none';
   document.getElementById('appPage').style.display='block';
   if(!history.length){
-    setTimeout(()=>{addMsg('ai','Welcome to NaijaNest! 🏠 I can help you find a rental in Lagos, Abuja, Jos, Kwara, or Kebbi — and give you the real gist on the neighborhood: water supply, NEPA situation, security, flooding, and more. What are you looking for?')},300);
+    setTimeout(()=>{addMsg('ai','Welcome to NaijaNest! 🏠 I can help you find a rental across Nigeria — and give you the real gist on the neighborhood: water supply, NEPA situation, security, flooding, and more. What are you looking for?')},300);
   }
   return false;
 }
@@ -868,7 +874,18 @@ async function loadRealProperties(){
     PROPS = [];
   }
   propertiesLoaded = true;
+  updateCoverageStats();
   renderDemoGrid();
+}
+
+// Keeps the homepage stats honest — driven entirely by whatever's actually
+// approved right now, so a newly-added Sokoto listing shows up here automatically
+// and a removed/rented-out listing disappears from the count just as automatically.
+function updateCoverageStats(){
+  const statListings = document.getElementById('statListings');
+  const statStates = document.getElementById('statStates');
+  if (statListings) statListings.textContent = PROPS.length;
+  if (statStates) statStates.textContent = new Set(PROPS.map(p=>p.city)).size;
 }
 
 // Waitlist counter — goes through a public, PII-free count endpoint
