@@ -12,7 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="NaijaNest"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/auth.js"></script>
 <style>
@@ -93,7 +94,7 @@ async function render(){
         const isFeatured = p.featured && p.featured_until && new Date(p.featured_until) > new Date();
         return `
         <div class="listing-card">
-          <img class="listing-thumb" src="${(p.photo_urls&&p.photo_urls[0])||''}" onerror="this.style.background='#e5e7eb'"/>
+          <img class="listing-thumb" src="${(p.photo_urls&&p.photo_urls[0])||''}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
           <div class="listing-info">
             <div class="listing-name">${escapeHtml(p.name)} ${isFeatured ? '<span style="font-size:11px;color:#d97706">⭐ Featured</span>' : ''}</div>
             <div class="listing-meta">${escapeHtml(p.area)}, ${escapeHtml(p.city)} · ${fmt(p.price)}/yr</div>

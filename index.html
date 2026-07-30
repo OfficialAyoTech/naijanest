@@ -12,7 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="NaijaNest"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/></noscript>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -615,7 +616,7 @@ function showProps(ids){
   let html='<div class="props-scroll" style="padding:8px 1rem 4px">';
   props.forEach(p=>{
     html+=`<div class="chat-prop-card" onclick="openDetail(${p.id})">
-      <img class="chat-prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
+      <img class="chat-prop-img" src="${p.img}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
       <div class="chat-prop-body">
         <div style="display:flex;gap:4px;margin-bottom:4px">
           ${p.verified?'<span style="font-size:10px;padding:2px 6px;border-radius:20px;background:#dcfce7;color:#16a34a;font-weight:600">✅ Verified</span>':''}
@@ -670,10 +671,10 @@ function openDetail(id){
   const secDot=['very safe','extremely safe'].some(w=>nb.sec.toLowerCase().includes(w))?'dot-g':'dot-a';
   const floodDot=['low','no flood','zero','elevated'].some(w=>nb.flood.toLowerCase().includes(w))?'dot-g':'dot-a';
   const photos = p.photos || [p.img];
-  const thumbsHtml = photos.map((ph,i)=>`<img class="photo-thumb${i===0?' active':''}" src="${ph}" onclick="switchPhoto('${ph}',this)" onerror="this.style.display='none'"/>`).join('');
+  const thumbsHtml = photos.map((ph,i)=>`<img class="photo-thumb${i===0?' active':''}" src="${ph}" loading="lazy" decoding="async" onclick="switchPhoto('${ph}',this)" onerror="this.style.display='none'"/>`).join('');
   document.getElementById('detailBody').innerHTML=`
     <div class="photo-gallery">
-      <img id="mainPhoto" src="${photos[0]}" alt="${p.name}" onerror="this.style.background='#e5e7eb'" style="width:100%;height:220px;object-fit:cover;display:block"/>
+      <img id="mainPhoto" src="${photos[0]}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'" style="width:100%;height:220px;object-fit:cover;display:block"/>
       ${photos.length>1?`<div class="photo-thumbs">${thumbsHtml}</div>`:''}
     </div>
     <div class="detail-body">
@@ -791,7 +792,7 @@ function renderDemoGrid(filter='all'){
   }
   grid.innerHTML = filtered.map(p=>`
     <div class="prop-card" onclick="showApp()">
-      <img class="prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
+      <img class="prop-img" src="${p.img}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
       <div class="prop-body">
         <div class="prop-badges">
           ${p.featured?'<span class="badge-verified" style="background:#fef3c7;color:#d97706"><i class="ti ti-star" style="font-size:10px"></i> Featured</span>':''}
@@ -930,7 +931,7 @@ window.naOpenFavorites = async function(){
   }
   body.innerHTML = favProps.map(p=>`
     <div class="chat-prop-card" style="width:100%;margin-bottom:10px" onclick="closeFavorites();openDetail(${p.id})">
-      <img class="chat-prop-img" src="${p.img}" alt="${p.name}" onerror="this.style.background='#e5e7eb'"/>
+      <img class="chat-prop-img" src="${p.img}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
       <div class="chat-prop-body">
         <div class="chat-prop-price">${fmt(p.price)}</div>
         <div class="chat-prop-name">${p.name}</div>
