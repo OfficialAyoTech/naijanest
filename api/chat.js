@@ -1,3 +1,43 @@
+const MAX_REQUESTS = 15;
+const WINDOW_MINUTES = 5;
+
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+async function checkRateLimit(ip) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const key = `chat:${ip}`;
+  const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
+
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/rate_limit_events?key=eq.${encodeURIComponent(key)}&created_at=gte.${since}&select=id`,
+      { headers }
+    );
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows.length >= MAX_REQUESTS) return false;
+    }
+  } catch (e) {
+    console.error('chat rate limit check failed:', e.message);
+    return true;
+  }
+
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/rate_limit_events`, {
+      method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({ key }),
+    });
+  } catch (e) {
+    console.error('chat rate limit record failed:', e.message);
+  }
+  return true;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -5,15 +45,22 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  const ip = getClientIp(req);
+  const allowed = await checkRateLimit(ip);
+  if (!allowed) {
+    return res.status(200).json({
+      content: [{ type: 'text', text: "You're sending messages a bit quickly - please wait a minute and try again 🙏" }]
+    });
+  }
+
   const { messages, system } = req.body;
   const truncatedSystem = system && system.length > 8000 ? system.substring(0, 8000) : system;
   const groqMessages = [{ role: 'system', content: truncatedSystem }, ...messages];
 
-  // Try primary model first, fall back to backup if rate limited
   const models = [
-    'llama-3.3-70b-versatile',  // Primary - smarter
-    'llama-3.1-8b-instant',     // Backup - faster, uses fewer tokens
-    'gemma2-9b-it'              // Last resort
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'gemma2-9b-it'
   ];
 
   for (const model of models) {
@@ -34,14 +81,12 @@ export default async function handler(req, res) {
 
       const data = await response.json();
 
-      // If rate limited, try next model
       if (!response.ok) {
         const errorCode = data?.error?.code;
         if (errorCode === 'rate_limit_exceeded') {
           console.log(`Model ${model} rate limited, trying next...`);
-          continue; // Try next model
+          continue;
         }
-        // Other error - return friendly message
         console.error(`Model ${model} error:`, JSON.stringify(data));
         return res.status(200).json({
           content: [{ type: 'text', text: 'Hi! 👋 Our AI assistant is taking a short break. Please try again in a few minutes 🙏' }]
@@ -54,11 +99,10 @@ export default async function handler(req, res) {
 
     } catch (error) {
       console.error(`Error with model ${model}:`, error.message);
-      continue; // Try next model
+      continue;
     }
   }
 
-  // All models failed
   return res.status(200).json({
     content: [{ type: 'text', text: 'Hi! 👋 Our AI assistant is taking a short break right now. Please try again in a few minutes 🙏' }]
   });
