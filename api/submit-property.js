@@ -1,3 +1,106 @@
+const CITIES = ['Lagos', 'Abuja', 'Jos', 'Kwara', 'Kebbi'];
+const TYPES = ['self-con', 'mini-flat', 'flat', 'duplex', 'bungalow', 'terrace', 'mansion'];
+const FLOOD_RISKS = ['Low risk', 'Moderate risk', 'High risk'];
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function truncate(str, max) {
+  return String(str).slice(0, max);
+}
+
+function validateProperty(body) {
+  const name = truncate(escapeHtml((body.name || '').trim()), 100);
+  if (!name) return { error: 'Property title is required' };
+
+  const area = truncate(escapeHtml((body.area || '').trim()), 100);
+  if (!area) return { error: 'Area/neighbourhood is required' };
+
+  const city = (body.city || '').trim();
+  if (!CITIES.includes(city)) return { error: 'Invalid city' };
+
+  const type = (body.type || '').trim();
+  if (!TYPES.includes(type)) return { error: 'Invalid property type' };
+
+  const price = parseInt(body.price, 10);
+  if (!Number.isFinite(price) || price <= 0 || price > 1000000000) {
+    return { error: 'Invalid price' };
+  }
+
+  const bedrooms = parseInt(body.bedrooms, 10);
+  if (!Number.isFinite(bedrooms) || bedrooms < 1 || bedrooms > 20) {
+    return { error: 'Invalid number of bedrooms' };
+  }
+  const bathrooms = parseInt(body.bathrooms, 10);
+  if (!Number.isFinite(bathrooms) || bathrooms < 1 || bathrooms > 20) {
+    return { error: 'Invalid number of bathrooms' };
+  }
+
+  const description = truncate(escapeHtml((body.description || '').trim()), 2000);
+
+  const rawAmenities = Array.isArray(body.amenities) ? body.amenities : [];
+  const amenities = rawAmenities.slice(0, 30).map((a) => truncate(escapeHtml(String(a)), 50));
+
+  const landlordName = truncate(escapeHtml((body.landlord_name || '').trim()), 100);
+  if (!landlordName) return { error: 'Landlord name is required' };
+
+  const phoneDigits = (body.landlord_phone || '').replace(/[^\d+]/g, '');
+  if (!/^(\+?234\d{10}|0\d{10})$/.test(phoneDigits)) {
+    return { error: 'Please enter a valid Nigerian phone number' };
+  }
+
+  let landlordEmail = (body.landlord_email || '').trim();
+  if (landlordEmail) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(landlordEmail) || landlordEmail.length > 254) {
+      return { error: 'Please enter a valid email address' };
+    }
+    landlordEmail = escapeHtml(landlordEmail);
+  }
+
+  const ninNumber = (body.nin_number || '').trim();
+  if (!/^\d{11}$/.test(ninNumber)) {
+    return { error: 'NIN must be exactly 11 digits' };
+  }
+
+  const securityInfo = truncate(escapeHtml((body.security_info || '').trim()), 300);
+  if (!securityInfo) return { error: 'Security info is required' };
+  const waterInfo = truncate(escapeHtml((body.water_info || '').trim()), 300);
+  if (!waterInfo) return { error: 'Water info is required' };
+  const electricityInfo = truncate(escapeHtml((body.electricity_info || '').trim()), 300);
+  if (!electricityInfo) return { error: 'Electricity info is required' };
+
+  const floodRisk = (body.flood_risk || '').trim();
+  if (!FLOOD_RISKS.includes(floodRisk)) return { error: 'Invalid flood risk value' };
+
+  const nearbySchools = truncate(escapeHtml((body.nearby_schools || '').trim()), 300);
+  const nearbyMarkets = truncate(escapeHtml((body.nearby_markets || '').trim()), 300);
+
+  const rawPhotoUrls = Array.isArray(body.photo_urls) ? body.photo_urls : [];
+  const expectedPrefix = `${process.env.SUPABASE_URL}/storage/v1/object/public/property-photos/`;
+  const photoUrls = rawPhotoUrls
+    .filter((u) => typeof u === 'string' && u.startsWith(expectedPrefix))
+    .slice(0, 10);
+  if (photoUrls.length < 3) {
+    return { error: 'At least 3 valid property photos are required' };
+  }
+
+  return {
+    data: {
+      name, area, city, type, price, bedrooms, bathrooms, description, amenities,
+      landlord_name: landlordName, landlord_phone: phoneDigits, landlord_email: landlordEmail,
+      nin_number: ninNumber, security_info: securityInfo, water_info: waterInfo,
+      electricity_info: electricityInfo, flood_risk: floodRisk,
+      nearby_schools: nearbySchools, nearby_markets: nearbyMarkets, photo_urls: photoUrls,
+    },
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -22,6 +125,11 @@ export default async function handler(req, res) {
     }
     const user = await userResp.json();
 
+    const validated = validateProperty(body);
+    if (validated.error) {
+      return res.status(400).json({ error: validated.error });
+    }
+
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties`, {
       method: 'POST',
       headers: {
@@ -31,16 +139,7 @@ export default async function handler(req, res) {
         'Prefer': 'return=minimal'
       },
       body: JSON.stringify({
-        name: body.name, area: body.area, city: body.city,
-        bedrooms: parseInt(body.bedrooms), bathrooms: parseInt(body.bathrooms),
-        price: parseInt(body.price), type: body.type, description: body.description,
-        amenities: body.amenities, landlord_name: body.landlord_name,
-        landlord_phone: body.landlord_phone, landlord_email: body.landlord_email,
-        nin_number: body.nin_number,
-        security_info: body.security_info, water_info: body.water_info,
-        electricity_info: body.electricity_info, flood_risk: body.flood_risk,
-        nearby_schools: body.nearby_schools, nearby_markets: body.nearby_markets,
-        photo_urls: body.photo_urls || [],
+        ...validated.data,
         user_id: user.id,
         status: 'pending'
       })
