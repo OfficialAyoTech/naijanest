@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+// Vercel must not pre-parse the body — we need the exact raw bytes to verify Meta's
+// X-Hub-Signature-256 header, same reasoning as paystack-webhook.js.
 export const config = { api: { bodyParser: false } };
 
 function getRawBody(req) {
@@ -11,6 +13,8 @@ function getRawBody(req) {
   });
 }
 
+// Shared rate-limit table with chat.js (rate_limit_events: key, created_at).
+// Returns true if this key has already hit maxRequests within windowMinutes.
 async function isRateLimited(key, maxRequests, windowMinutes, serviceKey) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
   const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
@@ -26,7 +30,7 @@ async function isRateLimited(key, maxRequests, windowMinutes, serviceKey) {
     }
   } catch (e) {
     console.error('whatsapp webhook: rate-limit check failed:', e.message);
-    return false;
+    return false; // fail open on infra errors
   }
 
   try {
@@ -40,6 +44,11 @@ async function isRateLimited(key, maxRequests, windowMinutes, serviceKey) {
   return false;
 }
 
+// WhatsApp Cloud API webhook (Meta direct — no BSP markup).
+// GET  = Meta's one-time webhook verification handshake.
+// POST = incoming message events.
+// Everything is inline in this one exported function (no delegate helper for
+// the request handling itself) to match every other endpoint in this project.
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -57,10 +66,13 @@ export default async function handler(req, res) {
 
   const rawBody = await getRawBody(req);
 
+  // Verify this really came from Meta before doing anything else with it.
+  // Meta signs the request body with our App Secret (HMAC SHA-256); anything
+  // without a matching signature is rejected outright.
   const signatureHeader = req.headers['x-hub-signature-256'];
   const appSecret = process.env.META_APP_SECRET;
   if (!appSecret) {
-    console.error('whatsapp webhook: META_APP_SECRET is not set - rejecting all requests until configured');
+    console.error('whatsapp webhook: META_APP_SECRET is not set — rejecting all requests until configured');
     return res.status(500).send('Server misconfigured');
   }
   const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
@@ -90,13 +102,17 @@ export default async function handler(req, res) {
       return res.status(200).send('EVENT_RECEIVED');
     }
 
-    const from = message.from;
+    const from = message.from; // sender's WhatsApp number, E.164 digits, no '+'
     const text = message.text.body;
     console.log('whatsapp webhook: received message from', from, '-', text);
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
+    // Per-phone-number rate limit — signature verification already blocks spoofed
+    // requests, but a real user could still script rapid-fire messages from their
+    // own number to run up Groq costs. 20 messages / 10 min is generous for a real
+    // conversation but blocks scripted abuse.
     const rateLimited = await isRateLimited(`whatsapp:${from}`, 20, 10, serviceKey);
     if (rateLimited) {
       console.log('whatsapp webhook: rate limit hit for', from, '- silently dropping');
@@ -114,8 +130,9 @@ export default async function handler(req, res) {
     let history = (sessionRows[0]?.messages) || [];
 
     history.push({ role: 'user', content: text });
-    if (history.length > 20) history = history.slice(-20);
+    if (history.length > 20) history = history.slice(-20); // keep context bounded
 
+    // ---- Build the system prompt from real, approved listings ----
     console.log('whatsapp webhook: fetching properties...');
     let properties = [];
     try {
@@ -133,13 +150,19 @@ export default async function handler(req, res) {
       security: p.security_info || '', water: p.water_info || '',
       electricity: p.electricity_info || '', flood: p.flood_risk || '',
     }));
-    const system = `You are the NaijaNest AI assistant, chatting with a user over WhatsApp. NaijaNest is Nigeria's AI-powered house rental assistant, covering Lagos, Abuja, Jos, Kwara, and Kebbi.
+    const activeCities = [...new Set(propsForPrompt.map(p => p.city))];
+    const coverageLine = activeCities.length
+      ? `You currently have verified listings in: ${activeCities.join(', ')}.`
+      : `You don't have any verified listings yet — new ones are added regularly.`;
+    const system = `You are the NaijaNest AI assistant, chatting with a user over WhatsApp. NaijaNest is Nigeria's AI-powered house rental assistant.
+
+${coverageLine}
 
 RULES:
-1. Only ever mention properties from the JSON list below - never invent a property, price, or address.
-2. Match a requested state/city against each property's "city" field (case-insensitive). "Ilorin" means city="Kwara". "Jos" or "Plateau" means city="Jos". "FCT" means city="Abuja".
+1. Only ever mention properties from the JSON list below — never invent a property, price, or address.
+2. Match a requested state/city against each property's "city" field (case-insensitive). "Ilorin" means city="Kwara". "FCT" means city="Abuja".
 3. If the list is empty, or nothing matches the requested city, say NaijaNest doesn't have verified listings there yet and that new ones are added regularly. Do not invent one.
-4. This is WhatsApp - plain text only. No markdown tables, no special card syntax. Keep replies short and scannable: a few lines per property (name, area, price, one line of neighborhood info), not paragraphs.
+4. This is WhatsApp — plain text only. No markdown tables, no special card syntax. Keep replies short and scannable: a few lines per property (name, area, price, one line of neighborhood info), not paragraphs.
 5. Answer questions about security, water, electricity, and flood risk using the fields provided for that property.
 6. If asked how to submit a property, tell them to visit naijanest.vercel.app/list-property.html.
 7. Be warm and conversational, like a knowledgeable friend, not a formal customer service bot.
@@ -147,6 +170,7 @@ RULES:
 CURRENT VERIFIED LISTINGS (JSON):
 ${JSON.stringify(propsForPrompt)}`;
 
+    // ---- Call Groq, with the same model fallback as the web chat ----
     console.log('whatsapp webhook: calling Groq...');
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
     const messages = [{ role: 'system', content: system }, ...history];

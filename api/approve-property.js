@@ -62,11 +62,16 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const { id, status, admin_password } = req.body;
+    const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'rented'];
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const auth = await checkAdminAuth(req, admin_password, serviceKey);
     if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
     const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
 
+    // Fetch details first so we can notify the landlord after a successful update
     const propResp = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}&select=name,landlord_name,landlord_phone`,
       { headers }
@@ -81,6 +86,9 @@ export default async function handler(req, res) {
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
 
+    // Best-effort WhatsApp notification — never let this fail the approve/reject action itself.
+    // Awaited (not fire-and-forget) because Vercel can freeze the function shortly after
+    // the response is sent, which would kill an in-flight, un-awaited request.
     if (property && (status === 'approved' || status === 'rejected')) {
       try {
         await notifyLandlord(property, status);
@@ -95,6 +103,9 @@ export default async function handler(req, res) {
   }
 }
 
+// Sends a pre-approved WhatsApp template ("listing_status_update") to the landlord.
+// Requires WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID env vars and the template to be
+// approved in Meta's WhatsApp Manager. Silently no-ops if not configured or no phone.
 async function notifyLandlord(property, status) {
   if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
   if (!property.landlord_phone) return;

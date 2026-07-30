@@ -1,7 +1,17 @@
-const CITIES = ['Lagos', 'Abuja', 'Jos', 'Kwara', 'Kebbi'];
+const CITIES = [
+  'Abia', 'Abuja', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
+  'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Gombe', 'Imo',
+  'Jigawa', 'Jos', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
+  'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Rivers', 'Sokoto', 'Taraba',
+  'Yobe', 'Zamfara',
+];
 const TYPES = ['self-con', 'mini-flat', 'flat', 'duplex', 'bungalow', 'terrace', 'mansion'];
 const FLOOD_RISKS = ['Low risk', 'Moderate risk', 'High risk'];
 
+// Escapes HTML special characters. The frontend renders several of these fields
+// via innerHTML (property detail modal, cards, etc.) without escaping — so this
+// is the one place stopping a malicious listing from running a script in every
+// visitor's browser (stored XSS), not just data-quality cleanup.
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -15,6 +25,8 @@ function truncate(str, max) {
   return String(str).slice(0, max);
 }
 
+// Validates and normalizes the submission. Returns { error: '...' } on the
+// first problem found, or { data: {...} } with clean, safe values ready to insert.
 function validateProperty(body) {
   const name = truncate(escapeHtml((body.name || '').trim()), 100);
   if (!name) return { error: 'Property title is required' };
@@ -29,7 +41,7 @@ function validateProperty(body) {
   if (!TYPES.includes(type)) return { error: 'Invalid property type' };
 
   const price = parseInt(body.price, 10);
-  if (!Number.isFinite(price) || price <= 0 || price > 1000000000) {
+  if (!Number.isFinite(price) || price <= 0 || price > 1_000_000_000) {
     return { error: 'Invalid price' };
   }
 
@@ -110,6 +122,7 @@ export default async function handler(req, res) {
   try {
     const body = req.body;
 
+    // Verify identity server-side — never trust a client-supplied user_id.
     const accessToken = body.access_token;
     if (!accessToken) {
       return res.status(401).json({ error: 'Please sign in to list a property' });
@@ -121,7 +134,7 @@ export default async function handler(req, res) {
       },
     });
     if (!userResp.ok) {
-      return res.status(401).json({ error: 'Your session has expired - please sign in again' });
+      return res.status(401).json({ error: 'Your session has expired — please sign in again' });
     }
     const user = await userResp.json();
 
@@ -146,6 +159,10 @@ export default async function handler(req, res) {
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
 
+    // Best-effort: tag this user's profile as a landlord now that they've actually
+    // listed a property. Self-declared, not a security boundary (see submit-property
+    // review notes) — purely so role data reflects reality for future features
+    // (agent bulk tools, role-based analytics, etc). Never let this fail the submission.
     try {
       await tagAsLandlordIfNeeded(user.id);
     } catch (e) {
@@ -170,6 +187,7 @@ async function tagAsLandlordIfNeeded(userId) {
   const rows = await profResp.json();
   const currentRole = rows[0]?.role;
 
+  // Don't downgrade an existing agent, and don't bother re-writing if already landlord.
   if (currentRole === 'landlord' || currentRole === 'agent') return;
 
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
