@@ -1,7 +1,5 @@
 import crypto from 'crypto';
 
-// Vercel must not pre-parse the body - we need the exact raw bytes to verify Meta's
-// X-Hub-Signature-256 header, same reasoning as paystack-webhook.js.
 export const config = { api: { bodyParser: false } };
 
 function getRawBody(req) {
@@ -13,9 +11,35 @@ function getRawBody(req) {
   });
 }
 
-// WhatsApp Cloud API webhook (Meta direct - no BSP markup).
-// GET  = Meta's one-time webhook verification handshake.
-// POST = incoming message events.
+async function isRateLimited(key, maxRequests, windowMinutes, serviceKey) {
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/rate_limit_events?key=eq.${encodeURIComponent(key)}&created_at=gte.${since}&select=id`,
+      { headers }
+    );
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows.length >= maxRequests) return true;
+    }
+  } catch (e) {
+    console.error('whatsapp webhook: rate-limit check failed:', e.message);
+    return false;
+  }
+
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/rate_limit_events`, {
+      method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({ key }),
+    });
+  } catch (e) {
+    console.error('whatsapp webhook: rate-limit record failed:', e.message);
+  }
+  return false;
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -72,6 +96,12 @@ export default async function handler(req, res) {
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+    const rateLimited = await isRateLimited(`whatsapp:${from}`, 20, 10, serviceKey);
+    if (rateLimited) {
+      console.log('whatsapp webhook: rate limit hit for', from, '- silently dropping');
+      return res.status(200).send('EVENT_RECEIVED');
+    }
 
     console.log('whatsapp webhook: loading session...');
     const sessionResp = await fetch(
