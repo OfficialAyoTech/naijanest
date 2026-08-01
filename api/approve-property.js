@@ -61,15 +61,57 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
-    const { id, status, admin_password } = req.body;
-    const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'rented'];
-    if (!ALLOWED_STATUSES.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status value' });
-    }
+    const { id, status, admin_password, action } = req.body;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const auth = await checkAdminAuth(req, admin_password, serviceKey);
     if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
     const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
+
+    // action:'delete' permanently removes the property (and its photos). Kept in this
+    // same function, not a separate file, because Vercel's Hobby plan caps a deployment
+    // at 12 serverless functions — merging this in keeps us under that limit instead of
+    // adding a 13th route.
+    if (action === 'delete') {
+      if (!id) return res.status(400).json({ error: 'Missing property id' });
+
+      const propResp = await fetch(
+        `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}&select=photo_urls`,
+        { headers }
+      );
+      const propRows = await propResp.json();
+      const photoUrls = Array.isArray(propRows[0]?.photo_urls) ? propRows[0].photo_urls : [];
+
+      const deleteResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { ...headers, Prefer: 'return=minimal' },
+      });
+      if (!deleteResp.ok) {
+        const err = await deleteResp.text();
+        return res.status(400).json({ error: err });
+      }
+
+      const bucketPrefix = `${process.env.SUPABASE_URL}/storage/v1/object/public/property-photos/`;
+      for (const url of photoUrls) {
+        if (typeof url !== 'string' || !url.startsWith(bucketPrefix)) continue;
+        const path = url.slice(bucketPrefix.length);
+        try {
+          await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/property-photos/${path}`, {
+            method: 'DELETE',
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+          });
+        } catch (e) {
+          console.error('approve-property (delete): failed to delete photo', path, e.message);
+        }
+      }
+
+      return res.status(200).json({ success: true });
+    }
+
+    // Default behavior: update status (approve / reject / unpublish / mark rented).
+    const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'rented'];
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
 
     // Fetch details first so we can notify the landlord after a successful update
     const propResp = await fetch(
