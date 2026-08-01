@@ -342,10 +342,10 @@ async function deleteProp(id, name) {
     return;
   }
   try {
-    const resp = await fetch('/api/delete-property', {
+    const resp = await fetch('/api/approve-property', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id, admin_password: adminPassword })
+      body: JSON.stringify({ id, action: 'delete', admin_password: adminPassword })
     });
     const data = await resp.json();
     if (data.success) {
