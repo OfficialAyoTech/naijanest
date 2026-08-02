@@ -262,13 +262,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="demo-section">
     <div class="section-title" style="margin-bottom:6px">Browse demo listings</div>
     <div class="section-sub">These are sample properties to show you how it works</div>
-    <div class="demo-chips">
+    <div class="demo-chips" id="demoChips">
       <span class="demo-chip active" onclick="filterDemo('all',this)">All</span>
-      <span class="demo-chip" onclick="filterDemo('Lagos',this)">Lagos</span>
-      <span class="demo-chip" onclick="filterDemo('Abuja',this)">Abuja</span>
-      <span class="demo-chip" onclick="filterDemo('Jos',this)">Jos</span>
-      <span class="demo-chip" onclick="filterDemo('Kwara',this)">Kwara</span>
-      <span class="demo-chip" onclick="filterDemo('Kebbi',this)">Kebbi</span>
     </div>
     <div class="prop-grid" id="demoGrid"></div>
     <div style="text-align:center;margin-top:1.25rem">
@@ -329,13 +324,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
       <div id="acctBtnApp"></div>
     </div>
-    <div class="city-pills">
-      <span class="city-pill">📍 Lagos</span>
-      <span class="city-pill">📍 Abuja</span>
-      <span class="city-pill">📍 Jos</span>
-      <span class="city-pill">📍 Kwara</span>
-      <span class="city-pill">📍 Kebbi</span>
-    </div>
+    <div class="city-pills" id="cityPills"></div>
     <div class="chat-area">
       <div class="messages" id="messages"></div>
       <div id="propsArea"></div>
@@ -408,7 +397,7 @@ Want to know more about how we verify listings, or would you rather jump into a 
 
 NEVER shorten this. NEVER paraphrase this. Use it EXACTLY as written above.
 
-2. STATE vs CITY: Match the requested location against the "city" field in the JSON list above (case-insensitive). "Ilorin" means city="Kwara". "Plateau" or "Jos" means city="Jos". "FCT" means city="Abuja". Always show ALL properties whose city field matches the requested state.
+2. STATE vs CITY: Match the requested location against the "city" field in the JSON list above (case-insensitive). "Ilorin" means city="Kwara". "Jos" means city="Plateau" (Jos is a city within Plateau State, not its own state). "FCT" means city="Abuja". Always show ALL properties whose city field matches the requested state.
 
 2b. EMPTY INVENTORY: If the JSON list above is completely empty, or has no properties matching the requested city, tell the user warmly that NaijaNest doesn't have verified listings there yet, that new ones are added as landlords are verified, and invite them to join the waitlist so they're notified. Do NOT invent or hallucinate any property. Do NOT output a SHOW_PROPS line if there is nothing to show.
 
@@ -673,7 +662,7 @@ function openDetail(id){
   selectedProp=PROPS.find(p=>p.id===id);
   if(!selectedProp)return;
   const p=selectedProp;const nb=p.nb;
-  document.getElementById('detailHead').textContent=p.area+', '+p.city;
+  document.getElementById('detailHead').textContent=p.area+(p.lga?', '+p.lga:'')+', '+p.city;
   const secDot=['very safe','extremely safe'].some(w=>nb.sec.toLowerCase().includes(w))?'dot-g':'dot-a';
   const floodDot=['low','no flood','zero','elevated'].some(w=>nb.flood.toLowerCase().includes(w))?'dot-g':'dot-a';
   const photos = p.photos || [p.img];
@@ -688,7 +677,7 @@ function openDetail(id){
         <div class="detail-price">${fmt(p.price)}${p.featured?' <span style="font-size:11px;color:#d97706;font-weight:500;vertical-align:middle">⭐ Featured</span>':''}</div>
         <button id="favBtn" onclick="toggleFavorite(${p.id})" style="background:none;border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#1a1a1a">🤍 Save</button>
       </div>
-      <div class="detail-title">${p.name} — ${p.area}, ${p.city}</div>
+      <div class="detail-title">${p.name} — ${p.area}${p.lga?', '+p.lga:''}, ${p.city}</div>
       <div class="trust-badges-row">
         ${p.verified?'<span class="tbadge tbadge-green"><i class="ti ti-shield-check"></i> Verified Agent</span>':'<span class="tbadge tbadge-orange"><i class="ti ti-clock"></i> Pending Verification</span>'}
         <span class="tbadge tbadge-blue"><i class="ti ti-calendar"></i> Inspection available</span>
@@ -849,7 +838,7 @@ async function loadRealProperties(){
       PROPS = realProps.map(p=>{
         const photos = (Array.isArray(p.photo_urls) && p.photo_urls.length) ? p.photo_urls : [placeholder];
         return {
-        id:p.id,name:p.name,area:p.area,city:p.city,bed:p.bedrooms,bath:p.bathrooms,
+        id:p.id,name:p.name,area:p.area,city:p.city,lga:p.lga,bed:p.bedrooms,bath:p.bathrooms,
         price:p.price,type:p.type,verified:true,inspections:0,rentals:0,
         amenities:p.amenities||[],
         img:photos[0],
@@ -884,8 +873,22 @@ async function loadRealProperties(){
 function updateCoverageStats(){
   const statListings = document.getElementById('statListings');
   const statStates = document.getElementById('statStates');
+  const activeCities = [...new Set(PROPS.map(p=>p.city))].sort();
   if (statListings) statListings.textContent = PROPS.length;
-  if (statStates) statStates.textContent = new Set(PROPS.map(p=>p.city)).size;
+  if (statStates) statStates.textContent = activeCities.length;
+
+  const chipsEl = document.getElementById('demoChips');
+  if (chipsEl) {
+    chipsEl.innerHTML = '<span class="demo-chip active" onclick="filterDemo(\'all\',this)">All</span>'
+      + activeCities.map(c => `<span class="demo-chip" onclick="filterDemo('${c}',this)">${c}</span>`).join('');
+  }
+
+  const pillsEl = document.getElementById('cityPills');
+  if (pillsEl) {
+    pillsEl.innerHTML = activeCities.length
+      ? activeCities.map(c=>`<span class="city-pill">📍 ${c}</span>`).join('')
+      : `<span class="city-pill">📍 New listings added regularly</span>`;
+  }
 }
 
 // Waitlist counter — goes through a public, PII-free count endpoint
