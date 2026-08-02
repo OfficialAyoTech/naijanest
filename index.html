@@ -68,16 +68,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .demo-chip:hover,.demo-chip.active{border-color:var(--green);color:var(--green);background:var(--green-light)}
 .prop-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
 .prop-card{min-width:220px;background:var(--white);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .15s;flex-shrink:0;box-shadow:var(--shadow)}
-.prop-card:hover{border-color:var(--green);transform:translateY(-2px)}
-.prop-img{width:100%;height:150px;object-fit:cover;object-position:center;display:block;background:#e5e7eb}
+.prop-card:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 8px 20px rgba(26,107,58,0.12)}
+.prop-img-wrap{position:relative;width:100%;height:150px;background:#e5e7eb}
+.prop-img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.prop-img-wrap::after{content:'';position:absolute;left:0;right:0;bottom:0;height:60%;background:linear-gradient(to top,rgba(0,0,0,0.55),rgba(0,0,0,0));pointer-events:none}
+.prop-badges-top{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;gap:6px;z-index:1}
+.prop-price-overlay{position:absolute;left:10px;bottom:8px;z-index:1;color:#fff;font-size:15px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,0.4)}
 .prop-body{padding:10px 12px}
-.prop-badges{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
 .badge-verified{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#dcfce7;color:#16a34a;font-weight:600;display:flex;align-items:center;gap:3px}
 .badge-inspect{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#dbeafe;color:#1d4ed8;font-weight:600}
-.prop-price{font-size:14px;font-weight:700;color:var(--green);margin-bottom:2px}
-.prop-name{font-size:12.5px;color:var(--text);margin-bottom:4px}
+.badge-featured-overlay{font-size:10.5px;padding:2px 7px;border-radius:20px;background:rgba(254,243,199,0.95);color:#d97706;font-weight:600;display:flex;align-items:center;gap:3px}
+.badge-verified-overlay{font-size:10.5px;padding:2px 7px;border-radius:20px;background:rgba(220,252,231,0.95);color:#16a34a;font-weight:600;display:flex;align-items:center;gap:3px}
+.prop-name{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:4px}
 .prop-meta{font-size:11.5px;color:var(--text-sec);display:flex;gap:8px}
 .prop-location{font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:3px;margin-top:3px}
+.prop-fresh{font-size:10.5px;color:var(--green);margin-top:6px;display:flex;align-items:center;gap:3px;font-weight:500}
 
 .waitlist-section{padding:2.5rem 1.5rem;background:var(--green);color:#fff;text-align:center}
 .waitlist-title{font-size:20px;font-weight:700;margin-bottom:6px}
@@ -260,8 +265,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <div class="demo-section">
-    <div class="section-title" style="margin-bottom:6px">Browse demo listings</div>
-    <div class="section-sub">These are sample properties to show you how it works</div>
+    <div class="section-title" style="margin-bottom:6px">Verified listings</div>
+    <div class="section-sub" id="listingsSub">Loading real, landlord-listed properties…</div>
     <div class="demo-chips" id="demoChips">
       <span class="demo-chip active" onclick="filterDemo('all',this)">All</span>
     </div>
@@ -787,19 +792,36 @@ function renderDemoGrid(filter='all'){
   }
   grid.innerHTML = filtered.map(p=>`
     <div class="prop-card" onclick="showApp()">
-      <img class="prop-img" src="${p.img}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
-      <div class="prop-body">
-        <div class="prop-badges">
-          ${p.featured?'<span class="badge-verified" style="background:#fef3c7;color:#d97706"><i class="ti ti-star" style="font-size:10px"></i> Featured</span>':''}
-          ${p.verified?'<span class="badge-verified"><i class="ti ti-shield-check" style="font-size:10px"></i> Verified</span>':''}
-          <span class="badge-inspect">📅 Inspect</span>
+      <div class="prop-img-wrap">
+        <img class="prop-img" src="${p.img}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
+        <div class="prop-badges-top">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${p.featured?'<span class="badge-featured-overlay"><i class="ti ti-star" style="font-size:10px"></i> Featured</span>':''}
+            ${p.verified?'<span class="badge-verified-overlay"><i class="ti ti-shield-check" style="font-size:10px"></i> Verified</span>':''}
+          </div>
         </div>
-        <div class="prop-price">${fmt(p.price)}</div>
+        <div class="prop-price-overlay">${fmt(p.price)}<span style="font-size:10px;font-weight:500;opacity:0.85">/yr</span></div>
+      </div>
+      <div class="prop-body">
         <div class="prop-name">${p.name}</div>
-        <div class="prop-meta"><span>🛏 ${p.bed} bed</span><span>🚿 ${p.bath} bath</span><span>✅ ${p.rentals} rentals</span></div>
+        <div class="prop-meta"><span>🛏 ${p.bed} bed</span><span>🚿 ${p.bath} bath</span><span class="badge-inspect">📅 Inspect</span></div>
         <div class="prop-location"><i class="ti ti-map-pin" style="font-size:11px"></i> ${p.area}, ${p.city}</div>
+        ${timeAgo(p.created_at)?`<div class="prop-fresh"><i class="ti ti-clock" style="font-size:10px"></i> Listed ${timeAgo(p.created_at)}</div>`:''}
       </div>
     </div>`).join('');
+}
+
+// Short, human freshness label for a listing — a small trust/activity signal
+// showing this is a live, recently-reviewed property, not static demo content.
+function timeAgo(isoDate){
+  if (!isoDate) return '';
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  const days = Math.floor(diffMs / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days/7)} week${Math.floor(days/7)>1?'s':''} ago`;
+  return `${Math.floor(days/30)} month${Math.floor(days/30)>1?'s':''} ago`;
 }
 
 function filterDemo(city, el){
@@ -844,6 +866,7 @@ async function loadRealProperties(){
         img:photos[0],
         photos:photos,
         featured: !!(p.featured && p.featured_until && new Date(p.featured_until) > new Date()),
+        created_at: p.created_at,
         nb:{
           sec:p.security_info||'Contact landlord for details',
           water:p.water_info||'Contact landlord for details',
@@ -888,6 +911,13 @@ function updateCoverageStats(){
     pillsEl.innerHTML = activeCities.length
       ? activeCities.map(c=>`<span class="city-pill">📍 ${c}</span>`).join('')
       : `<span class="city-pill">📍 New listings added regularly</span>`;
+  }
+
+  const subEl = document.getElementById('listingsSub');
+  if (subEl) {
+    subEl.textContent = PROPS.length
+      ? `${PROPS.length} verified propert${PROPS.length===1?'y':'ies'} live right now — every listing is reviewed before it goes live`
+      : `We're onboarding our first verified listings right now — check back soon`;
   }
 }
 
