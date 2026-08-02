@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     // safe to expose to any visitor. Never use select=* here. In particular, nin_number,
     // landlord_email, landlord_name, and user_id must never be returned to the client.
     const PUBLIC_FIELDS = [
-      'id', 'name', 'area', 'city', 'bedrooms', 'bathrooms', 'price', 'type',
+      'id', 'name', 'area', 'city', 'lga', 'bedrooms', 'bathrooms', 'price', 'type',
       'description', 'amenities', 'photo_urls', 'featured', 'featured_until',
       'security_info', 'water_info', 'electricity_info', 'flood_risk',
       'nearby_schools', 'nearby_markets', 'landlord_phone', 'created_at',
