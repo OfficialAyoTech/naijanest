@@ -9,16 +9,20 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+// Compares two strings without leaking timing info about how many characters matched.
 function safeCompare(a, b) {
   const bufA = Buffer.from(String(a || ''));
   const bufB = Buffer.from(String(b || ''));
   if (bufA.length !== bufB.length) {
-    crypto.timingSafeEqual(bufA, bufA);
+    crypto.timingSafeEqual(bufA, bufA); // keep timing consistent even on length mismatch
     return false;
   }
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+// Checks the admin password with brute-force protection: blocks after MAX_ATTEMPTS
+// failed tries from the same IP within WINDOW_MINUTES. Logs failures to the
+// admin_login_attempts table (see migration notes in README).
 async function checkAdminAuth(req, providedPassword, serviceKey) {
   const ip = getClientIp(req);
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
@@ -37,6 +41,8 @@ async function checkAdminAuth(req, providedPassword, serviceKey) {
     }
   } catch (e) {
     console.error('admin auth: rate-limit check failed:', e.message);
+    // Fail open on infra errors so a Supabase hiccup doesn't lock out a legitimate
+    // admin forever — the password check below still fully protects the endpoint.
   }
 
   const correct = safeCompare(providedPassword, process.env.ADMIN_PASSWORD);
@@ -54,6 +60,11 @@ async function checkAdminAuth(req, providedPassword, serviceKey) {
   return { ok: true };
 }
 
+// Returns ALL properties + waitlist data for the admin dashboard.
+// Gated by ADMIN_PASSWORD (checked server-side, never trust the client),
+// with brute-force protection (rate limiting + constant-time comparison).
+// Uses SUPABASE_SERVICE_ROLE_KEY so this works even after RLS locks the
+// anon key down to "approved properties only" (see migration notes).
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -76,9 +87,15 @@ export default async function handler(req, res) {
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
+      // rate_limit_events was built for rate-limiting (see chat.js/whatsapp-webhook.js) but
+      // nothing ever deletes old rows, so it doubles as a full usage log: one row per
+      // chat.js or whatsapp-webhook.js message ever sent. Only pulling the last 90 days
+      // and two columns keeps this cheap even as it grows.
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/rate_limit_events?select=key,created_at&created_at=gte.${new Date(Date.now() - 90*24*60*60*1000).toISOString()}&order=created_at.desc`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -89,11 +106,14 @@ export default async function handler(req, res) {
       const err = await waitlistResp.text();
       return res.status(400).json({ error: `waitlist: ${err}` });
     }
-
+    // payments/events tables are newer — don't hard-fail the whole dashboard if either
+    // has an issue, just show empty data for that section.
     const properties = await propsResp.json();
     const waitlist = await waitlistResp.json();
+    const payments = paymentsResp.ok ? await paymentsResp.json() : [];
+    const events = eventsResp.ok ? await eventsResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist });
+    return res.status(200).json({ properties, waitlist, payments, events });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
