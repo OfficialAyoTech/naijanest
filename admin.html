@@ -47,6 +47,22 @@
   .qa-field textarea{padding:10px 12px;min-height:70px;resize:vertical}
   .qa-field input:focus,.qa-field select:focus,.qa-field textarea:focus{border-color:var(--green)}
   .qa-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.5rem}
+  .metric-card{background:var(--white);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+  .metric-num{font-size:24px;font-weight:700;color:var(--text)}
+  .metric-label{font-size:11.5px;color:var(--text-sec);margin-top:2px}
+  .metric-trend{font-size:11px;margin-top:4px;font-weight:600}
+  .metric-trend.up{color:var(--green)}
+  .metric-trend.down{color:#dc2626}
+  .metric-trend.flat{color:var(--text-sec)}
+  .metrics-section{background:var(--white);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);margin-bottom:1.25rem}
+  .metrics-section h4{font-size:13.5px;color:var(--green);margin-bottom:12px;font-weight:600}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12.5px}
+  .bar-label{width:110px;flex-shrink:0;color:var(--text-sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-track{flex:1;height:16px;background:var(--surface);border-radius:8px;overflow:hidden}
+  .bar-fill{height:100%;background:var(--green);border-radius:8px;min-width:2px;transition:width .3s}
+  .bar-count{width:32px;flex-shrink:0;text-align:right;font-weight:600;color:var(--text)}
   .view{display:none}
   .view.active{display:block}
   .tabs{display:flex;gap:8px;margin-bottom:1rem}
@@ -113,6 +129,7 @@
       <button class="main-tab active" onclick="showView('overview',this)">Overview</button>
       <button class="main-tab" onclick="showView('submissions',this)">Submissions</button>
       <button class="main-tab" onclick="showView('waitlist',this)">Waitlist</button>
+      <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
 
@@ -147,6 +164,11 @@
     <div class="view" id="view-waitlist">
       <input type="text" class="search-input" id="wlSearch" placeholder="Search by name, WhatsApp, or city..." oninput="renderWaitlist()"/>
       <div id="waitlistList"></div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="view" id="view-metrics">
+      <div id="metricsContent"></div>
     </div>
 
     <!-- QUICK ADD -->
@@ -212,6 +234,8 @@
 let adminPassword = sessionStorage.getItem('naijanest_admin_pw') || '';
 let allProps = [];
 let allWaitlist = [];
+let allPayments = [];
+let allEvents = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
 
@@ -399,6 +423,8 @@ async function loadData() {
 
     allProps = data.properties || [];
     allWaitlist = data.waitlist || [];
+    allPayments = data.payments || [];
+    allEvents = data.events || [];
 
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
@@ -409,6 +435,7 @@ async function loadData() {
     renderOverview();
     renderProps();
     renderWaitlist();
+    renderMetrics();
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -422,6 +449,121 @@ function updateStats() {
   document.getElementById('pendingCount').textContent = allProps.filter(p=>p.status==='pending').length;
   document.getElementById('approvedCount').textContent = allProps.filter(p=>p.status==='approved').length;
   document.getElementById('waitlistCount').textContent = allWaitlist.length;
+}
+
+function trendLabel(thisWeek, priorWeek){
+  if (priorWeek === 0 && thisWeek === 0) return {cls:'flat', text:'No activity yet'};
+  if (priorWeek === 0) return {cls:'up', text:`+${thisWeek} this week (new)`};
+  const pctChange = Math.round(((thisWeek - priorWeek) / priorWeek) * 100);
+  if (pctChange > 0) return {cls:'up', text:`↑ ${pctChange}% vs last week`};
+  if (pctChange < 0) return {cls:'down', text:`↓ ${Math.abs(pctChange)}% vs last week`};
+  return {cls:'flat', text:'Same as last week'};
+}
+
+// Computes and renders every metric from data already loaded via admin-data.js —
+// no separate API calls needed. rate_limit_events doubles as a full usage log
+// (see admin-data.js comment) since nothing ever deletes old rows from it.
+function renderMetrics(){
+  const el = document.getElementById('metricsContent');
+  if (!el) return;
+
+  const now = Date.now();
+  const DAY = 86400000;
+  const weekAgo = now - 7*DAY;
+  const twoWeeksAgo = now - 14*DAY;
+
+  const totalListings = allProps.length;
+  const liveCount = allProps.filter(p=>p.status==='approved').length;
+  const pendingCount = allProps.filter(p=>p.status==='pending').length;
+  const rentedCount = allProps.filter(p=>p.status==='rented').length;
+
+  const listingsThisWeek = allProps.filter(p=>p.created_at && new Date(p.created_at).getTime() >= weekAgo).length;
+  const listingsPriorWeek = allProps.filter(p=>{
+    if (!p.created_at) return false;
+    const t = new Date(p.created_at).getTime();
+    return t >= twoWeeksAgo && t < weekAgo;
+  }).length;
+  const listingsTrend = trendLabel(listingsThisWeek, listingsPriorWeek);
+
+  const totalWaitlist = allWaitlist.length;
+  const waitlistThisWeek = allWaitlist.filter(w=>w.created_at && new Date(w.created_at).getTime() >= weekAgo).length;
+  const waitlistPriorWeek = allWaitlist.filter(w=>{
+    if (!w.created_at) return false;
+    const t = new Date(w.created_at).getTime();
+    return t >= twoWeeksAgo && t < weekAgo;
+  }).length;
+  const waitlistTrend = trendLabel(waitlistThisWeek, waitlistPriorWeek);
+
+  const successfulPayments = allPayments.filter(p=>p.status==='success');
+  const totalRevenueNaira = Math.round(successfulPayments.reduce((sum,p)=>sum+(p.amount||0), 0) / 100);
+  const pendingPaymentsCount = allPayments.filter(p=>p.status==='pending').length;
+  const activeFeatured = allProps.filter(p=>p.featured && p.featured_until && new Date(p.featured_until) > new Date()).length;
+
+  const chatEvents = allEvents.filter(e=>e.key && e.key.startsWith('chat:'));
+  const waEvents = allEvents.filter(e=>e.key && e.key.startsWith('whatsapp:'));
+  const uniqueChatUsers = new Set(chatEvents.map(e=>e.key)).size;
+  const uniqueWaUsers = new Set(waEvents.map(e=>e.key)).size;
+
+  const stateCounts = {};
+  allProps.forEach(p=>{ if (p.city) stateCounts[p.city] = (stateCounts[p.city]||0)+1; });
+  const sortedStates = Object.entries(stateCounts).sort((a,b)=>b[1]-a[1]);
+  const maxStateCount = sortedStates.length ? sortedStates[0][1] : 1;
+
+  const days = [];
+  for (let i=6;i>=0;i--) {
+    const d = new Date(now - i*DAY);
+    const label = d.toLocaleDateString('en-US',{weekday:'short'});
+    const dayStartMs = new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
+    const dayEndMs = dayStartMs + DAY;
+    const count = allEvents.filter(e=>{
+      if (!e.created_at) return false;
+      const t = new Date(e.created_at).getTime();
+      return t >= dayStartMs && t < dayEndMs;
+    }).length;
+    days.push({label, count});
+  }
+  const maxDayCount = Math.max(1, ...days.map(d=>d.count));
+
+  el.innerHTML = `
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-num">${totalListings}</div><div class="metric-label">Total listings</div><div class="metric-trend ${listingsTrend.cls}">${listingsTrend.text}</div></div>
+      <div class="metric-card"><div class="metric-num">${liveCount}</div><div class="metric-label">Live now</div></div>
+      <div class="metric-card"><div class="metric-num">${pendingCount}</div><div class="metric-label">Pending review</div></div>
+      <div class="metric-card"><div class="metric-num">${rentedCount}</div><div class="metric-label">Rented out</div></div>
+      <div class="metric-card"><div class="metric-num">${totalWaitlist}</div><div class="metric-label">Waitlist signups</div><div class="metric-trend ${waitlistTrend.cls}">${waitlistTrend.text}</div></div>
+      <div class="metric-card"><div class="metric-num">₦${totalRevenueNaira.toLocaleString()}</div><div class="metric-label">Revenue collected</div></div>
+      <div class="metric-card"><div class="metric-num">${activeFeatured}</div><div class="metric-label">Active featured listings</div></div>
+      <div class="metric-card"><div class="metric-num">${pendingPaymentsCount}</div><div class="metric-label">Pending payments</div></div>
+      <div class="metric-card"><div class="metric-num">${chatEvents.length}</div><div class="metric-label">Web AI messages</div></div>
+      <div class="metric-card"><div class="metric-num">${waEvents.length}</div><div class="metric-label">WhatsApp messages</div></div>
+      <div class="metric-card"><div class="metric-num">${uniqueWaUsers}</div><div class="metric-label">Unique WhatsApp users</div></div>
+      <div class="metric-card"><div class="metric-num">${uniqueChatUsers}</div><div class="metric-label">Unique web sessions*</div></div>
+    </div>
+
+    <div class="metrics-section">
+      <h4>Listings by state</h4>
+      ${sortedStates.length ? sortedStates.map(([state,count])=>`
+        <div class="bar-row">
+          <div class="bar-label">${state}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxStateCount*100)}%"></div></div>
+          <div class="bar-count">${count}</div>
+        </div>
+      `).join('') : '<div style="color:var(--text-sec);font-size:12.5px">No listings yet</div>'}
+    </div>
+
+    <div class="metrics-section">
+      <h4>Activity — last 7 days (web + WhatsApp messages combined)</h4>
+      ${days.map(d=>`
+        <div class="bar-row">
+          <div class="bar-label">${d.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(d.count/maxDayCount*100)}%"></div></div>
+          <div class="bar-count">${d.count}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <p style="font-size:11px;color:var(--text-sec);margin-top:8px">*Web sessions are counted by IP address, so shared networks may undercount unique people. Activity data covers the last 90 days.</p>
+  `;
 }
 
 function showView(name, el) {
