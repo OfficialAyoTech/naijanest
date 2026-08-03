@@ -172,8 +172,8 @@
           <div class="qa-field"><label>Price/year (₦)</label><input type="number" id="qa_price" placeholder="1500000"/></div>
         </div>
         <div class="qa-row">
-          <div class="qa-field"><label>Bedrooms</label><select id="qa_bedrooms">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></div>
-          <div class="qa-field"><label>Bathrooms</label><select id="qa_bathrooms">${[1,2,3,4,5,6].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></div>
+          <div class="qa-field"><label>Bedrooms</label><select id="qa_bedrooms"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+          <div class="qa-field"><label>Bathrooms</label><select id="qa_bathrooms"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
         </div>
 
         <h4>Landlord</h4>
@@ -214,6 +214,146 @@ let allProps = [];
 let allWaitlist = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
+
+
+// Nigeria's 36 states + FCT with their official LGAs — same source data as
+// list-property.html and submit-property.js, kept in sync manually.
+const STATE_LGAS = {"Abia":["Aba North","Aba South","Arochukwu","Bende","Ikwuano","Isiala Ngwa North","Isiala Ngwa South","Isuikwuato","Obi Ngwa","Ohafia","Osisioma","Ugwunagbo","Ukwa East","Ukwa West","Umu-Nneochi","Umuahia North","Umuahia South"],"Abuja":["Abaji","Abuja","Bwari","Gwagwalada","Kuje","Kwali"],"Adamawa":["Demsa","Fufore","Ganye","Girei","Gombi","Guyuk","Hong","Jada","Lamurde","Madagali","Maiha","Mayo Belwa","Michika","Mubi North","Mubi South","Numan","Shelleng","Song","Toungo","Yola North","Yola South"],"Akwa Ibom":["Abak","Eastern Obolo","Eket","Esit Eket","Essien Udim","Etim Ekpo","Etinan","Ibeno","Ibesikpo Asutan","Ibiono Ibom","Ika","Ikono","Ikot Abasi","Ikot Ekpene","Ini","Itu","Mbo","Mkpat Enin","Nsit Atai","Nsit Ibom","Nsit Ubium","Obot Akara","Okobo","Onna","Oron","Oruk Anam","Udung Uko","Ukanafun","Uruan","Urue Offong/Oruko","Uyo"],"Anambra":["Aguata","Anambra East","Anambra West","Anaocha","Awka North","Awka South","Ayamelum","Dunukofia","Ekwusigo","Idemili North","Idemili South","Ihiala","Njikoka","Nnewi North","Nnewi South","Ogbaru","Onitsha North","Onitsha South","Orumba North","Orumba South","Oyi"],"Bauchi":["Alkaleri","Bauchi","Bogoro","Damban","Darazo","Dass","Gamawa","Ganjuwa","Giade","Itas/Gadau","Jama'are","Katagum","Kirfi","Misau","Ningi","Shira","Tafawa Balewa","Toro","Warji","Zaki"],"Bayelsa":["Brass","Ekeremor","Kolokuma/Opokuma","Nembe","Ogbia","Sagbama","Southern Ijaw","Yenagoa"],"Benue":["Ado","Agatu","Apa","Buruku","Gboko","Guma","Gwer East","Gwer West","Katsina Ala","Konshisha","Kwande","Logo","Makurdi","Obi","Ogbadibo","Ohimini","Oju","Okpokwu","Otukpo","Tarka","Ukum","Ushongo","Vandeikya"],"Borno":["Abadam","Askira/Uba","Bama","Bayo","Biu","Chibok","Damboa","Dikwa","Gubio","Guzamala","Gwoza","Hawul","Jere","Kaga","Kala/Balge","Konduga","Kukawa","Kwaya Kusar","Mafa","Magumeri","Maiduguri","Marte","Mobbar","Monguno","Ngala","Nganzai","Shani"],"Cross River":["Abi","Akamkpa","Akpabuyo","Bakassi","Bekwarra","Biase","Boki","Calabar Municipal","Calabar South","Etung","Ikom","Obanliku","Obubra","Obudu","Odukpani","Ogoja","Yakurr","Yala"],"Delta":["Aniocha North","Aniocha South","Bomadi","Burutu","Ethiope East","Ethiope West","Ika North East","Ika South","Isoko North","Isoko South","Ndokwa East","Ndokwa West","Okpe","Oshimili North","Oshimili South","Patani","Sapele","Udu","Ughelli North","Ughelli South","Ukwuani","Uvwie","Warri North","Warri South","Warri South West"],"Ebonyi":["Abakaliki","Afikpo North","Afikpo South","Ebonyi","Ezza North","Ezza South","Ikwo","Ishielu","Ivo","Izzi","Ohaozara","Ohaukwu","Onicha"],"Edo":["Akoko Edo","Egor","Esan Central","Esan North East","Esan South East","Esan West","Etsako Central","Etsako East","Etsako West","Igueben","Ikpoba Okha","Oredo","Orhionmwon","Ovia North East","Ovia South West","Owan East","Owan West","Uhunmwonde"],"Ekiti":["Ado-Ekiti","Efon","Ekiti East","Ekiti South West","Ekiti West","Emure","Gbonyin","Ido-Osi","Ijero","Ikere","Ikole","Ilejemeje","Irepodun/Ifelodun","Ise/Orun","Moba","Oye"],"Enugu":["Aninri","Awgu","Enugu East","Enugu North","Enugu South","Ezeagu","Igbo Etiti","Igbo Eze North","Igbo Eze South","Isi-Uzo","Nkanu East","Nkanu West","Nsukka","Oji-River","Udenu","Udi","Uzo-Uwani"],"Gombe":["Akko","Balanga","Billiri","Dukku","Funakaye","Gombe","Kaltungo","Kwami","Nafada","Shongom","Yamaltu/Deba"],"Imo":["Aboh Mbaise","Ahiazu Mbaise","Ehime Mbano","Ezinihitte Mbaise","Ideato North","Ideato South","Ihitte/Uboma","Ikeduru","Isiala Mbano","Isu","Mbaitoli","Ngor Okpala","Njaba","Nkwerre","Nwangele","Obowo","Oguta","Ohaji/Egbema","Okigwe","Onuimo","Orlu","Orsu","Oru East","Oru West","Owerri Municipal","Owerri North","Owerri West"],"Jigawa":["Auyo","Babura","Biriniwa","Birnin Kudu","Buji","Dutse","Gagarawa","Garki","Gumel","Guri","Gwaram","Gwiwa","Hadejia","Jahun","Kafin Hausa","Kaugama","Kazaure","Kiri Kasama","Kiyawa","Maigatari","Malam Madori","Miga","Ringim","Roni","Sule Tankarkar","Taura","Yankwashi"],"Kaduna":["Birnin Gwari","Chikun","Giwa","Igabi","Ikara","Jaba","Jema'a","Kachia","Kaduna North","Kaduna South","Kagarko","Kajuru","Kaura","Kauru","Kubau","Kudan","Lere","Makarfi","Sabon Gari","Sanga","Soba","Zangon Kataf","Zaria"],"Kano":["Ajingi","Albasu","Bagwai","Bebeji","Bichi","Bunkure","Dala","Dambatta","Dawakin Kudu","Dawakin Tofa","Doguwa","Fagge","Gabasawa","Garko","Garun Malam","Gaya","Gezawa","Gwale","Gwarzo","Kabo","Kano Municipal","Karaye","Kibiya","Kiru","Kunchi","Kura","Madobi","Makoda","Minjibir","Nasarawa","Rano","Rimin Gado","Rogo","Shanono","Sumaila","Takai","Tarauni","Tofa","Tsanyawa","Tudun Wada","Ungogo","Warawa","Wudil","kumbotso"],"Katsina":["Bakori","Batagarawa","Batsari","Baure","Bindawa","Charanchi","Dan Musa","DanDume","Danja","Daura","Dutsi","Dutsin-Ma","Faskari","Funtua","Ingawa","Jibia","Kafur","Kaita","Kankara","Kankia","Katsina","Kurfi","Kusada","Mai'Adua","Malumfashi","Mani","Mashi","Matazu","Musawa","Rimi","Sabuwa","Safana","Sandamu","Zango"],"Kebbi":["Aliero","Arewa Dandi","Argungu","Augie","Bagudo","Birnin Kebbi","Bunza","Dandi","Danko-Wasagu","Fakai","Gwandu","Jega","Kalgo","Koko/Besse","Maiyama","Ngaski","Sakaba","Shanga","Suru","Yauri","Zuru"],"Kogi":["Adavi","Ajaokuta","Ankpa","Bassa","Dekina","Ibaji","Idah","Igalamela Odolu","Ijumu","Kabba/Bunu","Kogi","Lokoja","Mopa-Muro","Ofu","Ogori/Magongo","Okehi","Okene","Olamaboro","Omala","Yagba East","Yagba West"],"Kwara":["Asa","Baruten","Edu","Ekiti","Ifelodun","Ilorin East","Ilorin South","Ilorin West","Irepodun","Isin","Kaiama","Moro","Offa","Oke-Ero","Oyun","Pategi"],"Lagos":["Agege","Ajeromi-Ifelodun","Alimosho","Amuwo-Odofin","Apapa","Badagry","Epe","Eti-Osa","Ibeju-Lekki","Ifako-Ijaiye","Ikeja","Ikorodu","Kosofe","Lagos Island","Lagos Mainland","Mushin","Ojo","Oshodi-Isolo","Somolu","Surulere"],"Nasarawa":["Akwanga","Awe","Doma","Karu","Keana","Keffi","Kokona","Lafia","Nasarawa","Nasarawa Egon","Obi","Toto","Wamba"],"Niger":["Agaie","Agwara","Bida","Borgu","Bosso","Chanchaga","Edati","Gbako","Gurara","Katcha","Kontagora","Lapai","Lavun","Magama","Mariga","Mashegu","Mokwa","Munya","Paikoro","Rafi","Rijau","Shiroro","Suleja","Tafa","Wushishi"],"Ogun":["Abeokuta North","Abeokuta South","Ado-Odo/Ota","Ewekoro","Ifo","Ijebu East","Ijebu North","Ijebu North East","Ijebu Ode","Ikenne","Imeko Afon","Ipokia","Obafemi Owode","Odeda","Odogbolu","Ogun Waterside","Remo North","Shagamu","Yewa North","Yewa South"],"Ondo":["Akoko North East","Akoko North West","Akoko South East","Akoko South West","Akure North","Akure South","Ese Odo","Idanre","Ifedore","Ilaje","Ile Oluji/Okeigbo","Irele","Odigbo","Okitipupa","Ondo East","Ondo West","Ose","Owo"],"Osun":["Aiyedire","Atakunmosa East","Atakunmosa West","Ayedaade","Boluwaduro","Boripe","Ede North","Ede South","Egbedore","Ejigbo","Ife Central","Ife East","Ife North","Ife South","Ifedayo","Ifelodun","Ila","Ilesa East","Ilesa West","Irepodun","Irewole","Isokan","Iwo","Obokun","Odo-Otin","Ola-Oluwa","Olorunda","Oriade","Orolu","Osogbo"],"Oyo":["Afijio","Akinyele","Atiba","Atisbo","Egbeda","Ibadan North","Ibadan North East","Ibadan North West","Ibadan South East","Ibadan South West","Ibarapa Central","Ibarapa East","Ibarapa North","Ido","Irepo","Iseyin","Itesiwaju","Iwajowa","Kajola","Lagelu","Ogbomosho North","Ogbomosho South","Ogo Oluwa","Olorunsogo","Oluyole","Ona Ara","Oorelope","Ori Ire","Oyo East","Oyo West","Saki East","Saki West","Surulere"],"Plateau":["Barkin Ladi","Bassa","Bokkos","Jos East","Jos North","Jos South","Kanam","Kanke","Langtang North","Langtang South","Mangu","Mikang","Pankshin","Qua'an Pan","Riyom","Shendam","Wase"],"Rivers":["Abua-Odual","Ahoada East","Ahoada West","Akuku-Toru","Andoni","Asari-Toru","Bonny","Degema","Eleme","Emohua","Etche","Gokana","Ikwerre","Khana","Obio/Akpor","Ogba/Egbema/Ndoni","Ogu/Bolo","Okrika","Omuma","Opobo/Nkoro","Oyigbo","Port Harcourt","Tai"],"Sokoto":["Binji","Bodinga","Dange/Shuni","Gada","Goronyo","Gudu","Gwadabawa","Illela","Isa","Kebbe","Kware","Rabah","Sabon Birni","Shagari","Silame","Sokoto North","Sokoto South","Tambuwal","Tangaza","Tureta","Wamako","Wurno","Yabo"],"Taraba":["Ardo Kola","Bali","Donga","Gashaka","Gassol","Ibi","Jalingo","Karim Lamido","Kurmi","Lau","Sardauna","Takum","Ussa","Wukari","Yorro","Zing"],"Yobe":["Bade","Bursari","Damaturu","Fika","Fune","Geidam","Gujba","Gulani","Jakusko","Karasuwa","Machina","Nangere","Nguru","Potiskum","Tarmuwa","Yunusari","Yusufari"],"Zamfara":["Anka","Bakura","Birnin Magaji/Kiyaw","Bukkuyum","Bungudu","Gummi","Gusau","Kaura Namoda","Maradun","Maru","Shinkafi","Talata Mafara","Tsafe","Zurmi"]};
+
+function qaPopulateStates(){
+  const sel = document.getElementById('qa_state');
+  if (!sel) return;
+  Object.keys(STATE_LGAS).sort().forEach(state => {
+    const opt = document.createElement('option');
+    opt.value = state; opt.textContent = state;
+    sel.appendChild(opt);
+  });
+}
+
+function qaOnStateChange(){
+  const state = document.getElementById('qa_state').value;
+  const lgaSel = document.getElementById('qa_lga');
+  lgaSel.innerHTML = '';
+  if (!state) {
+    lgaSel.disabled = true;
+    lgaSel.innerHTML = '<option value="">Select state first...</option>';
+    return;
+  }
+  lgaSel.disabled = false;
+  lgaSel.innerHTML = '<option value="">Select LGA...</option>' +
+    STATE_LGAS[state].map(l => `<option value="${l}">${l}</option>`).join('');
+}
+
+function qaCompressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const MAX_EDGE = 1280;
+      let { width, height } = img;
+      if (width > height && width > MAX_EDGE) { height = Math.round(height * MAX_EDGE / width); width = MAX_EDGE; }
+      else if (height > MAX_EDGE) { width = Math.round(width * MAX_EDGE / height); height = MAX_EDGE; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      resolve(dataUrl.split(',')[1]);
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function qaHandlePhotos(event){
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+  const statusEl = document.getElementById('qa_photo_status');
+  qaPhotoUrls = [];
+  for (let i = 0; i < files.length; i++) {
+    statusEl.textContent = `Uploading photo ${i+1} of ${files.length}...`;
+    try {
+      const base64 = await qaCompressImage(files[i]);
+      const resp = await fetch('/api/upload-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64, mimeType: 'image/jpeg', admin_password: adminPassword })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        qaPhotoUrls.push(data.url);
+      } else {
+        statusEl.textContent = `Error uploading photo ${i+1}: ${data.error}`;
+        return;
+      }
+    } catch (e) {
+      statusEl.textContent = `Error uploading photo ${i+1}: ${e.message}`;
+      return;
+    }
+  }
+  statusEl.textContent = `✅ ${qaPhotoUrls.length} photo(s) uploaded`;
+}
+
+async function qaSubmit(){
+  const btn = document.getElementById('qa_submit_btn');
+  const resultEl = document.getElementById('qa_result');
+  resultEl.textContent = '';
+
+  const payload = {
+    name: document.getElementById('qa_name').value,
+    city: document.getElementById('qa_state').value,
+    lga: document.getElementById('qa_lga').value,
+    area: document.getElementById('qa_area').value,
+    type: document.getElementById('qa_type').value,
+    price: document.getElementById('qa_price').value,
+    bedrooms: document.getElementById('qa_bedrooms').value,
+    bathrooms: document.getElementById('qa_bathrooms').value,
+    landlord_name: document.getElementById('qa_landlord_name').value,
+    landlord_phone: document.getElementById('qa_landlord_phone').value,
+    landlord_email: document.getElementById('qa_landlord_email').value,
+    nin_number: document.getElementById('qa_nin').value,
+    security_info: document.getElementById('qa_security').value,
+    water_info: document.getElementById('qa_water').value,
+    electricity_info: document.getElementById('qa_electricity').value,
+    flood_risk: document.getElementById('qa_flood').value,
+    nearby_schools: document.getElementById('qa_schools').value,
+    nearby_markets: document.getElementById('qa_markets').value,
+    description: document.getElementById('qa_description').value,
+    amenities: [],
+    photo_urls: qaPhotoUrls,
+    admin_password: adminPassword,
+  };
+
+  btn.disabled = true; btn.textContent = 'Publishing...';
+  try {
+    const resp = await fetch('/api/submit-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (data.success) {
+      resultEl.style.color = 'var(--green)';
+      resultEl.textContent = '✅ Listing published live!';
+      document.querySelectorAll('.qa-field input, .qa-field textarea').forEach(el => el.value = '');
+      document.getElementById('qa_state').value = '';
+      qaOnStateChange();
+      document.getElementById('qa_photos').value = '';
+      document.getElementById('qa_photo_status').textContent = '';
+      qaPhotoUrls = [];
+      await loadData();
+    } else {
+      resultEl.style.color = '#dc2626';
+      resultEl.textContent = 'Error: ' + (typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+    }
+  } catch (e) {
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Something went wrong: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Publish Listing';
+}
+
 
 if (adminPassword) { loadData(); }
 qaPopulateStates();
@@ -435,145 +575,6 @@ function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
-
-// Nigeria's 36 states + FCT with their official LGAs — same source data as
-// list-property.html and submit-property.js, kept in sync manually.
-const STATE_LGAS = {"Abia":["Aba North","Aba South","Arochukwu","Bende","Ikwuano","Isiala Ngwa North","Isiala Ngwa South","Isuikwuato","Obi Ngwa","Ohafia","Osisioma","Ugwunagbo","Ukwa East","Ukwa West","Umu-Nneochi","Umuahia North","Umuahia South"],"Abuja":["Abaji","Abuja","Bwari","Gwagwalada","Kuje","Kwali"],"Adamawa":["Demsa","Fufore","Ganye","Girei","Gombi","Guyuk","Hong","Jada","Lamurde","Madagali","Maiha","Mayo Belwa","Michika","Mubi North","Mubi South","Numan","Shelleng","Song","Toungo","Yola North","Yola South"],"Akwa Ibom":["Abak","Eastern Obolo","Eket","Esit Eket","Essien Udim","Etim Ekpo","Etinan","Ibeno","Ibesikpo Asutan","Ibiono Ibom","Ika","Ikono","Ikot Abasi","Ikot Ekpene","Ini","Itu","Mbo","Mkpat Enin","Nsit Atai","Nsit Ibom","Nsit Ubium","Obot Akara","Okobo","Onna","Oron","Oruk Anam","Udung Uko","Ukanafun","Uruan","Urue Offong/Oruko","Uyo"],"Anambra":["Aguata","Anambra East","Anambra West","Anaocha","Awka North","Awka South","Ayamelum","Dunukofia","Ekwusigo","Idemili North","Idemili South","Ihiala","Njikoka","Nnewi North","Nnewi South","Ogbaru","Onitsha North","Onitsha South","Orumba North","Orumba South","Oyi"],"Bauchi":["Alkaleri","Bauchi","Bogoro","Damban","Darazo","Dass","Gamawa","Ganjuwa","Giade","Itas/Gadau","Jama'are","Katagum","Kirfi","Misau","Ningi","Shira","Tafawa Balewa","Toro","Warji","Zaki"],"Bayelsa":["Brass","Ekeremor","Kolokuma/Opokuma","Nembe","Ogbia","Sagbama","Southern Ijaw","Yenagoa"],"Benue":["Ado","Agatu","Apa","Buruku","Gboko","Guma","Gwer East","Gwer West","Katsina Ala","Konshisha","Kwande","Logo","Makurdi","Obi","Ogbadibo","Ohimini","Oju","Okpokwu","Otukpo","Tarka","Ukum","Ushongo","Vandeikya"],"Borno":["Abadam","Askira/Uba","Bama","Bayo","Biu","Chibok","Damboa","Dikwa","Gubio","Guzamala","Gwoza","Hawul","Jere","Kaga","Kala/Balge","Konduga","Kukawa","Kwaya Kusar","Mafa","Magumeri","Maiduguri","Marte","Mobbar","Monguno","Ngala","Nganzai","Shani"],"Cross River":["Abi","Akamkpa","Akpabuyo","Bakassi","Bekwarra","Biase","Boki","Calabar Municipal","Calabar South","Etung","Ikom","Obanliku","Obubra","Obudu","Odukpani","Ogoja","Yakurr","Yala"],"Delta":["Aniocha North","Aniocha South","Bomadi","Burutu","Ethiope East","Ethiope West","Ika North East","Ika South","Isoko North","Isoko South","Ndokwa East","Ndokwa West","Okpe","Oshimili North","Oshimili South","Patani","Sapele","Udu","Ughelli North","Ughelli South","Ukwuani","Uvwie","Warri North","Warri South","Warri South West"],"Ebonyi":["Abakaliki","Afikpo North","Afikpo South","Ebonyi","Ezza North","Ezza South","Ikwo","Ishielu","Ivo","Izzi","Ohaozara","Ohaukwu","Onicha"],"Edo":["Akoko Edo","Egor","Esan Central","Esan North East","Esan South East","Esan West","Etsako Central","Etsako East","Etsako West","Igueben","Ikpoba Okha","Oredo","Orhionmwon","Ovia North East","Ovia South West","Owan East","Owan West","Uhunmwonde"],"Ekiti":["Ado-Ekiti","Efon","Ekiti East","Ekiti South West","Ekiti West","Emure","Gbonyin","Ido-Osi","Ijero","Ikere","Ikole","Ilejemeje","Irepodun/Ifelodun","Ise/Orun","Moba","Oye"],"Enugu":["Aninri","Awgu","Enugu East","Enugu North","Enugu South","Ezeagu","Igbo Etiti","Igbo Eze North","Igbo Eze South","Isi-Uzo","Nkanu East","Nkanu West","Nsukka","Oji-River","Udenu","Udi","Uzo-Uwani"],"Gombe":["Akko","Balanga","Billiri","Dukku","Funakaye","Gombe","Kaltungo","Kwami","Nafada","Shongom","Yamaltu/Deba"],"Imo":["Aboh Mbaise","Ahiazu Mbaise","Ehime Mbano","Ezinihitte Mbaise","Ideato North","Ideato South","Ihitte/Uboma","Ikeduru","Isiala Mbano","Isu","Mbaitoli","Ngor Okpala","Njaba","Nkwerre","Nwangele","Obowo","Oguta","Ohaji/Egbema","Okigwe","Onuimo","Orlu","Orsu","Oru East","Oru West","Owerri Municipal","Owerri North","Owerri West"],"Jigawa":["Auyo","Babura","Biriniwa","Birnin Kudu","Buji","Dutse","Gagarawa","Garki","Gumel","Guri","Gwaram","Gwiwa","Hadejia","Jahun","Kafin Hausa","Kaugama","Kazaure","Kiri Kasama","Kiyawa","Maigatari","Malam Madori","Miga","Ringim","Roni","Sule Tankarkar","Taura","Yankwashi"],"Kaduna":["Birnin Gwari","Chikun","Giwa","Igabi","Ikara","Jaba","Jema'a","Kachia","Kaduna North","Kaduna South","Kagarko","Kajuru","Kaura","Kauru","Kubau","Kudan","Lere","Makarfi","Sabon Gari","Sanga","Soba","Zangon Kataf","Zaria"],"Kano":["Ajingi","Albasu","Bagwai","Bebeji","Bichi","Bunkure","Dala","Dambatta","Dawakin Kudu","Dawakin Tofa","Doguwa","Fagge","Gabasawa","Garko","Garun Malam","Gaya","Gezawa","Gwale","Gwarzo","Kabo","Kano Municipal","Karaye","Kibiya","Kiru","Kunchi","Kura","Madobi","Makoda","Minjibir","Nasarawa","Rano","Rimin Gado","Rogo","Shanono","Sumaila","Takai","Tarauni","Tofa","Tsanyawa","Tudun Wada","Ungogo","Warawa","Wudil","kumbotso"],"Katsina":["Bakori","Batagarawa","Batsari","Baure","Bindawa","Charanchi","Dan Musa","DanDume","Danja","Daura","Dutsi","Dutsin-Ma","Faskari","Funtua","Ingawa","Jibia","Kafur","Kaita","Kankara","Kankia","Katsina","Kurfi","Kusada","Mai'Adua","Malumfashi","Mani","Mashi","Matazu","Musawa","Rimi","Sabuwa","Safana","Sandamu","Zango"],"Kebbi":["Aliero","Arewa Dandi","Argungu","Augie","Bagudo","Birnin Kebbi","Bunza","Dandi","Danko-Wasagu","Fakai","Gwandu","Jega","Kalgo","Koko/Besse","Maiyama","Ngaski","Sakaba","Shanga","Suru","Yauri","Zuru"],"Kogi":["Adavi","Ajaokuta","Ankpa","Bassa","Dekina","Ibaji","Idah","Igalamela Odolu","Ijumu","Kabba/Bunu","Kogi","Lokoja","Mopa-Muro","Ofu","Ogori/Magongo","Okehi","Okene","Olamaboro","Omala","Yagba East","Yagba West"],"Kwara":["Asa","Baruten","Edu","Ekiti","Ifelodun","Ilorin East","Ilorin South","Ilorin West","Irepodun","Isin","Kaiama","Moro","Offa","Oke-Ero","Oyun","Pategi"],"Lagos":["Agege","Ajeromi-Ifelodun","Alimosho","Amuwo-Odofin","Apapa","Badagry","Epe","Eti-Osa","Ibeju-Lekki","Ifako-Ijaiye","Ikeja","Ikorodu","Kosofe","Lagos Island","Lagos Mainland","Mushin","Ojo","Oshodi-Isolo","Somolu","Surulere"],"Nasarawa":["Akwanga","Awe","Doma","Karu","Keana","Keffi","Kokona","Lafia","Nasarawa","Nasarawa Egon","Obi","Toto","Wamba"],"Niger":["Agaie","Agwara","Bida","Borgu","Bosso","Chanchaga","Edati","Gbako","Gurara","Katcha","Kontagora","Lapai","Lavun","Magama","Mariga","Mashegu","Mokwa","Munya","Paikoro","Rafi","Rijau","Shiroro","Suleja","Tafa","Wushishi"],"Ogun":["Abeokuta North","Abeokuta South","Ado-Odo/Ota","Ewekoro","Ifo","Ijebu East","Ijebu North","Ijebu North East","Ijebu Ode","Ikenne","Imeko Afon","Ipokia","Obafemi Owode","Odeda","Odogbolu","Ogun Waterside","Remo North","Shagamu","Yewa North","Yewa South"],"Ondo":["Akoko North East","Akoko North West","Akoko South East","Akoko South West","Akure North","Akure South","Ese Odo","Idanre","Ifedore","Ilaje","Ile Oluji/Okeigbo","Irele","Odigbo","Okitipupa","Ondo East","Ondo West","Ose","Owo"],"Osun":["Aiyedire","Atakunmosa East","Atakunmosa West","Ayedaade","Boluwaduro","Boripe","Ede North","Ede South","Egbedore","Ejigbo","Ife Central","Ife East","Ife North","Ife South","Ifedayo","Ifelodun","Ila","Ilesa East","Ilesa West","Irepodun","Irewole","Isokan","Iwo","Obokun","Odo-Otin","Ola-Oluwa","Olorunda","Oriade","Orolu","Osogbo"],"Oyo":["Afijio","Akinyele","Atiba","Atisbo","Egbeda","Ibadan North","Ibadan North East","Ibadan North West","Ibadan South East","Ibadan South West","Ibarapa Central","Ibarapa East","Ibarapa North","Ido","Irepo","Iseyin","Itesiwaju","Iwajowa","Kajola","Lagelu","Ogbomosho North","Ogbomosho South","Ogo Oluwa","Olorunsogo","Oluyole","Ona Ara","Oorelope","Ori Ire","Oyo East","Oyo West","Saki East","Saki West","Surulere"],"Plateau":["Barkin Ladi","Bassa","Bokkos","Jos East","Jos North","Jos South","Kanam","Kanke","Langtang North","Langtang South","Mangu","Mikang","Pankshin","Qua'an Pan","Riyom","Shendam","Wase"],"Rivers":["Abua-Odual","Ahoada East","Ahoada West","Akuku-Toru","Andoni","Asari-Toru","Bonny","Degema","Eleme","Emohua","Etche","Gokana","Ikwerre","Khana","Obio/Akpor","Ogba/Egbema/Ndoni","Ogu/Bolo","Okrika","Omuma","Opobo/Nkoro","Oyigbo","Port Harcourt","Tai"],"Sokoto":["Binji","Bodinga","Dange/Shuni","Gada","Goronyo","Gudu","Gwadabawa","Illela","Isa","Kebbe","Kware","Rabah","Sabon Birni","Shagari","Silame","Sokoto North","Sokoto South","Tambuwal","Tangaza","Tureta","Wamako","Wurno","Yabo"],"Taraba":["Ardo Kola","Bali","Donga","Gashaka","Gassol","Ibi","Jalingo","Karim Lamido","Kurmi","Lau","Sardauna","Takum","Ussa","Wukari","Yorro","Zing"],"Yobe":["Bade","Bursari","Damaturu","Fika","Fune","Geidam","Gujba","Gulani","Jakusko","Karasuwa","Machina","Nangere","Nguru","Potiskum","Tarmuwa","Yunusari","Yusufari"],"Zamfara":["Anka","Bakura","Birnin Magaji/Kiyaw","Bukkuyum","Bungudu","Gummi","Gusau","Kaura Namoda","Maradun","Maru","Shinkafi","Talata Mafara","Tsafe","Zurmi"]};
-
-function qaPopulateStates(){
-  const sel = document.getElementById('qa_state');
-  if (!sel) return;
-  Object.keys(STATE_LGAS).sort().forEach(state => {
-    const opt = document.createElement('option');
-    opt.value = state; opt.textContent = state;
-    sel.appendChild(opt);
-  });
-}
-
-function qaOnStateChange(){
-  const state = document.getElementById('qa_state').value;
-  const lgaSel = document.getElementById('qa_lga');
-  lgaSel.innerHTML = '';
-  if (!state) {
-    lgaSel.disabled = true;
-    lgaSel.innerHTML = '<option value="">Select state first...</option>';
-    return;
-  }
-  lgaSel.disabled = false;
-  lgaSel.innerHTML = '<option value="">Select LGA...</option>' +
-    STATE_LGAS[state].map(l => `<option value="${l}">${l}</option>`).join('');
-}
-
-function qaCompressImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onload = (e) => { img.src = e.target.result; };
-    reader.onerror = reject;
-    img.onload = () => {
-      const MAX_EDGE = 1280;
-      let { width, height } = img;
-      if (width > height && width > MAX_EDGE) { height = Math.round(height * MAX_EDGE / width); width = MAX_EDGE; }
-      else if (height > MAX_EDGE) { width = Math.round(width * MAX_EDGE / height); height = MAX_EDGE; }
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-      resolve(dataUrl.split(',')[1]);
-    };
-    img.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function qaHandlePhotos(event){
-  const files = Array.from(event.target.files || []);
-  if (!files.length) return;
-  const statusEl = document.getElementById('qa_photo_status');
-  qaPhotoUrls = [];
-  for (let i = 0; i < files.length; i++) {
-    statusEl.textContent = `Uploading photo ${i+1} of ${files.length}...`;
-    try {
-      const base64 = await qaCompressImage(files[i]);
-      const resp = await fetch('/api/upload-photo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: base64, mimeType: 'image/jpeg', admin_password: adminPassword })
-      });
-      const data = await resp.json();
-      if (data.success) {
-        qaPhotoUrls.push(data.url);
-      } else {
-        statusEl.textContent = `Error uploading photo ${i+1}: ${data.error}`;
-        return;
-      }
-    } catch (e) {
-      statusEl.textContent = `Error uploading photo ${i+1}: ${e.message}`;
-      return;
-    }
-  }
-  statusEl.textContent = `✅ ${qaPhotoUrls.length} photo(s) uploaded`;
-}
-
-async function qaSubmit(){
-  const btn = document.getElementById('qa_submit_btn');
-  const resultEl = document.getElementById('qa_result');
-  resultEl.textContent = '';
-
-  const payload = {
-    name: document.getElementById('qa_name').value,
-    city: document.getElementById('qa_state').value,
-    lga: document.getElementById('qa_lga').value,
-    area: document.getElementById('qa_area').value,
-    type: document.getElementById('qa_type').value,
-    price: document.getElementById('qa_price').value,
-    bedrooms: document.getElementById('qa_bedrooms').value,
-    bathrooms: document.getElementById('qa_bathrooms').value,
-    landlord_name: document.getElementById('qa_landlord_name').value,
-    landlord_phone: document.getElementById('qa_landlord_phone').value,
-    landlord_email: document.getElementById('qa_landlord_email').value,
-    nin_number: document.getElementById('qa_nin').value,
-    security_info: document.getElementById('qa_security').value,
-    water_info: document.getElementById('qa_water').value,
-    electricity_info: document.getElementById('qa_electricity').value,
-    flood_risk: document.getElementById('qa_flood').value,
-    nearby_schools: document.getElementById('qa_schools').value,
-    nearby_markets: document.getElementById('qa_markets').value,
-    description: document.getElementById('qa_description').value,
-    amenities: [],
-    photo_urls: qaPhotoUrls,
-    admin_password: adminPassword,
-  };
-
-  btn.disabled = true; btn.textContent = 'Publishing...';
-  try {
-    const resp = await fetch('/api/submit-property', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json();
-    if (data.success) {
-      resultEl.style.color = 'var(--green)';
-      resultEl.textContent = '✅ Listing published live!';
-      document.querySelectorAll('.qa-field input, .qa-field textarea').forEach(el => el.value = '');
-      document.getElementById('qa_state').value = '';
-      qaOnStateChange();
-      document.getElementById('qa_photos').value = '';
-      document.getElementById('qa_photo_status').textContent = '';
-      qaPhotoUrls = [];
-      await loadData();
-    } else {
-      resultEl.style.color = '#dc2626';
-      resultEl.textContent = 'Error: ' + (typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
-    }
-  } catch (e) {
-    resultEl.style.color = '#dc2626';
-    resultEl.textContent = 'Something went wrong: ' + e.message;
-  }
-  btn.disabled = false; btn.textContent = 'Publish Listing';
-}
-
 </script>
 </body>
 </html>
