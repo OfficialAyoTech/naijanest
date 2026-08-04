@@ -17,6 +17,7 @@ export default async function handler(req, res) {
       'description', 'amenities', 'photo_urls', 'featured', 'featured_until',
       'security_info', 'water_info', 'electricity_info', 'flood_risk',
       'nearby_schools', 'nearby_markets', 'landlord_phone', 'created_at',
+      'agency_fee_percent', 'legal_fee_percent', 'caution_fee',
     ].join(',');
 
     // Safety cap — harmless today with a handful of listings, but prevents every

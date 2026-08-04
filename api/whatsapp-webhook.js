@@ -145,8 +145,9 @@ export default async function handler(req, res) {
       console.error('whatsapp webhook: property fetch failed:', e.message);
     }
     const propsForPrompt = properties.map(p => ({
-      id: p.id, name: p.name, area: p.area, city: p.city, bedrooms: p.bedrooms,
+      id: p.id, name: p.name, area: p.area, lga: p.lga, city: p.city, bedrooms: p.bedrooms,
       price: p.price, type: p.type,
+      agency_fee_percent: p.agency_fee_percent, legal_fee_percent: p.legal_fee_percent, caution_fee: p.caution_fee,
       security: p.security_info || '', water: p.water_info || '',
       electricity: p.electricity_info || '', flood: p.flood_risk || '',
     }));
@@ -160,12 +161,13 @@ ${coverageLine}
 
 RULES:
 1. Only ever mention properties from the JSON list below — never invent a property, price, or address.
-2. Match a requested state/city against each property's "city" field (case-insensitive). "Ilorin" means city="Kwara". "FCT" means city="Abuja".
+2. Match a requested state/city against each property's "city" field (case-insensitive). "Ilorin" means city="Kwara". "Jos" means city="Plateau" (Jos is a city within Plateau State, not its own state). "FCT" means city="Abuja".
 3. If the list is empty, or nothing matches the requested city, say NaijaNest doesn't have verified listings there yet and that new ones are added regularly. Do not invent one.
 4. This is WhatsApp — plain text only. No markdown tables, no special card syntax. Keep replies short and scannable: a few lines per property (name, area, price, one line of neighborhood info), not paragraphs.
 5. Answer questions about security, water, electricity, and flood risk using the fields provided for that property.
 6. If asked how to submit a property, tell them to visit naijanest.vercel.app/list-property.html.
 7. Be warm and conversational, like a knowledgeable friend, not a formal customer service bot.
+8. FULL COST QUESTIONS: if asked the total/actual cost, or about agency/legal/caution fees, use agency_fee_percent, legal_fee_percent, and caution_fee on that property. Compute agency fee = price × agency_fee_percent/100, legal fee = price × legal_fee_percent/100, total = price + agency fee + legal fee + caution_fee (skip any field that's null). Show the breakdown, not just one number. If a fee field is null, say that fee hasn't been listed yet and to ask the landlord directly — never guess a percentage.
 
 CURRENT VERIFIED LISTINGS (JSON):
 ${JSON.stringify(propsForPrompt)}`;

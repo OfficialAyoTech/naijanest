@@ -1,3 +1,57 @@
+import crypto from 'crypto';
+
+const MAX_ATTEMPTS = 5;
+const WINDOW_MINUTES = 15;
+
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function safeCompareStr(a, b) {
+  const bufA = Buffer.from(String(a || ''));
+  const bufB = Buffer.from(String(b || ''));
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+async function checkAdminAuth(req, providedPassword, serviceKey) {
+  const ip = getClientIp(req);
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/admin_login_attempts?ip=eq.${encodeURIComponent(ip)}&created_at=gte.${since}&select=id`,
+      { headers }
+    );
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows.length >= MAX_ATTEMPTS) {
+        return { ok: false, status: 429, error: 'Too many failed attempts. Try again in a few minutes.' };
+      }
+    }
+  } catch (e) {
+    console.error('submit-property auth: rate-limit check failed:', e.message);
+  }
+  const correct = safeCompareStr(providedPassword, process.env.ADMIN_PASSWORD);
+  if (!correct) {
+    try {
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/admin_login_attempts`, {
+        method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({ ip }),
+      });
+    } catch (e) {
+      console.error('submit-property auth: failed to log attempt:', e.message);
+    }
+    return { ok: false, status: 401, error: 'Unauthorized' };
+  }
+  return { ok: true };
+}
+
 // Nigeria's 36 states + FCT, each mapped to its official LGAs (774 total).
 // Kept in sync with the same dataset embedded in list-property.html — this is the
 // server-side source of truth so a spoofed/direct API request can't submit a
@@ -58,6 +112,32 @@ function validateProperty(body) {
     return { error: 'Invalid number of bathrooms' };
   }
 
+  // Fee breakdown — optional (not every landlord knows exact figures upfront),
+  // but validated if provided so we never store garbage. Agency/legal fees are
+  // conventionally a % of annual rent in Nigeria; caution fee is a flat refundable
+  // deposit amount.
+  let agencyFeePercent = null;
+  if (body.agency_fee_percent !== undefined && body.agency_fee_percent !== null && body.agency_fee_percent !== '') {
+    agencyFeePercent = parseFloat(body.agency_fee_percent);
+    if (!Number.isFinite(agencyFeePercent) || agencyFeePercent < 0 || agencyFeePercent > 100) {
+      return { error: 'Agency fee must be a percentage between 0 and 100' };
+    }
+  }
+  let legalFeePercent = null;
+  if (body.legal_fee_percent !== undefined && body.legal_fee_percent !== null && body.legal_fee_percent !== '') {
+    legalFeePercent = parseFloat(body.legal_fee_percent);
+    if (!Number.isFinite(legalFeePercent) || legalFeePercent < 0 || legalFeePercent > 100) {
+      return { error: 'Legal fee must be a percentage between 0 and 100' };
+    }
+  }
+  let cautionFee = null;
+  if (body.caution_fee !== undefined && body.caution_fee !== null && body.caution_fee !== '') {
+    cautionFee = parseFloat(body.caution_fee);
+    if (!Number.isFinite(cautionFee) || cautionFee < 0 || cautionFee > 1_000_000_000) {
+      return { error: 'Invalid caution fee amount' };
+    }
+  }
+
   const description = truncate(escapeHtml((body.description || '').trim()), 2000);
 
   const rawAmenities = Array.isArray(body.amenities) ? body.amenities : [];
@@ -113,6 +193,7 @@ function validateProperty(body) {
       nin_number: ninNumber, security_info: securityInfo, water_info: waterInfo,
       electricity_info: electricityInfo, flood_risk: floodRisk,
       nearby_schools: nearbySchools, nearby_markets: nearbyMarkets, photo_urls: photoUrls,
+      agency_fee_percent: agencyFeePercent, legal_fee_percent: legalFeePercent, caution_fee: cautionFee,
     },
   };
 }
@@ -126,39 +207,55 @@ export default async function handler(req, res) {
   try {
     const body = req.body;
 
-    // Verify identity server-side — never trust a client-supplied user_id.
-    const accessToken = body.access_token;
-    if (!accessToken) {
-      return res.status(401).json({ error: 'Please sign in to list a property' });
+    // Two ways in: a signed-in user's access token (normal landlord self-submission,
+    // goes to 'pending' for review), or the admin password (quick-add tool for
+    // seeding real listings — auto-approved since the admin is personally vetting
+    // the data as they type it in, no separate review step needed).
+    let user = null;
+    let isAdminEntry = false;
+
+    if (body.admin_password) {
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const auth = await checkAdminAuth(req, body.admin_password, serviceKey);
+      if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+      isAdminEntry = true;
+    } else {
+      const accessToken = body.access_token;
+      if (!accessToken) {
+        return res.status(401).json({ error: 'Please sign in to list a property' });
+      }
+      const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          apikey: process.env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!userResp.ok) {
+        return res.status(401).json({ error: 'Your session has expired — please sign in again' });
+      }
+      user = await userResp.json();
     }
-    const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        apikey: process.env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    if (!userResp.ok) {
-      return res.status(401).json({ error: 'Your session has expired — please sign in again' });
-    }
-    const user = await userResp.json();
 
     const validated = validateProperty(body);
     if (validated.error) {
       return res.status(400).json({ error: validated.error });
     }
 
+    // Admin entries use the service role key (bypasses RLS entirely, since we've
+    // already independently verified this is a legitimate admin action above).
+    // Normal user entries keep using the anon key exactly as before.
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const insertHeaders = isAdminEntry
+      ? { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Prefer': 'return=minimal' }
+      : { 'Content-Type': 'application/json', 'apikey': process.env.SUPABASE_ANON_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`, 'Prefer': 'return=minimal' };
+
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`,
-        'Prefer': 'return=minimal'
-      },
+      headers: insertHeaders,
       body: JSON.stringify({
         ...validated.data,
-        user_id: user.id,
-        status: 'pending'
+        user_id: user ? user.id : null,
+        status: isAdminEntry ? 'approved' : 'pending'
       })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
@@ -167,10 +264,12 @@ export default async function handler(req, res) {
     // listed a property. Self-declared, not a security boundary (see submit-property
     // review notes) — purely so role data reflects reality for future features
     // (agent bulk tools, role-based analytics, etc). Never let this fail the submission.
-    try {
-      await tagAsLandlordIfNeeded(user.id);
-    } catch (e) {
-      console.error('submit-property: role auto-tag failed:', e.message);
+    if (user) {
+      try {
+        await tagAsLandlordIfNeeded(user.id);
+      } catch (e) {
+        console.error('submit-property: role auto-tag failed:', e.message);
+      }
     }
 
     return res.status(200).json({ success: true });
