@@ -385,7 +385,7 @@ return `You are NaijaNest, a friendly Nigerian house rental AI assistant helping
 ${coverageLine}
 
 Available properties (JSON):
-${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
+${JSON.stringify(PROPS.map(p=>({id:p.id,name:p.name,area:p.area,city:p.city,bedrooms:p.bed,price:p.price,type:p.type,verified:p.verified,agency_fee_percent:p.agency_fee_percent,legal_fee_percent:p.legal_fee_percent,caution_fee:p.caution_fee,sec:p.nb&&p.nb.sec||'',water:p.nb&&p.nb.water||'',elec:p.nb&&p.nb.elec||'',flood:p.nb&&p.nb.flood||'',vibe:p.nb&&p.nb.vibe||''})))}
 
 CRITICAL RULES:
 1. ONLY use properties from the list. NEVER mention areas not in the list.
@@ -409,6 +409,8 @@ NEVER shorten this. NEVER paraphrase this. Use it EXACTLY as written above.
 3. SHOW_PROPS IS MANDATORY: Every property search MUST end with SHOW_PROPS:[id1,id2] on its own line. Without this, cards will NOT appear.
 
 4. BUDGET STRICT: Never show properties above budget. If nothing matches, show cheapest available.
+
+5. FULL COST QUESTIONS: If asked "how much will this actually cost", "total cost", or about agency/legal/caution fees — check agency_fee_percent, legal_fee_percent, and caution_fee on that property. If present, compute: agency fee = price × agency_fee_percent/100, legal fee = price × legal_fee_percent/100, then total = price + agency fee + legal fee + caution_fee (only add fields that aren't null). Show the breakdown clearly, don't just give one number. If any of these three fields are null for that property, say plainly that the landlord hasn't listed that specific fee yet and to ask them directly — never estimate or guess a fee percentage on the landlord's behalf.
 
 5. BEDROOM COUNT STRICT: Only show matching bedroom count.
 
@@ -672,6 +674,34 @@ function openDetail(id){
   const floodDot=['low','no flood','zero','elevated'].some(w=>nb.flood.toLowerCase().includes(w))?'dot-g':'dot-a';
   const photos = p.photos || [p.img];
   const thumbsHtml = photos.map((ph,i)=>`<img class="photo-thumb${i===0?' active':''}" src="${ph}" loading="lazy" decoding="async" onclick="switchPhoto('${ph}',this)" onerror="this.style.display='none'"/>`).join('');
+
+  // Full cost breakdown — agency/legal fees are conventionally a % of annual rent
+  // in Nigeria, caution fee is a flat refundable deposit. Only shown if the
+  // landlord actually provided figures; we never guess or estimate on their behalf.
+  const hasFeeData = p.agency_fee_percent != null || p.legal_fee_percent != null || p.caution_fee != null;
+  let feeBreakdownHtml = '';
+  if (hasFeeData) {
+    const agencyAmt = p.agency_fee_percent != null ? Math.round(p.price * p.agency_fee_percent / 100) : null;
+    const legalAmt = p.legal_fee_percent != null ? Math.round(p.price * p.legal_fee_percent / 100) : null;
+    const cautionAmt = p.caution_fee != null ? Math.round(p.caution_fee) : null;
+    const total = p.price + (agencyAmt||0) + (legalAmt||0) + (cautionAmt||0);
+    feeBreakdownHtml = `
+      <div class="sec-title">Full cost breakdown</div>
+      <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Annual rent</span><span style="font-weight:600">${fmt(p.price)}</span></div>
+        ${agencyAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Agency fee (${p.agency_fee_percent}%)</span><span style="font-weight:600">${fmt(agencyAmt)}</span></div>`:''}
+        ${legalAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Legal fee (${p.legal_fee_percent}%)</span><span style="font-weight:600">${fmt(legalAmt)}</span></div>`:''}
+        ${cautionAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Caution fee (refundable)</span><span style="font-weight:600">${fmt(cautionAmt)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid var(--border)"><span style="font-weight:700">Total upfront</span><span style="font-weight:700;color:var(--green)">${fmt(total)}</span></div>
+      </div>`;
+  } else {
+    feeBreakdownHtml = `
+      <div class="sec-title">Full cost breakdown</div>
+      <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text-sec)">
+        This landlord hasn't listed agency/legal/caution fees yet — ask them directly for the full upfront cost before proceeding.
+      </div>`;
+  }
+
   document.getElementById('detailBody').innerHTML=`
     <div class="photo-gallery">
       <img id="mainPhoto" src="${photos[0]}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'" style="width:100%;height:220px;object-fit:cover;display:block"/>
@@ -695,6 +725,7 @@ function openDetail(id){
         <span class="dbadge"><i class="ti ti-eye"></i> ${p.inspections} inspections</span>
       </div>
       <div class="badge-row">${p.amenities.map(a=>`<span class="dbadge">${a}</span>`).join('')}</div>
+      ${feeBreakdownHtml}
       <div class="sec-title">Neighborhood intelligence</div>
       <div class="nbhd-grid">
         <div class="nbhd-item"><div class="nbhd-label"><i class="ti ti-shield"></i> Security</div><div class="nbhd-val"><span class="dot ${secDot}"></span>${nb.sec.split('—')[0].trim()}</div></div>
@@ -862,6 +893,7 @@ async function loadRealProperties(){
         return {
         id:p.id,name:p.name,area:p.area,city:p.city,lga:p.lga,bed:p.bedrooms,bath:p.bathrooms,
         price:p.price,type:p.type,verified:true,inspections:0,rentals:0,
+        agency_fee_percent:p.agency_fee_percent,legal_fee_percent:p.legal_fee_percent,caution_fee:p.caution_fee,
         amenities:p.amenities||[],
         img:photos[0],
         photos:photos,

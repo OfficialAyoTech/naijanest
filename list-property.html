@@ -124,6 +124,24 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Fee breakdown <span style="font-weight:400;color:var(--text-sec);font-size:12px">(optional, but strongly recommended — renters see the full cost upfront, no surprises)</span></label>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Agency fee (% of rent)</label>
+        <input type="number" id="agency_fee_percent" placeholder="e.g. 10" min="0" max="100"/>
+      </div>
+      <div class="field">
+        <label>Legal fee (% of rent)</label>
+        <input type="number" id="legal_fee_percent" placeholder="e.g. 10" min="0" max="100"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Caution fee / deposit (₦)</label>
+      <input type="number" id="caution_fee" placeholder="e.g. 100000 (refundable deposit, if any)"/>
+    </div>
+
     <div class="field-row">
       <div class="field">
         <label>Bedrooms</label>
@@ -383,6 +401,9 @@ async function submitProperty() {
   const area = document.getElementById('area').value.trim();
   const type = document.getElementById('type').value;
   const price = document.getElementById('price').value;
+  const agency_fee_percent = document.getElementById('agency_fee_percent').value;
+  const legal_fee_percent = document.getElementById('legal_fee_percent').value;
+  const caution_fee = document.getElementById('caution_fee').value;
   const bedrooms = document.getElementById('bedrooms').value;
   const bathrooms = document.getElementById('bathrooms').value;
   const description = document.getElementById('description').value.trim();
@@ -437,7 +458,7 @@ async function submitProperty() {
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, access_token })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, access_token })
     });
     const data = await resp.json();
     if (data.success) {

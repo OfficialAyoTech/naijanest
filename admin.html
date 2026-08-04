@@ -197,6 +197,11 @@
           <div class="qa-field"><label>Bedrooms</label><select id="qa_bedrooms"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
           <div class="qa-field"><label>Bathrooms</label><select id="qa_bathrooms"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
         </div>
+        <div class="qa-row">
+          <div class="qa-field"><label>Agency fee (%)</label><input type="number" id="qa_agency_fee" placeholder="10" min="0" max="100"/></div>
+          <div class="qa-field"><label>Legal fee (%)</label><input type="number" id="qa_legal_fee" placeholder="10" min="0" max="100"/></div>
+        </div>
+        <div class="qa-field"><label>Caution fee / deposit (₦)</label><input type="number" id="qa_caution_fee" placeholder="e.g. 100000 (optional)"/></div>
 
         <h4>Landlord</h4>
         <div class="qa-field"><label>Landlord name</label><input id="qa_landlord_name"/></div>
@@ -331,6 +336,9 @@ async function qaSubmit(){
     area: document.getElementById('qa_area').value,
     type: document.getElementById('qa_type').value,
     price: document.getElementById('qa_price').value,
+    agency_fee_percent: document.getElementById('qa_agency_fee').value,
+    legal_fee_percent: document.getElementById('qa_legal_fee').value,
+    caution_fee: document.getElementById('qa_caution_fee').value,
     bedrooms: document.getElementById('qa_bedrooms').value,
     bathrooms: document.getElementById('qa_bathrooms').value,
     landlord_name: document.getElementById('qa_landlord_name').value,
