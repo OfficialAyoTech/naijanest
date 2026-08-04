@@ -60,6 +60,29 @@ async function checkAdminAuth(req, providedPassword, serviceKey) {
   return { ok: true };
 }
 
+// Decrypts a NIN that was encrypted by submit-property.js's encryptNin(). Rows
+// created before encryption was added are still plain 11-digit strings — those
+// pass through unchanged rather than erroring, so old and new listings both work.
+function decryptNin(value) {
+  if (typeof value !== 'string') return value;
+  const parts = value.split(':');
+  if (parts.length !== 3) return value; // not our encrypted format — legacy plaintext
+  try {
+    const [ivHex, authTagHex, dataHex] = parts;
+    const key = Buffer.from(process.env.NIN_ENCRYPTION_KEY, 'hex');
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const encrypted = Buffer.from(dataHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch (e) {
+    console.error('admin-data: NIN decrypt failed:', e.message);
+    return '[decryption error]';
+  }
+}
+
 // Returns ALL properties + waitlist data for the admin dashboard.
 // Gated by ADMIN_PASSWORD (checked server-side, never trust the client),
 // with brute-force protection (rate limiting + constant-time comparison).
@@ -109,6 +132,7 @@ export default async function handler(req, res) {
     // payments/events tables are newer — don't hard-fail the whole dashboard if either
     // has an issue, just show empty data for that section.
     const properties = await propsResp.json();
+    properties.forEach(p => { if (p.nin_number) p.nin_number = decryptNin(p.nin_number); });
     const waitlist = await waitlistResp.json();
     const payments = paymentsResp.ok ? await paymentsResp.json() : [];
     const events = eventsResp.ok ? await eventsResp.json() : [];

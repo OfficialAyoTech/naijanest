@@ -78,6 +78,20 @@ function truncate(str, max) {
   return String(str).slice(0, max);
 }
 
+// Encrypts a NIN with AES-256-GCM before it's ever written to the database.
+// This is field-level encryption on top of Supabase's own disk-level encryption —
+// it protects against a leaked/compromised SUPABASE_SERVICE_ROLE_KEY being used to
+// read the raw table directly, since even with full DB read access, nin_number is
+// ciphertext without this app's separate NIN_ENCRYPTION_KEY (never stored in Supabase).
+function encryptNin(plaintext) {
+  const key = Buffer.from(process.env.NIN_ENCRYPTION_KEY, 'hex');
+  const iv = crypto.randomBytes(12); // 96-bit IV, standard for GCM
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
+}
+
 // Validates and normalizes the submission. Returns { error: '...' } on the
 // first problem found, or { data: {...} } with clean, safe values ready to insert.
 function validateProperty(body) {
@@ -163,6 +177,10 @@ function validateProperty(body) {
   if (!/^\d{11}$/.test(ninNumber)) {
     return { error: 'NIN must be exactly 11 digits' };
   }
+  if (!process.env.NIN_ENCRYPTION_KEY) {
+    return { error: 'Server misconfigured: NIN_ENCRYPTION_KEY is not set' };
+  }
+  const encryptedNin = encryptNin(ninNumber);
 
   const securityInfo = truncate(escapeHtml((body.security_info || '').trim()), 300);
   if (!securityInfo) return { error: 'Security info is required' };
@@ -190,7 +208,7 @@ function validateProperty(body) {
     data: {
       name, area, city, lga, type, price, bedrooms, bathrooms, description, amenities,
       landlord_name: landlordName, landlord_phone: phoneDigits, landlord_email: landlordEmail,
-      nin_number: ninNumber, security_info: securityInfo, water_info: waterInfo,
+      nin_number: encryptedNin, security_info: securityInfo, water_info: waterInfo,
       electricity_info: electricityInfo, flood_risk: floodRisk,
       nearby_schools: nearbySchools, nearby_markets: nearbyMarkets, photo_urls: photoUrls,
       agency_fee_percent: agencyFeePercent, legal_fee_percent: legalFeePercent, caution_fee: cautionFee,
