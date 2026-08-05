@@ -110,7 +110,7 @@ export default async function handler(req, res) {
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp, paymentsResp, eventsResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
@@ -119,6 +119,7 @@ export default async function handler(req, res) {
       // chat.js or whatsapp-webhook.js message ever sent. Only pulling the last 90 days
       // and two columns keeps this cheap even as it grows.
       fetch(`${process.env.SUPABASE_URL}/rest/v1/rate_limit_events?select=key,created_at&created_at=gte.${new Date(Date.now() - 90*24*60*60*1000).toISOString()}&order=created_at.desc`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -136,8 +137,9 @@ export default async function handler(req, res) {
     const waitlist = await waitlistResp.json();
     const payments = paymentsResp.ok ? await paymentsResp.json() : [];
     const events = eventsResp.ok ? await eventsResp.json() : [];
+    const errors = errorsResp.ok ? await errorsResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist, payments, events });
+    return res.status(200).json({ properties, waitlist, payments, events, errors });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
