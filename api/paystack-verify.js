@@ -113,6 +113,13 @@ async function handleGet(req, res) {
       return await runAutoReleaseSweep(res);
     }
 
+    // Bank dropdown data for the "save bank details" form. Proxied live from
+    // Paystack rather than hardcoded — bank codes do change, and a wrong one
+    // silently breaks a real transfer later.
+    if (req.query.list_banks) {
+      return await listBanks(res);
+    }
+
     const { reference } = req.query;
     if (!reference) return res.status(400).json({ error: 'Missing reference' });
 
@@ -138,6 +145,22 @@ async function handleGet(req, res) {
     return await verifyFeaturedListing({ tx, reference, headers, res });
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+}
+
+async function listBanks(res) {
+  try {
+    const resp = await fetch('https://api.paystack.co/bank?country=nigeria&currency=NGN&type=nuban&perPage=100', {
+      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
+    });
+    const data = await resp.json();
+    if (!data.status) return res.status(400).json({ error: 'Could not fetch bank list' });
+    const banks = data.data
+      .map(b => ({ name: b.name, code: b.code }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return res.status(200).json({ banks });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 }
 
@@ -237,10 +260,36 @@ async function handlePost(req, res) {
     if (action === 'save_bank_details') return await saveBankDetails(req, res);
     if (action === 'confirm_move_in') return await confirmMoveIn(req, res);
     if (action === 'raise_dispute') return await raiseDispute(req, res);
+    if (action === 'my_escrow') return await myEscrow(req, res);
     return res.status(400).json({ error: 'Unknown action' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
+}
+
+// escrow_transactions has RLS locked to service-role-only (see migration) —
+// no one can query it straight from the browser. This is how a renter sees
+// payments they've made, and a landlord sees payments they've received.
+async function myEscrow(req, res) {
+  const { access_token } = req.body || {};
+  if (!access_token) return res.status(400).json({ error: 'Missing access_token' });
+  const user = await authenticate(access_token);
+  if (!user) return res.status(401).json({ error: 'Please sign in again' });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+
+  const resp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions` +
+    `?or=(renter_id.eq.${user.id},landlord_id.eq.${user.id})&order=created_at.desc` +
+    `&select=id,property_id,renter_id,landlord_id,rent_amount,agency_fee_amount,legal_fee_amount,` +
+    `caution_fee_amount,total_amount,status,confirm_deadline,funded_at,confirmed_at,disputed_at,` +
+    `dispute_reason,released_at,refunded_at,reference,created_at`,
+    { headers }
+  );
+  if (!resp.ok) return res.status(400).json({ error: 'Could not fetch escrow records' });
+  const rows = await resp.json();
+  return res.status(200).json({ escrow: rows, user_id: user.id });
 }
 
 // Landlord sets/updates payout bank details. The account number + bank code
