@@ -83,6 +83,126 @@ function decryptNin(value) {
   }
 }
 
+// Same release logic as paystack-verify.js's releaseEscrow — duplicated rather
+// than shared, since sharing would mean a /lib import; both copies stay in
+// sync manually (search for "releaseEscrowFunds" if you change one). The one
+// difference: this version also accepts 'disputed' as a startable state,
+// since it's only ever called here after an admin has resolved a dispute
+// in the renter's favor of "actually just release it".
+async function releaseEscrowFunds({ escrow, headers }) {
+  if (!['funded', 'confirmed', 'disputed'].includes(escrow.status)) {
+    return { skipped: true };
+  }
+
+  const landlordResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.landlord_id}` +
+    `&select=id,bank_code,bank_account_number,bank_account_name,paystack_recipient_code`,
+    { headers }
+  );
+  const landlords = await landlordResp.json();
+  const landlord = landlords[0];
+  if (!landlord || !landlord.bank_account_number) {
+    throw new Error(`Landlord ${escrow.landlord_id} has no bank details on file`);
+  }
+
+  let recipientCode = landlord.paystack_recipient_code;
+  if (!recipientCode) {
+    const recResp = await fetch('https://api.paystack.co/transferrecipient', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'nuban', name: landlord.bank_account_name,
+        account_number: landlord.bank_account_number, bank_code: landlord.bank_code,
+        currency: 'NGN',
+      }),
+    });
+    const recData = await recResp.json();
+    if (!recData.status) throw new Error(`Could not create Paystack recipient: ${recData.message}`);
+    recipientCode = recData.data.recipient_code;
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.landlord_id}`, {
+      method: 'PATCH', headers, body: JSON.stringify({ paystack_recipient_code: recipientCode }),
+    });
+  }
+
+  const transferRef = `naijanest_payout_${escrow.id}_${Date.now()}`;
+  const transferResp = await fetch('https://api.paystack.co/transfer', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source: 'balance', amount: escrow.rent_amount, recipient: recipientCode,
+      reference: transferRef, reason: `NaijaNest rent payout — escrow ${escrow.id}`,
+    }),
+  });
+  const transferData = await transferResp.json();
+  if (!transferData.status) throw new Error(`Transfer failed: ${transferData.message}`);
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow.id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({
+      status: 'released', released_at: new Date().toISOString(),
+      transfer_reference: transferRef, transfer_code: transferData.data.transfer_code,
+    }),
+  });
+}
+
+// Admin resolves a dispute a renter raised (see raise_dispute in
+// paystack-verify.js): either release the rent to the landlord after all
+// (e.g. renter's complaint didn't hold up), or refund the renter in full via
+// Paystack's Refund API (e.g. the listing turned out to be fraudulent, or the
+// landlord never handed over keys). This is the ONLY path that can move a
+// 'disputed' row forward — nothing automated touches it.
+async function resolveEscrowDispute(req, res, serviceKey) {
+  const { escrow_id, resolution, admin_notes } = req.body || {};
+  if (!escrow_id || !['release', 'refund'].includes(resolution)) {
+    return res.status(400).json({ error: 'Missing escrow_id or invalid resolution (must be "release" or "refund")' });
+  }
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const escrowResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}&select=*`, { headers }
+  );
+  const rows = await escrowResp.json();
+  const escrow = rows[0];
+  if (!escrow) return res.status(404).json({ error: 'Escrow record not found' });
+  if (escrow.status !== 'disputed') {
+    return res.status(400).json({ error: `Can only resolve disputed escrows — current status is ${escrow.status}` });
+  }
+
+  if (resolution === 'release') {
+    try {
+      await releaseEscrowFunds({ escrow, headers });
+    } catch (e) {
+      return res.status(400).json({ error: `Release failed: ${e.message}` });
+    }
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ resolved_by_admin_at: new Date().toISOString(), admin_notes: admin_notes || null }),
+    });
+    return res.status(200).json({ success: true, resolution: 'released' });
+  }
+
+  const refundResp = await fetch('https://api.paystack.co/refund', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transaction: escrow.reference, amount: escrow.total_amount }),
+  });
+  const refundData = await refundResp.json();
+  if (!refundData.status) {
+    return res.status(400).json({ error: `Refund failed: ${refundData.message}` });
+  }
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({
+      status: 'refunded', refunded_at: new Date().toISOString(),
+      resolved_by_admin_at: new Date().toISOString(), admin_notes: admin_notes || null,
+    }),
+  });
+
+  return res.status(200).json({ success: true, resolution: 'refunded' });
+}
+
 // Returns ALL properties + waitlist data for the admin dashboard.
 // Gated by ADMIN_PASSWORD (checked server-side, never trust the client),
 // with brute-force protection (rate limiting + constant-time comparison).
@@ -96,7 +216,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { admin_password } = req.body || {};
+    const { admin_password, action } = req.body || {};
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceKey) {
       return res.status(500).json({ error: 'Server misconfigured: SUPABASE_SERVICE_ROLE_KEY is not set' });
@@ -105,12 +225,16 @@ export default async function handler(req, res) {
     const auth = await checkAdminAuth(req, admin_password, serviceKey);
     if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
+    if (action === 'resolve_escrow_dispute') {
+      return await resolveEscrowDispute(req, res, serviceKey);
+    }
+
     const headers = {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
@@ -120,6 +244,7 @@ export default async function handler(req, res) {
       // and two columns keeps this cheap even as it grows.
       fetch(`${process.env.SUPABASE_URL}/rest/v1/rate_limit_events?select=key,created_at&created_at=gte.${new Date(Date.now() - 90*24*60*60*1000).toISOString()}&order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?order=created_at.desc&limit=200`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -130,7 +255,7 @@ export default async function handler(req, res) {
       const err = await waitlistResp.text();
       return res.status(400).json({ error: `waitlist: ${err}` });
     }
-    // payments/events tables are newer — don't hard-fail the whole dashboard if either
+    // payments/events/escrow tables are newer — don't hard-fail the whole dashboard if any
     // has an issue, just show empty data for that section.
     const properties = await propsResp.json();
     properties.forEach(p => { if (p.nin_number) p.nin_number = decryptNin(p.nin_number); });
@@ -138,8 +263,9 @@ export default async function handler(req, res) {
     const payments = paymentsResp.ok ? await paymentsResp.json() : [];
     const events = eventsResp.ok ? await eventsResp.json() : [];
     const errors = errorsResp.ok ? await errorsResp.json() : [];
+    const escrow = escrowResp.ok ? await escrowResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist, payments, events, errors });
+    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
