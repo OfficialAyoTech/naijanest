@@ -576,6 +576,11 @@ Want to know more about how we verify listings, or would you rather jump into a 
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
+function fmtFull(n){ return '₦' + Number(n).toLocaleString(); } // full precision, no "/yr" — for escrow amounts
+function escHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
 
 function showApp(){
   document.getElementById('landingPage').style.display='none';
@@ -726,6 +731,7 @@ function openDetail(id){
       </div>
       <div class="badge-row">${p.amenities.map(a=>`<span class="dbadge">${a}</span>`).join('')}</div>
       ${feeBreakdownHtml}
+      <div id="rentPaySection"></div>
       <div class="sec-title">Neighborhood intelligence</div>
       <div class="nbhd-grid">
         <div class="nbhd-item"><div class="nbhd-label"><i class="ti ti-shield"></i> Security</div><div class="nbhd-val"><span class="dot ${secDot}"></span>${nb.sec.split('—')[0].trim()}</div></div>
@@ -741,6 +747,129 @@ function openDetail(id){
     </div>`;
   document.getElementById('detailOverlay').style.display='flex';
   updateFavButton(p.id);
+  renderRentPaySection(p);
+}
+
+// ---- Rent escrow: pay, and track status of a payment already made ----
+let MY_ESCROW = null; // cached per session; refreshed after any action that changes it
+
+async function loadMyEscrow(force){
+  if(!NaijaAuth.isLoggedIn()) { MY_ESCROW = []; return MY_ESCROW; }
+  if(MY_ESCROW && !force) return MY_ESCROW;
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-verify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'my_escrow', access_token })
+    });
+    const data = await resp.json();
+    MY_ESCROW = data.escrow || [];
+  }catch(e){ MY_ESCROW = []; }
+  return MY_ESCROW;
+}
+
+function escrowStatusLabel(row){
+  const days = row.confirm_deadline ? Math.max(0, Math.ceil((new Date(row.confirm_deadline) - new Date()) / (24*60*60*1000))) : null;
+  switch(row.status){
+    case 'pending_payment': return {text:'⏳ Payment pending — refresh in a moment', color:'#d97706'};
+    case 'funded': return {text:`✅ Payment held in escrow${days!=null?` — auto-releases in ${days} day${days===1?'':'s'} unless you confirm or report an issue`:''}`, color:'#1a6b3a'};
+    case 'confirmed': return {text:'✅ Move-in confirmed — payout to landlord processing', color:'#1a6b3a'};
+    case 'disputed': return {text:'🚩 Dispute under review by NaijaNest support', color:'#dc2626'};
+    case 'released': return {text:'✅ Payment released to landlord', color:'#1a6b3a'};
+    case 'refunded': return {text:'↩️ Refunded to you', color:'#555'};
+    case 'payment_failed': return {text:'❌ Payment did not go through', color:'#dc2626'};
+    default: return {text: row.status, color:'#555'};
+  }
+}
+
+async function renderRentPaySection(p){
+  const el = document.getElementById('rentPaySection');
+  if(!el) return;
+  if(!NaijaAuth.isLoggedIn()){
+    el.innerHTML = `<div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text-sec)">
+      <button onclick="NaijaAuth.openLoginModal()" style="background:var(--green);color:#fff;border:none;border-radius:20px;padding:8px 16px;font-size:12.5px;font-weight:500;cursor:pointer">Sign in to pay rent through NaijaNest</button>
+    </div>`;
+    return;
+  }
+  if(!p.price){
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `<div style="font-size:12px;color:var(--text-sec);margin-bottom:14px">Checking payment status...</div>`;
+  const rows = await loadMyEscrow();
+  // my_escrow already scopes results to rows where the caller is either the
+  // renter or landlord, so just take the most recent row for this property.
+  const row = rows.filter(r => r.property_id === p.id).sort((a,b)=> new Date(b.created_at)-new Date(a.created_at))[0];
+
+  if(!row || ['released','refunded','payment_failed'].includes(row.status)){
+    el.innerHTML = `<button class="wa-btn" style="background:var(--green)" onclick="payRent(${p.id})" id="payRentBtn">🔒 Pay Rent Securely${row?` (again)`:''}</button>`;
+    return;
+  }
+
+  const {text, color} = escrowStatusLabel(row);
+  let actions = '';
+  if(row.status === 'funded'){
+    actions = `
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button onclick="confirmMoveInFlow(${row.id})" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">✅ Confirm move-in</button>
+        <button onclick="raiseDisputeFlow(${row.id})" style="flex:1;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">🚩 Report a problem</button>
+      </div>`;
+  }
+  el.innerHTML = `
+    <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:12.5px;font-weight:600;color:${color}">${text}</div>
+      ${actions}
+    </div>`;
+}
+
+async function payRent(propertyId){
+  const btn = document.getElementById('payRentBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Starting payment...'; }
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-initialize', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ property_id: propertyId, access_token, purpose: 'rent_escrow' })
+    });
+    const data = await resp.json();
+    if(!data.authorization_url) throw new Error(data.error || 'Could not start payment');
+    window.location.href = data.authorization_url;
+  }catch(e){
+    alert('Could not start payment: ' + e.message);
+    if(btn){ btn.disabled = false; btn.textContent = '🔒 Pay Rent Securely'; }
+  }
+}
+
+async function confirmMoveInFlow(escrowId){
+  if(!confirm('Confirm you have received the keys and moved in? This releases payment to the landlord right away.')) return;
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-verify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'confirm_move_in', escrow_id: escrowId, access_token })
+    });
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error || 'Could not confirm');
+    await loadMyEscrow(true);
+    if(selectedProp) renderRentPaySection(selectedProp);
+  }catch(e){ alert('Could not confirm move-in: ' + e.message); }
+}
+
+async function raiseDisputeFlow(escrowId){
+  const reason = prompt('What went wrong? (e.g. landlord never provided keys, property doesn\'t match listing). This freezes the payment and NaijaNest support will review it.');
+  if(!reason || !reason.trim()) return;
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-verify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'raise_dispute', escrow_id: escrowId, access_token, reason: reason.trim() })
+    });
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error || 'Could not submit report');
+    await loadMyEscrow(true);
+    if(selectedProp) renderRentPaySection(selectedProp);
+    alert('Reported. Our team will review and reach out.');
+  }catch(e){ alert('Could not submit report: ' + e.message); }
 }
 
 function contactWhatsApp(phone, propName){

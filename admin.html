@@ -134,6 +134,7 @@
       <button class="main-tab" onclick="showView('submissions',this)">Submissions</button>
       <button class="main-tab" onclick="showView('waitlist',this)">Waitlist</button>
       <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
+      <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
 
@@ -173,6 +174,11 @@
     <!-- METRICS -->
     <div class="view" id="view-metrics">
       <div id="metricsContent"></div>
+    </div>
+
+    <!-- DISPUTES -->
+    <div class="view" id="view-disputes">
+      <div id="disputesContent"></div>
     </div>
 
     <!-- QUICK ADD -->
@@ -246,6 +252,7 @@ let allWaitlist = [];
 let allPayments = [];
 let allEvents = [];
 let allErrors = [];
+let allEscrow = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
 
@@ -439,6 +446,7 @@ async function loadData() {
     allPayments = data.payments || [];
     allEvents = data.events || [];
     allErrors = data.errors || [];
+    allEscrow = data.escrow || [];
 
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
@@ -450,6 +458,7 @@ async function loadData() {
     renderProps();
     renderWaitlist();
     renderMetrics();
+    renderDisputes();
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -590,6 +599,58 @@ function renderMetrics(){
       ${allErrors.length > 20 ? `<p style="font-size:11px;color:var(--text-sec);margin-top:6px">Showing 20 most recent of ${allErrors.length}. Errors from paystack-webhook, whatsapp-webhook, chat, submit-property, and approve-property are monitored; you also get a WhatsApp alert (max once per 15 min per source) when a new one occurs.</p>` : `<p style="font-size:11px;color:var(--text-sec);margin-top:6px">Errors from paystack-webhook, whatsapp-webhook, chat, submit-property, and approve-property are monitored; you also get a WhatsApp alert (max once per 15 min per source) when a new one occurs.</p>`}
     </div>
   `;
+}
+
+// Escrow disputes needing manual admin review — see resolve_escrow_dispute
+// action in admin-data.js. Nothing automated touches a 'disputed' row; this
+// panel (release or refund) is the only way one moves forward.
+function renderDisputes(){
+  const el = document.getElementById('disputesContent');
+  if (!el) return;
+  const disputed = allEscrow.filter(e => e.status === 'disputed');
+  const badge = document.getElementById('disputeBadge');
+  if (badge) badge.textContent = disputed.length ? ` (${disputed.length})` : '';
+
+  if (!disputed.length){
+    el.innerHTML = '<div style="color:var(--text-sec);font-size:12.5px">No open disputes ✅</div>';
+    return;
+  }
+
+  el.innerHTML = disputed.map(e => `
+    <div class="prop-card">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">Escrow #${e.id} — ${escapeHtml(e.reference)}</div>
+      <div style="font-size:12.5px;color:var(--text-sec);margin-bottom:6px">
+        ₦${Number(e.total_amount/100).toLocaleString()} total · rent ₦${Number(e.rent_amount/100).toLocaleString()}
+        · disputed ${e.disputed_at ? new Date(e.disputed_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}
+      </div>
+      <div style="background:var(--surface,#f9fafb);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px">
+        <strong>Renter's reason:</strong> ${escapeHtml(e.dispute_reason || '(none given)')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="approve-btn" onclick="resolveDispute(${e.id},'release')">✅ Release to landlord</button>
+        <button class="reject-btn" onclick="resolveDispute(${e.id},'refund')">↩️ Refund renter</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function resolveDispute(escrowId, resolution){
+  const label = resolution === 'release' ? 'release funds to the landlord' : 'refund the renter in full';
+  if (!confirm(`Are you sure you want to ${label} for escrow #${escrowId}? This cannot be undone.`)) return;
+  const notes = prompt('Optional note for your own records (visible only to admins):') || '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'resolve_escrow_dispute', escrow_id: escrowId, resolution, admin_notes: notes })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not resolve dispute');
+    alert(`Done — ${resolution === 'release' ? 'released' : 'refunded'}.`);
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
 }
 
 function showView(name, el) {
