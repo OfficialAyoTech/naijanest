@@ -294,7 +294,7 @@ async function renderEscrowSection(){
       </div>` : '';
     return `<div class="card">
       <div class="escrow-status" style="color:${color}">${text}</div>
-      <div class="escrow-meta">${fmt(r.total_amount)} total · ${new Date(r.created_at).toLocaleDateString()}</div>
+      <div class="escrow-meta">${fmt(r.total_amount / 100)} total · ${new Date(r.created_at).toLocaleDateString()}</div>
       ${actions}
     </div>`;
   };
