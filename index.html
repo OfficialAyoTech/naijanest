@@ -811,8 +811,8 @@ async function renderRentPaySection(p){
   if(row.status === 'funded'){
     actions = `
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button onclick="confirmMoveInFlow(${row.id})" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">✅ Confirm move-in</button>
-        <button onclick="raiseDisputeFlow(${row.id})" style="flex:1;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">🚩 Report a problem</button>
+        <button onclick="confirmMoveInFlow('${row.id}')" style="flex:1;background:var(--green);color:#fff;border:none;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">✅ Confirm move-in</button>
+        <button onclick="raiseDisputeFlow('${row.id}')" style="flex:1;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">🚩 Report a problem</button>
       </div>`;
   }
   el.innerHTML = `

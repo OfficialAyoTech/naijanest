@@ -627,8 +627,8 @@ function renderDisputes(){
         <strong>Renter's reason:</strong> ${escapeHtml(e.dispute_reason || '(none given)')}
       </div>
       <div style="display:flex;gap:8px">
-        <button class="approve-btn" onclick="resolveDispute(${e.id},'release')">✅ Release to landlord</button>
-        <button class="reject-btn" onclick="resolveDispute(${e.id},'refund')">↩️ Refund renter</button>
+        <button class="approve-btn" onclick="resolveDispute('${e.id}','release')">✅ Release to landlord</button>
+        <button class="reject-btn" onclick="resolveDispute('${e.id}','refund')">↩️ Refund renter</button>
       </div>
     </div>
   `).join('');

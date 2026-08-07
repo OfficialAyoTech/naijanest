@@ -289,8 +289,8 @@ async function renderEscrowSection(){
     const {text, color} = escrowStatusLabel(r);
     const actions = (isRenter && r.status === 'funded') ? `
       <div class="escrow-actions">
-        <button class="btn-confirm" onclick="mlConfirmMoveIn(${r.id})">✅ Confirm move-in</button>
-        <button class="btn-dispute" onclick="mlRaiseDispute(${r.id})">🚩 Report a problem</button>
+        <button class="btn-confirm" onclick="mlConfirmMoveIn('${r.id}')">✅ Confirm move-in</button>
+        <button class="btn-dispute" onclick="mlRaiseDispute('${r.id}')">🚩 Report a problem</button>
       </div>` : '';
     return `<div class="card">
       <div class="escrow-status" style="color:${color}">${text}</div>
