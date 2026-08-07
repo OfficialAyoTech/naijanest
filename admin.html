@@ -693,6 +693,47 @@ function escrowStatusBadge(status){
   return map[status] || {label: status, color:'#555'};
 }
 
+// Only 'released' payments with a real caution fee and nothing settled yet
+// get the action buttons — everything else (still in escrow, disputed,
+// already refunded whole) just shows the current status as text.
+function cautionFeeSection(e){
+  if (!e.caution_fee_amount || e.caution_fee_amount <= 0) return '';
+  const amt = `₦${Number(e.caution_fee_amount/100).toLocaleString()}`;
+
+  if (e.status === 'released' && e.caution_fee_status === 'held'){
+    return `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border,#e5e7eb)">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">Caution fee: ${amt} — held, tenancy ended?</div>
+        <div style="display:flex;gap:8px">
+          <button class="approve-btn" onclick="settleCaution('${e.id}','refund')">↩️ Refund to renter</button>
+          <button class="reject-btn" onclick="settleCaution('${e.id}','forfeit')">⚠️ Forfeit to landlord</button>
+        </div>
+      </div>`;
+  }
+
+  const labels = { held: `${amt} held`, refunded: `${amt} refunded to renter`, forfeited: `${amt} forfeited to landlord` };
+  return `<div style="font-size:11.5px;color:var(--text-sec);margin-top:4px">Caution fee: ${labels[e.caution_fee_status] || e.caution_fee_status}${e.caution_settled_at ? ` (${new Date(e.caution_settled_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})})` : ''}</div>`;
+}
+
+async function settleCaution(escrowId, decision){
+  const label = decision === 'refund' ? 'refund the caution fee to the renter' : 'forfeit the caution fee to the landlord';
+  if (!confirm(`Are you sure you want to ${label}? This cannot be undone.`)) return;
+  const notes = prompt('Optional note for your own records (e.g. reason for forfeiture):') || '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'settle_caution_fee', escrow_id: escrowId, decision, admin_notes: notes })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not settle caution fee');
+    alert(`Done — ${data.decision}.`);
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
 function renderPayments(){
   const el = document.getElementById('paymentsContent');
   if (!el) return;
@@ -725,6 +766,7 @@ function renderPayments(){
         ${e.released_at ? ` · Released ${new Date(e.released_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
         ${e.refunded_at ? ` · Refunded ${new Date(e.refunded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
       </div>
+      ${cautionFeeSection(e)}
     </div>`;
   }).join('');
 }
