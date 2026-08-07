@@ -197,10 +197,99 @@ async function resolveEscrowDispute(req, res, serviceKey) {
     body: JSON.stringify({
       status: 'refunded', refunded_at: new Date().toISOString(),
       resolved_by_admin_at: new Date().toISOString(), admin_notes: admin_notes || null,
+      // The Paystack refund above already covers the caution fee (it refunds
+      // the whole original charge) — reflect that here so the Payments tab
+      // doesn't keep showing it as separately "held".
+      caution_fee_status: 'refunded', caution_settled_at: new Date().toISOString(),
     }),
   });
 
   return res.status(200).json({ success: true, resolution: 'refunded' });
+}
+
+// Settles the caution fee once a tenancy is over (told to you off-platform —
+// there's no automated lease-end tracking). Only fires for a payment that
+// actually completed (status 'released'); the caution fee sat untouched
+// through the whole rent flow up to this point. Full refund or full forfeit
+// only — no partial split for now.
+async function settleCautionFee(req, res, serviceKey) {
+  const { escrow_id, decision, admin_notes } = req.body || {};
+  if (!escrow_id || !['refund', 'forfeit'].includes(decision)) {
+    return res.status(400).json({ error: 'Missing escrow_id or invalid decision (must be "refund" or "forfeit")' });
+  }
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const escrowResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}&select=*`, { headers }
+  );
+  const rows = await escrowResp.json();
+  const escrow = rows[0];
+  if (!escrow) return res.status(404).json({ error: 'Escrow record not found' });
+  if (escrow.status !== 'released') {
+    return res.status(400).json({ error: `Can only settle a caution fee for a released payment — current status is ${escrow.status}` });
+  }
+  if (escrow.caution_fee_status !== 'held') {
+    return res.status(400).json({ error: `Caution fee already ${escrow.caution_fee_status}` });
+  }
+  if (!escrow.caution_fee_amount || escrow.caution_fee_amount <= 0) {
+    return res.status(400).json({ error: 'This payment has no caution fee to settle' });
+  }
+
+  if (decision === 'refund') {
+    // Partial refund of just the caution-fee portion of the original charge,
+    // straight back to the renter's original payment method.
+    const refundResp = await fetch('https://api.paystack.co/refund', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction: escrow.reference, amount: escrow.caution_fee_amount }),
+    });
+    const refundData = await refundResp.json();
+    if (!refundData.status) return res.status(400).json({ error: `Refund failed: ${refundData.message}` });
+
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({
+        caution_fee_status: 'refunded', caution_settled_at: new Date().toISOString(),
+        caution_settlement_notes: admin_notes || null,
+      }),
+    });
+    return res.status(200).json({ success: true, decision: 'refunded' });
+  }
+
+  // decision === 'forfeit' — pay the caution fee to the landlord. Their
+  // Paystack recipient already exists (rent was already transferred there
+  // to reach 'released' status), so this reuses it directly.
+  const landlordResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.landlord_id}&select=paystack_recipient_code`,
+    { headers }
+  );
+  const landlords = await landlordResp.json();
+  const recipientCode = landlords[0]?.paystack_recipient_code;
+  if (!recipientCode) {
+    return res.status(400).json({ error: 'Landlord has no Paystack recipient on file — this should not happen after a successful release. Check profiles table.' });
+  }
+
+  const transferRef = `naijanest_caution_${escrow.id}_${Date.now()}`;
+  const transferResp = await fetch('https://api.paystack.co/transfer', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source: 'balance', amount: escrow.caution_fee_amount, recipient: recipientCode,
+      reference: transferRef, reason: `NaijaNest caution fee forfeiture — escrow ${escrow.id}`,
+    }),
+  });
+  const transferData = await transferResp.json();
+  if (!transferData.status) return res.status(400).json({ error: `Transfer failed: ${transferData.message}` });
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({
+      caution_fee_status: 'forfeited', caution_settled_at: new Date().toISOString(),
+      caution_settlement_notes: admin_notes || null,
+    }),
+  });
+  return res.status(200).json({ success: true, decision: 'forfeited' });
 }
 
 // Returns ALL properties + waitlist data for the admin dashboard.
@@ -227,6 +316,9 @@ export default async function handler(req, res) {
 
     if (action === 'resolve_escrow_dispute') {
       return await resolveEscrowDispute(req, res, serviceKey);
+    }
+    if (action === 'settle_caution_fee') {
+      return await settleCautionFee(req, res, serviceKey);
     }
 
     const headers = {
