@@ -183,6 +183,54 @@ async function releaseEscrowFunds({ escrow, headers }) {
       transfer_reference: transferRef, transfer_code: transferData.data.transfer_code,
     }),
   });
+
+  await notifyRentReleased(escrow, headers);
+}
+
+// Same generic template approach as paystack-webhook.js / paystack-verify.js
+// — one pre-approved template ("escrow_notification", 2 body params: name,
+// message), code decides the wording. Best-effort, never throws.
+async function notifyWhatsApp(phone, name, message) {
+  try {
+    if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
+    if (!phone) return;
+    const digits = String(phone).replace(/\D/g, '');
+    const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+    await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: e164, type: 'template',
+        template: {
+          name: 'escrow_notification', language: { code: 'en' },
+          components: [{ type: 'body', parameters: [
+            { type: 'text', text: name || 'there' },
+            { type: 'text', text: message },
+          ] }],
+        },
+      }),
+    });
+  } catch (e) {
+    console.error('notifyWhatsApp failed:', e.message);
+  }
+}
+
+async function notifyRentReleased(escrow, headers) {
+  try {
+    const propResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name,landlord_name,landlord_phone`,
+      { headers }
+    );
+    const props = await propResp.json();
+    const property = props[0];
+    if (!property?.landlord_phone) return;
+
+    const amount = (escrow.rent_amount / 100).toLocaleString();
+    await notifyWhatsApp(property.landlord_phone, property.landlord_name,
+      `Rent payment of ₦${amount} for "${property.name}" has been released to your account. Thank you for using NaijaNest!`);
+  } catch (e) {
+    console.error('notifyRentReleased failed:', e.message);
+  }
 }
 
 // Admin resolves a dispute a renter raised (see raise_dispute in

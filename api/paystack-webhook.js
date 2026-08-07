@@ -60,11 +60,61 @@ async function logError(source, error) {
 // landlord. Release happens when the renter confirms move-in (immediate) or
 // the confirm_deadline passes with no dispute (daily cron sweep, see
 // paystack-verify.js).
+// Single generic pre-approved template ("escrow_notification", 2 body params:
+// name, message) rather than one template per event — much less to get
+// approved in Meta's WhatsApp Manager, code decides the actual wording.
+// Best-effort — never throws, so a notification hiccup never blocks the
+// actual money-moving action that triggered it.
+async function notifyWhatsApp(phone, name, message) {
+  try {
+    if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
+    if (!phone) return;
+    const digits = String(phone).replace(/\D/g, '');
+    const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+    await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: e164, type: 'template',
+        template: {
+          name: 'escrow_notification', language: { code: 'en' },
+          components: [{ type: 'body', parameters: [
+            { type: 'text', text: name || 'there' },
+            { type: 'text', text: message },
+          ] }],
+        },
+      }),
+    });
+  } catch (e) {
+    console.error('notifyWhatsApp failed:', e.message);
+  }
+}
+
+async function notifyRentFunded(escrow, headers) {
+  try {
+    const [propResp, renterResp] = await Promise.all([
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.renter_id}&select=name,whatsapp_number`, { headers }),
+    ]);
+    const props = await propResp.json();
+    const renters = await renterResp.json();
+    const property = props[0];
+    const renter = renters[0];
+    if (!renter?.whatsapp_number) return;
+
+    const amount = (escrow.total_amount / 100).toLocaleString();
+    await notifyWhatsApp(renter.whatsapp_number, renter.name,
+      `Your payment of ₦${amount} for "${property?.name || 'your rental'}" is confirmed and held securely in escrow. Once you've received the keys, open My Listings on NaijaNest to confirm move-in.`);
+  } catch (e) {
+    console.error('notifyRentFunded failed:', e.message);
+  }
+}
+
 async function fundEscrow(tx, headers) {
   const reference = tx.reference;
 
   const escrowResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?reference=eq.${encodeURIComponent(reference)}&select=id,status`,
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?reference=eq.${encodeURIComponent(reference)}&select=id,status,property_id,renter_id,total_amount`,
     { headers }
   );
   const rows = await escrowResp.json();
@@ -80,6 +130,8 @@ async function fundEscrow(tx, headers) {
       status: 'funded', funded_at: new Date().toISOString(), confirm_deadline: confirmDeadline,
     }),
   });
+
+  await notifyRentFunded(escrow, headers);
 }
 
 export default async function handler(req, res) {

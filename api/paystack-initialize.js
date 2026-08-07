@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { property_id, access_token, purpose } = req.body || {};
+    const { property_id, access_token, purpose, whatsapp_number } = req.body || {};
     if (!property_id || !access_token) {
       return res.status(400).json({ error: 'Missing property_id or access_token' });
     }
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (purpose === 'rent_escrow') {
-      return await initializeRentEscrow({ req, res, user, property_id, serviceKey });
+      return await initializeRentEscrow({ req, res, user, property_id, serviceKey, whatsapp_number });
     }
     return await initializeFeaturedListing({ req, res, user, property_id, serviceKey });
   } catch (error) {
@@ -97,8 +97,23 @@ async function initializeFeaturedListing({ req, res, user, property_id, serviceK
 }
 
 // ---- New flow: fund the rent/agency/legal/caution escrow for a tenancy -----
-async function initializeRentEscrow({ req, res, user, property_id, serviceKey }) {
+async function initializeRentEscrow({ req, res, user, property_id, serviceKey, whatsapp_number }) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+
+  // Renters have no phone number anywhere else in the system (Google/email
+  // sign-in only) — collected once here so escrow notifications have
+  // somewhere to go. Best-effort: a missing/invalid number never blocks
+  // the actual payment, it just means no WhatsApp updates for this renter.
+  if (whatsapp_number) {
+    const digits = String(whatsapp_number).replace(/\D/g, '');
+    if (digits.length >= 10) {
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ whatsapp_number: digits }),
+      });
+    }
+  }
 
   const propResp = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}` +
