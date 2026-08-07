@@ -135,6 +135,7 @@
       <button class="main-tab" onclick="showView('waitlist',this)">Waitlist</button>
       <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
       <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
+      <button class="main-tab" onclick="showView('payments',this)">💳 Payments</button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
 
@@ -179,6 +180,19 @@
     <!-- DISPUTES -->
     <div class="view" id="view-disputes">
       <div id="disputesContent"></div>
+    </div>
+
+    <!-- PAYMENTS (all escrow, regardless of status) -->
+    <div class="view" id="view-payments">
+      <div class="tabs">
+        <button class="tab active" onclick="filterEscrow('all',this)">All</button>
+        <button class="tab" onclick="filterEscrow('funded',this)">In escrow</button>
+        <button class="tab" onclick="filterEscrow('released',this)">Released</button>
+        <button class="tab" onclick="filterEscrow('disputed',this)">Disputed</button>
+        <button class="tab" onclick="filterEscrow('refunded',this)">Refunded</button>
+        <button class="tab" onclick="filterEscrow('payment_failed',this)">Failed</button>
+      </div>
+      <div id="paymentsContent"></div>
     </div>
 
     <!-- QUICK ADD -->
@@ -459,6 +473,7 @@ async function loadData() {
     renderWaitlist();
     renderMetrics();
     renderDisputes();
+    renderPayments();
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -651,6 +666,67 @@ async function resolveDispute(escrowId, resolution){
   } catch(e) {
     alert('Error: ' + e.message);
   }
+}
+
+// Full audit view — every escrow row regardless of status, not just disputed
+// ones. This is where you'd check "did that release actually go through"
+// without digging into Supabase directly.
+let paymentsFilter = 'all';
+
+function filterEscrow(status, el) {
+  paymentsFilter = status;
+  document.querySelectorAll('#view-payments .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderPayments();
+}
+
+function escrowStatusBadge(status){
+  const map = {
+    pending_payment: {label:'⏳ Payment pending', color:'#d97706'},
+    funded: {label:'✅ In escrow', color:'#1a6b3a'},
+    confirmed: {label:'✅ Confirmed — processing', color:'#1a6b3a'},
+    disputed: {label:'🚩 Disputed', color:'#dc2626'},
+    released: {label:'✅ Released', color:'#1a6b3a'},
+    refunded: {label:'↩️ Refunded', color:'#555'},
+    payment_failed: {label:'❌ Payment failed', color:'#dc2626'},
+  };
+  return map[status] || {label: status, color:'#555'};
+}
+
+function renderPayments(){
+  const el = document.getElementById('paymentsContent');
+  if (!el) return;
+
+  const rows = paymentsFilter === 'all' ? allEscrow : allEscrow.filter(e => e.status === paymentsFilter);
+  if (!rows.length){
+    el.innerHTML = `<div class="empty">No ${paymentsFilter === 'all' ? '' : paymentsFilter + ' '}payments</div>`;
+    return;
+  }
+
+  el.innerHTML = rows.map(e => {
+    const {label, color} = escrowStatusBadge(e.status);
+    return `
+    <div class="prop-card">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="font-weight:600;font-size:14px">Escrow #${e.id.slice(0,8)} — ${escapeHtml(e.reference)}</div>
+        <div style="font-size:12px;font-weight:600;color:${color}">${label}</div>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-sec);margin-top:4px">
+        ₦${Number(e.total_amount/100).toLocaleString()} total
+        (rent ₦${Number(e.rent_amount/100).toLocaleString()}
+        · agency ₦${Number(e.agency_fee_amount/100).toLocaleString()}
+        · legal ₦${Number(e.legal_fee_amount/100).toLocaleString()}
+        · caution ₦${Number(e.caution_fee_amount/100).toLocaleString()})
+      </div>
+      <div style="font-size:11.5px;color:var(--text-sec);margin-top:4px">
+        Created ${new Date(e.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+        ${e.funded_at ? ` · Funded ${new Date(e.funded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
+        ${e.confirmed_at ? ` · Confirmed ${new Date(e.confirmed_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
+        ${e.released_at ? ` · Released ${new Date(e.released_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
+        ${e.refunded_at ? ` · Refunded ${new Date(e.refunded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function showView(name, el) {
