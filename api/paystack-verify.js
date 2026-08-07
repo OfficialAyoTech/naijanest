@@ -5,6 +5,48 @@ const CONFIRM_WINDOW_DAYS = 7; // keep in sync with paystack-initialize.js / pay
 //   pending_payment -> funded -> confirmed | disputed -> released | refunded
 //   (payment_failed is a terminal dead-end from pending_payment)
 
+// Self-hosted error monitoring: logs to a Supabase table and sends a WhatsApp
+// alert to the admin, at most once per 15 minutes per source, so a real problem
+// gets noticed without spamming the phone on repeated/flapping errors. Same
+// pattern as paystack-webhook.js — this file moves real money (transfers,
+// refunds, the auto-release cron) and previously had zero monitoring on it.
+async function logError(source, error) {
+  try {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+    const message = (error?.message || String(error)).slice(0, 2000);
+    const stack = (error?.stack || '').slice(0, 4000);
+
+    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const recentResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/error_logs?source=eq.${encodeURIComponent(source)}&created_at=gte.${since}&select=id&limit=1`,
+      { headers }
+    );
+    const recentRows = recentResp.ok ? await recentResp.json() : [];
+    const shouldAlert = recentRows.length === 0;
+
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs`, {
+      method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({ source, message, stack }),
+    });
+
+    if (shouldAlert && process.env.ADMIN_WHATSAPP_NUMBER && process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
+      const digits = String(process.env.ADMIN_WHATSAPP_NUMBER).replace(/\D/g, '');
+      const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+      await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp', to: e164, type: 'text',
+          text: { body: `🚨 NaijaNest error in ${source}:\n${message.slice(0, 300)}` },
+        }),
+      });
+    }
+  } catch (e) {
+    console.error('logError itself failed:', e.message);
+  }
+}
+
 async function authenticate(access_token) {
   const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
     headers: { apikey: process.env.SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}` },
@@ -144,6 +186,7 @@ async function handleGet(req, res) {
     }
     return await verifyFeaturedListing({ tx, reference, headers, res });
   } catch (error) {
+    await logError('paystack-verify-get', error);
     return res.status(500).json({ error: error.message });
   }
 }
@@ -224,16 +267,23 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
   }
 }
 
-// Runs once/day via Vercel Cron (see vercel.json). Releases any escrow still
-// sitting in 'funded' past its confirm_deadline — i.e. the renter never
-// actively confirmed, but also never disputed, so it auto-releases.
+// Runs once/day via Vercel Cron (see vercel.json). Releases two kinds of row:
+//  1. still 'funded' past its confirm_deadline — renter never actively
+//     confirmed or disputed, so it auto-releases.
+//  2. stuck at 'confirmed' — a renter DID confirm move-in, but the release
+//     that's supposed to fire immediately on confirm failed (e.g. a
+//     transient Paystack error). Without this, a failed release had no
+//     retry path at all and would sit stuck forever — 'confirmed' rows
+//     don't carry a confirm_deadline to become overdue on, so they'd never
+//     match the first condition.
 async function runAutoReleaseSweep(res) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
   const dueResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?status=eq.funded` +
-    `&confirm_deadline=lt.${new Date().toISOString()}&select=*`,
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions` +
+    `?or=(and(status.eq.funded,confirm_deadline.lt.${new Date().toISOString()}),status.eq.confirmed)` +
+    `&select=*`,
     { headers }
   );
   if (!dueResp.ok) return res.status(500).json({ error: 'Could not fetch due escrow rows' });
@@ -246,6 +296,7 @@ async function runAutoReleaseSweep(res) {
       results.push({ id: escrow.id, ok: true });
     } catch (e) {
       console.error(`auto-release failed for escrow ${escrow.id}:`, e.message);
+      await logError('escrow-auto-release', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
       results.push({ id: escrow.id, ok: false, error: e.message });
     }
   }
@@ -263,6 +314,7 @@ async function handlePost(req, res) {
     if (action === 'my_escrow') return await myEscrow(req, res);
     return res.status(400).json({ error: 'Unknown action' });
   } catch (error) {
+    await logError('paystack-verify-post', error);
     return res.status(500).json({ error: error.message });
   }
 }
@@ -366,6 +418,7 @@ async function confirmMoveIn(req, res) {
     await releaseEscrow({ escrow: { ...escrow, status: 'confirmed' }, headers });
   } catch (e) {
     console.error(`release after confirm failed for escrow ${escrow_id}:`, e.message);
+    await logError('escrow-release', new Error(`Escrow ${escrow_id} (${escrow.reference}) confirmed but release failed: ${e.message}`));
     // Move-in is still confirmed — the row stays 'confirmed' and the next
     // cron sweep (or a retry) will pick it up. Don't fail the request the
     // renter is looking at just because the payout leg had a hiccup.

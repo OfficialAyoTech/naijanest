@@ -3,6 +3,46 @@ import crypto from 'crypto';
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
 
+// Self-hosted error monitoring, same pattern as paystack-webhook.js /
+// paystack-verify.js — this file also moves real money (dispute resolution
+// releases/refunds, caution fee settlement) and previously had none.
+async function logError(source, error) {
+  try {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+    const message = (error?.message || String(error)).slice(0, 2000);
+    const stack = (error?.stack || '').slice(0, 4000);
+
+    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const recentResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/error_logs?source=eq.${encodeURIComponent(source)}&created_at=gte.${since}&select=id&limit=1`,
+      { headers }
+    );
+    const recentRows = recentResp.ok ? await recentResp.json() : [];
+    const shouldAlert = recentRows.length === 0;
+
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs`, {
+      method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({ source, message, stack }),
+    });
+
+    if (shouldAlert && process.env.ADMIN_WHATSAPP_NUMBER && process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
+      const digits = String(process.env.ADMIN_WHATSAPP_NUMBER).replace(/\D/g, '');
+      const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+      await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp', to: e164, type: 'text',
+          text: { body: `🚨 NaijaNest error in ${source}:\n${message.slice(0, 300)}` },
+        }),
+      });
+    }
+  } catch (e) {
+    console.error('logError itself failed:', e.message);
+  }
+}
+
 function getClientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
   if (fwd) return fwd.split(',')[0].trim();
@@ -173,6 +213,7 @@ async function resolveEscrowDispute(req, res, serviceKey) {
     try {
       await releaseEscrowFunds({ escrow, headers });
     } catch (e) {
+      await logError('escrow-dispute-release', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
       return res.status(400).json({ error: `Release failed: ${e.message}` });
     }
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
@@ -189,6 +230,7 @@ async function resolveEscrowDispute(req, res, serviceKey) {
   });
   const refundData = await refundResp.json();
   if (!refundData.status) {
+    await logError('escrow-dispute-refund', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${refundData.message}`));
     return res.status(400).json({ error: `Refund failed: ${refundData.message}` });
   }
 
@@ -245,7 +287,10 @@ async function settleCautionFee(req, res, serviceKey) {
       body: JSON.stringify({ transaction: escrow.reference, amount: escrow.caution_fee_amount }),
     });
     const refundData = await refundResp.json();
-    if (!refundData.status) return res.status(400).json({ error: `Refund failed: ${refundData.message}` });
+    if (!refundData.status) {
+      await logError('caution-fee-refund', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${refundData.message}`));
+      return res.status(400).json({ error: `Refund failed: ${refundData.message}` });
+    }
 
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
       method: 'PATCH', headers,
@@ -280,7 +325,10 @@ async function settleCautionFee(req, res, serviceKey) {
     }),
   });
   const transferData = await transferResp.json();
-  if (!transferData.status) return res.status(400).json({ error: `Transfer failed: ${transferData.message}` });
+  if (!transferData.status) {
+    await logError('caution-fee-forfeit', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${transferData.message}`));
+    return res.status(400).json({ error: `Transfer failed: ${transferData.message}` });
+  }
 
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
     method: 'PATCH', headers,
