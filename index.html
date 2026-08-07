@@ -827,9 +827,21 @@ async function payRent(propertyId){
   if(btn){ btn.disabled = true; btn.textContent = 'Starting payment...'; }
   try{
     const access_token = await NaijaAuth.getAccessToken();
+
+    // Renters have no phone number anywhere else in the system — ask once,
+    // reused on every future payment via the profiles table.
+    let whatsapp_number = null;
+    try{
+      const {data} = await NaijaAuth.client.from('profiles').select('whatsapp_number').eq('id', NaijaAuth.currentUser.id).maybeSingle();
+      if(!data || !data.whatsapp_number){
+        const entered = prompt('What WhatsApp number should we send payment updates to? (e.g. when your payment is confirmed, or released to the landlord)');
+        if(entered && entered.trim()) whatsapp_number = entered.trim();
+      }
+    }catch(e){ /* non-fatal — payment can proceed without it */ }
+
     const resp = await fetch('/api/paystack-initialize', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ property_id: propertyId, access_token, purpose: 'rent_escrow' })
+      body: JSON.stringify({ property_id: propertyId, access_token, purpose: 'rent_escrow', whatsapp_number })
     });
     const data = await resp.json();
     if(!data.authorization_url) throw new Error(data.error || 'Could not start payment');
