@@ -239,6 +239,34 @@ async function notifyRentReleased(escrow, headers) {
 // Paystack's Refund API (e.g. the listing turned out to be fraudulent, or the
 // landlord never handed over keys). This is the ONLY path that can move a
 // 'disputed' row forward — nothing automated touches it.
+async function notifyRenter(escrow, headers, message) {
+  try {
+    const renterResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.renter_id}&select=name,whatsapp_number`, { headers }
+    );
+    const renters = await renterResp.json();
+    const renter = renters[0];
+    if (!renter?.whatsapp_number) return;
+    await notifyWhatsApp(renter.whatsapp_number, renter.name, message);
+  } catch (e) {
+    console.error('notifyRenter failed:', e.message);
+  }
+}
+
+async function notifyLandlordCustom(escrow, headers, message) {
+  try {
+    const propResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name,landlord_name,landlord_phone`, { headers }
+    );
+    const props = await propResp.json();
+    const property = props[0];
+    if (!property?.landlord_phone) return;
+    await notifyWhatsApp(property.landlord_phone, property.landlord_name, message);
+  } catch (e) {
+    console.error('notifyLandlordCustom failed:', e.message);
+  }
+}
+
 async function resolveEscrowDispute(req, res, serviceKey) {
   const { escrow_id, resolution, admin_notes } = req.body || {};
   if (!escrow_id || !['release', 'refund'].includes(resolution)) {
@@ -268,6 +296,11 @@ async function resolveEscrowDispute(req, res, serviceKey) {
       method: 'PATCH', headers,
       body: JSON.stringify({ resolved_by_admin_at: new Date().toISOString(), admin_notes: admin_notes || null }),
     });
+    // releaseEscrowFunds() already notified the landlord (generic "released"
+    // message) — the renter still needs to hear the dispute-specific outcome,
+    // since they're the one who raised it.
+    await notifyRenter(escrow, headers,
+      `Your dispute has been reviewed. After looking into it, the payment was released to the landlord.`);
     return res.status(200).json({ success: true, resolution: 'released' });
   }
 
@@ -293,6 +326,12 @@ async function resolveEscrowDispute(req, res, serviceKey) {
       caution_fee_status: 'refunded', caution_settled_at: new Date().toISOString(),
     }),
   });
+
+  const refundedAmount = (escrow.total_amount / 100).toLocaleString();
+  await notifyRenter(escrow, headers,
+    `Your dispute has been reviewed and you've been refunded ₦${refundedAmount} in full.`);
+  await notifyLandlordCustom(escrow, headers,
+    `A tenancy did not proceed and the renter's payment was refunded in full. Contact NaijaNest support if you have questions.`);
 
   return res.status(200).json({ success: true, resolution: 'refunded' });
 }
@@ -347,6 +386,8 @@ async function settleCautionFee(req, res, serviceKey) {
         caution_settlement_notes: admin_notes || null,
       }),
     });
+    const cautionAmt = (escrow.caution_fee_amount / 100).toLocaleString();
+    await notifyRenter(escrow, headers, `Your caution fee of ₦${cautionAmt} has been refunded to you.`);
     return res.status(200).json({ success: true, decision: 'refunded' });
   }
 
@@ -385,6 +426,9 @@ async function settleCautionFee(req, res, serviceKey) {
       caution_settlement_notes: admin_notes || null,
     }),
   });
+  const forfeitedAmt = (escrow.caution_fee_amount / 100).toLocaleString();
+  await notifyRenter(escrow, headers, `Your caution fee of ₦${forfeitedAmt} has been forfeited to the landlord.`);
+  await notifyLandlordCustom(escrow, headers, `A caution fee of ₦${forfeitedAmt} has been paid to you.`);
   return res.status(200).json({ success: true, decision: 'forfeited' });
 }
 

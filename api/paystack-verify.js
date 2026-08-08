@@ -345,6 +345,57 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
 //     retry path at all and would sit stuck forever — 'confirmed' rows
 //     don't carry a confirm_deadline to become overdue on, so they'd never
 //     match the first condition.
+async function notifyConfirmReminder(escrow, headers) {
+  try {
+    const [propResp, renterResp] = await Promise.all([
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.renter_id}&select=name,whatsapp_number`, { headers }),
+    ]);
+    const props = await propResp.json();
+    const renters = await renterResp.json();
+    const property = props[0];
+    const renter = renters[0];
+    if (!renter?.whatsapp_number) return;
+
+    const daysLeft = Math.max(0, Math.ceil((new Date(escrow.confirm_deadline) - new Date()) / (24 * 60 * 60 * 1000)));
+    await notifyWhatsApp(renter.whatsapp_number, renter.name,
+      `Reminder: your payment for "${property?.name || 'your rental'}" auto-releases to the landlord in ${daysLeft} day${daysLeft === 1 ? '' : 's'} unless you confirm move-in or report a problem on NaijaNest.`);
+  } catch (e) {
+    console.error('notifyConfirmReminder failed:', e.message);
+  }
+}
+
+// Runs once/day via Vercel Cron (see vercel.json). Two passes: releases
+// overdue/stuck rows (above), then nudges renters approaching their deadline
+// who haven't been reminded yet — one-shot per row via reminder_sent_at, so
+// this doesn't re-fire every day of the reminder window.
+async function runReminderPass(headers) {
+  const in2Days = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+
+  const dueResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?status=eq.funded` +
+    `&reminder_sent_at=is.null&confirm_deadline=lt.${in2Days}&confirm_deadline=gt.${now}&select=*`,
+    { headers }
+  );
+  if (!dueResp.ok) return { reminded: 0 };
+  const due = await dueResp.json();
+
+  for (const escrow of due) {
+    try {
+      await notifyConfirmReminder(escrow, headers);
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow.id}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ reminder_sent_at: new Date().toISOString() }),
+      });
+    } catch (e) {
+      console.error(`reminder failed for escrow ${escrow.id}:`, e.message);
+      await logError('escrow-reminder', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
+    }
+  }
+  return { reminded: due.length };
+}
+
 async function runAutoReleaseSweep(res) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
@@ -370,7 +421,9 @@ async function runAutoReleaseSweep(res) {
     }
   }
 
-  return res.status(200).json({ swept: due.length, results });
+  const reminderResult = await runReminderPass(headers);
+
+  return res.status(200).json({ swept: due.length, results, ...reminderResult });
 }
 
 // ---- POST: renter/landlord actions -----------------------------------------
