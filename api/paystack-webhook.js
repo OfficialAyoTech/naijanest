@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { logError, notifyRentFunded } from '../lib/notify.js';
 
 // Vercel must not pre-parse the body — we need the exact raw bytes to verify the signature.
 export const config = { api: { bodyParser: false } };
@@ -13,101 +14,6 @@ function getRawBody(req) {
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
-}
-
-// Self-hosted error monitoring: logs to a Supabase table and sends a WhatsApp
-// alert to the admin, at most once per 15 minutes per source, so a real problem
-// gets noticed without spamming the phone on repeated/flapping errors.
-async function logError(source, error) {
-  try {
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
-    const message = (error?.message || String(error)).slice(0, 2000);
-    const stack = (error?.stack || '').slice(0, 4000);
-
-    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const recentResp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/error_logs?source=eq.${encodeURIComponent(source)}&created_at=gte.${since}&select=id&limit=1`,
-      { headers }
-    );
-    const recentRows = recentResp.ok ? await recentResp.json() : [];
-    const shouldAlert = recentRows.length === 0;
-
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs`, {
-      method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
-      body: JSON.stringify({ source, message, stack }),
-    });
-
-    if (shouldAlert && process.env.ADMIN_WHATSAPP_NUMBER && process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
-      const digits = String(process.env.ADMIN_WHATSAPP_NUMBER).replace(/\D/g, '');
-      const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
-      await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp', to: e164, type: 'text',
-          text: { body: `🚨 NaijaNest error in ${source}:\n${message.slice(0, 300)}` },
-        }),
-      });
-    }
-  } catch (e) {
-    console.error('logError itself failed:', e.message);
-  }
-}
-
-// Marks a rent-escrow row as funded once Paystack confirms the charge. This
-// only starts the confirm-window clock — it does NOT release money to the
-// landlord. Release happens when the renter confirms move-in (immediate) or
-// the confirm_deadline passes with no dispute (daily cron sweep, see
-// paystack-verify.js).
-// Single generic pre-approved template ("escrow_notification", 2 body params:
-// name, message) rather than one template per event — much less to get
-// approved in Meta's WhatsApp Manager, code decides the actual wording.
-// Best-effort — never throws, so a notification hiccup never blocks the
-// actual money-moving action that triggered it.
-async function notifyWhatsApp(phone, name, message) {
-  try {
-    if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
-    if (!phone) return;
-    const digits = String(phone).replace(/\D/g, '');
-    const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
-    await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp', to: e164, type: 'template',
-        template: {
-          name: 'escrow_notification', language: { code: 'en' },
-          components: [{ type: 'body', parameters: [
-            { type: 'text', text: name || 'there' },
-            { type: 'text', text: message },
-          ] }],
-        },
-      }),
-    });
-  } catch (e) {
-    console.error('notifyWhatsApp failed:', e.message);
-  }
-}
-
-async function notifyRentFunded(escrow, headers) {
-  try {
-    const [propResp, renterResp] = await Promise.all([
-      fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name`, { headers }),
-      fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.renter_id}&select=name,whatsapp_number`, { headers }),
-    ]);
-    const props = await propResp.json();
-    const renters = await renterResp.json();
-    const property = props[0];
-    const renter = renters[0];
-    if (!renter?.whatsapp_number) return;
-
-    const amount = (escrow.total_amount / 100).toLocaleString();
-    await notifyWhatsApp(renter.whatsapp_number, renter.name,
-      `Your payment of ₦${amount} for "${property?.name || 'your rental'}" is confirmed and held securely in escrow. Once you've received the keys, open My Listings on NaijaNest to confirm move-in.`);
-  } catch (e) {
-    console.error('notifyRentFunded failed:', e.message);
-  }
 }
 
 async function fundEscrow(tx, headers) {

@@ -1,3 +1,5 @@
+import { authenticateUser } from '../lib/auth.js';
+
 // Starts a Paystack payment — either to feature a listing, or to fund the
 // rent/agency/legal/caution escrow for a tenancy. The client never talks to
 // Paystack directly — everything (amount, ownership check) is decided server-side.
@@ -18,12 +20,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing property_id or access_token' });
     }
 
-    // Verify identity server-side
-    const userResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: process.env.SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}` },
-    });
-    if (!userResp.ok) return res.status(401).json({ error: 'Please sign in again' });
-    const user = await userResp.json();
+    const user = await authenticateUser(access_token);
+    if (!user) return res.status(401).json({ error: 'Please sign in again' });
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

@@ -1,47 +1,9 @@
 import crypto from 'crypto';
+import { logError, notifyRentReleased, notifyRenter, notifyLandlordCustom } from '../lib/notify.js';
+import { releaseEscrow } from '../lib/escrow.js';
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
-
-// Self-hosted error monitoring, same pattern as paystack-webhook.js /
-// paystack-verify.js — this file also moves real money (dispute resolution
-// releases/refunds, caution fee settlement) and previously had none.
-async function logError(source, error) {
-  try {
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
-    const message = (error?.message || String(error)).slice(0, 2000);
-    const stack = (error?.stack || '').slice(0, 4000);
-
-    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const recentResp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/error_logs?source=eq.${encodeURIComponent(source)}&created_at=gte.${since}&select=id&limit=1`,
-      { headers }
-    );
-    const recentRows = recentResp.ok ? await recentResp.json() : [];
-    const shouldAlert = recentRows.length === 0;
-
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs`, {
-      method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
-      body: JSON.stringify({ source, message, stack }),
-    });
-
-    if (shouldAlert && process.env.ADMIN_WHATSAPP_NUMBER && process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
-      const digits = String(process.env.ADMIN_WHATSAPP_NUMBER).replace(/\D/g, '');
-      const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
-      await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp', to: e164, type: 'text',
-          text: { body: `🚨 NaijaNest error in ${source}:\n${message.slice(0, 300)}` },
-        }),
-      });
-    }
-  } catch (e) {
-    console.error('logError itself failed:', e.message);
-  }
-}
 
 function getClientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
@@ -123,162 +85,6 @@ function decryptNin(value) {
   }
 }
 
-// Same release logic as paystack-verify.js's releaseEscrow — duplicated rather
-// than shared, since sharing would mean a /lib import; both copies stay in
-// sync manually (search for "releaseEscrowFunds" if you change one). The one
-// difference: this version also accepts 'disputed' as a startable state,
-// since it's only ever called here after an admin has resolved a dispute
-// in the renter's favor of "actually just release it".
-async function releaseEscrowFunds({ escrow, headers }) {
-  if (!['funded', 'confirmed', 'disputed'].includes(escrow.status)) {
-    return { skipped: true };
-  }
-
-  const landlordResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.landlord_id}` +
-    `&select=id,bank_code,bank_account_number,bank_account_name,paystack_recipient_code`,
-    { headers }
-  );
-  const landlords = await landlordResp.json();
-  const landlord = landlords[0];
-  if (!landlord || !landlord.bank_account_number) {
-    throw new Error(`Landlord ${escrow.landlord_id} has no bank details on file`);
-  }
-
-  let recipientCode = landlord.paystack_recipient_code;
-  if (!recipientCode) {
-    const recResp = await fetch('https://api.paystack.co/transferrecipient', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'nuban', name: landlord.bank_account_name,
-        account_number: landlord.bank_account_number, bank_code: landlord.bank_code,
-        currency: 'NGN',
-      }),
-    });
-    const recData = await recResp.json();
-    if (!recData.status) throw new Error(`Could not create Paystack recipient: ${recData.message}`);
-    recipientCode = recData.data.recipient_code;
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.landlord_id}`, {
-      method: 'PATCH', headers, body: JSON.stringify({ paystack_recipient_code: recipientCode }),
-    });
-  }
-
-  const transferRef = `naijanest_payout_${escrow.id}_${Date.now()}`;
-  const transferResp = await fetch('https://api.paystack.co/transfer', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      source: 'balance', amount: escrow.rent_amount, recipient: recipientCode,
-      reference: transferRef, reason: `NaijaNest rent payout — escrow ${escrow.id}`,
-    }),
-  });
-  const transferData = await transferResp.json();
-  if (!transferData.status) throw new Error(`Transfer failed: ${transferData.message}`);
-
-  await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow.id}`, {
-    method: 'PATCH', headers,
-    body: JSON.stringify({
-      status: 'released', released_at: new Date().toISOString(),
-      transfer_reference: transferRef, transfer_code: transferData.data.transfer_code,
-    }),
-  });
-
-  // Same as paystack-verify.js's releaseEscrow — pull the property off the
-  // public marketplace automatically the moment rent actually reaches the
-  // landlord, rather than relying on the admin to click "Mark as Rented".
-  try {
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}`, {
-      method: 'PATCH', headers, body: JSON.stringify({ status: 'rented' }),
-    });
-  } catch (e) {
-    console.error(`failed to mark property ${escrow.property_id} as rented:`, e.message);
-    await logError('escrow-mark-rented', new Error(`Escrow ${escrow.id}, property ${escrow.property_id}: ${e.message}`));
-  }
-
-  await notifyRentReleased(escrow, headers);
-}
-
-// Same generic template approach as paystack-webhook.js / paystack-verify.js
-// — one pre-approved template ("escrow_notification", 2 body params: name,
-// message), code decides the wording. Best-effort, never throws.
-async function notifyWhatsApp(phone, name, message) {
-  try {
-    if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return;
-    if (!phone) return;
-    const digits = String(phone).replace(/\D/g, '');
-    const e164 = digits.startsWith('234') ? digits : digits.startsWith('0') ? '234' + digits.slice(1) : digits;
-    await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp', to: e164, type: 'template',
-        template: {
-          name: 'escrow_notification', language: { code: 'en' },
-          components: [{ type: 'body', parameters: [
-            { type: 'text', text: name || 'there' },
-            { type: 'text', text: message },
-          ] }],
-        },
-      }),
-    });
-  } catch (e) {
-    console.error('notifyWhatsApp failed:', e.message);
-  }
-}
-
-async function notifyRentReleased(escrow, headers) {
-  try {
-    const propResp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name,landlord_name,landlord_phone`,
-      { headers }
-    );
-    const props = await propResp.json();
-    const property = props[0];
-    if (!property?.landlord_phone) return;
-
-    const amount = (escrow.rent_amount / 100).toLocaleString();
-    await notifyWhatsApp(property.landlord_phone, property.landlord_name,
-      `Rent payment of ₦${amount} for "${property.name}" has been released to your account. Thank you for using NaijaNest!`);
-  } catch (e) {
-    console.error('notifyRentReleased failed:', e.message);
-  }
-}
-
-// Admin resolves a dispute a renter raised (see raise_dispute in
-// paystack-verify.js): either release the rent to the landlord after all
-// (e.g. renter's complaint didn't hold up), or refund the renter in full via
-// Paystack's Refund API (e.g. the listing turned out to be fraudulent, or the
-// landlord never handed over keys). This is the ONLY path that can move a
-// 'disputed' row forward — nothing automated touches it.
-async function notifyRenter(escrow, headers, message) {
-  try {
-    const renterResp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.renter_id}&select=name,whatsapp_number`, { headers }
-    );
-    const renters = await renterResp.json();
-    const renter = renters[0];
-    if (!renter?.whatsapp_number) return;
-    await notifyWhatsApp(renter.whatsapp_number, renter.name, message);
-  } catch (e) {
-    console.error('notifyRenter failed:', e.message);
-  }
-}
-
-async function notifyLandlordCustom(escrow, headers, message) {
-  try {
-    const propResp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}&select=name,landlord_name,landlord_phone`, { headers }
-    );
-    const props = await propResp.json();
-    const property = props[0];
-    if (!property?.landlord_phone) return;
-    await notifyWhatsApp(property.landlord_phone, property.landlord_name, message);
-  } catch (e) {
-    console.error('notifyLandlordCustom failed:', e.message);
-  }
-}
-
 async function resolveEscrowDispute(req, res, serviceKey) {
   const { escrow_id, resolution, admin_notes } = req.body || {};
   if (!escrow_id || !['release', 'refund'].includes(resolution)) {
@@ -299,7 +105,7 @@ async function resolveEscrowDispute(req, res, serviceKey) {
 
   if (resolution === 'release') {
     try {
-      await releaseEscrowFunds({ escrow, headers });
+      await releaseEscrow({ escrow, headers });
     } catch (e) {
       await logError('escrow-dispute-release', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
       return res.status(400).json({ error: `Release failed: ${e.message}` });
@@ -308,7 +114,7 @@ async function resolveEscrowDispute(req, res, serviceKey) {
       method: 'PATCH', headers,
       body: JSON.stringify({ resolved_by_admin_at: new Date().toISOString(), admin_notes: admin_notes || null }),
     });
-    // releaseEscrowFunds() already notified the landlord (generic "released"
+    // releaseEscrow() already notified the landlord (generic "released"
     // message) — the renter still needs to hear the dispute-specific outcome,
     // since they're the one who raised it.
     await notifyRenter(escrow, headers,
