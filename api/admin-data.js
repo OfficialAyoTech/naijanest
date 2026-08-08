@@ -184,6 +184,18 @@ async function releaseEscrowFunds({ escrow, headers }) {
     }),
   });
 
+  // Same as paystack-verify.js's releaseEscrow — pull the property off the
+  // public marketplace automatically the moment rent actually reaches the
+  // landlord, rather than relying on the admin to click "Mark as Rented".
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}`, {
+      method: 'PATCH', headers, body: JSON.stringify({ status: 'rented' }),
+    });
+  } catch (e) {
+    console.error(`failed to mark property ${escrow.property_id} as rented:`, e.message);
+    await logError('escrow-mark-rented', new Error(`Escrow ${escrow.id}, property ${escrow.property_id}: ${e.message}`));
+  }
+
   await notifyRentReleased(escrow, headers);
 }
 

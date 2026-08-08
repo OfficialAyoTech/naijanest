@@ -130,6 +130,22 @@ async function releaseEscrow({ escrow, headers }) {
     }),
   });
 
+  // Rent actually reached the landlord — this place is occupied now, so pull
+  // it off the public marketplace automatically rather than relying on the
+  // admin to remember to click "Mark as Rented". Fires for all three release
+  // paths (renter confirms, auto-release timeout, admin resolves a dispute
+  // in the landlord's favor) — all three mean the same real-world thing.
+  // Best-effort: if this fails, the escrow release itself has already
+  // succeeded and money has moved, so we log rather than throw.
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${escrow.property_id}`, {
+      method: 'PATCH', headers, body: JSON.stringify({ status: 'rented' }),
+    });
+  } catch (e) {
+    console.error(`failed to mark property ${escrow.property_id} as rented:`, e.message);
+    await logError('escrow-mark-rented', new Error(`Escrow ${escrow.id}, property ${escrow.property_id}: ${e.message}`));
+  }
+
   await notifyRentReleased(escrow, headers);
 
   return { released: true };
