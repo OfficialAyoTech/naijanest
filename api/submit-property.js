@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { logError } from '../lib/notify.js';
+import { logError, notifyAdminWhatsApp } from '../lib/notify.js';
+import { isRateLimited } from '../lib/rate-limit.js';
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
@@ -218,6 +219,38 @@ function validateProperty(body) {
   };
 }
 
+// Public report action — rate-limited to 3 per IP per hour so this can't be
+// used to spam the admin WhatsApp. No persistence to a table for now (this
+// is meant to be low-effort and immediate, matching how disputes alert you);
+// if report volume ever justifies a dedicated dashboard view, that's an easy
+// follow-up, not a reason to hold back a working fix today.
+async function reportListing(req, res, body) {
+  const { property_id, reason } = body;
+  if (!property_id) return res.status(400).json({ error: 'Missing property_id' });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const ip = getClientIp(req);
+  const limited = await isRateLimited(`report:${ip}`, 3, 60, serviceKey);
+  if (limited) {
+    return res.status(429).json({ error: 'Too many reports from this device — please try again later' });
+  }
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const propResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}&select=name,area,city`, { headers }
+  );
+  const props = await propResp.json();
+  const property = props[0];
+  const propertyLabel = property ? `${property.name} — ${property.area}, ${property.city}` : `Property #${property_id}`;
+
+  const cleanReason = reason ? String(reason).slice(0, 500) : '(no reason given)';
+  await notifyAdminWhatsApp(
+    `🚩 Listing reported as suspicious: ${propertyLabel} (id ${property_id})\nReason: ${cleanReason}\nReview in the admin dashboard.`
+  );
+
+  return res.status(200).json({ success: true });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -226,6 +259,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const body = req.body;
+
+    // Public "Report suspicious listing" action — no auth, anyone can flag a
+    // listing. Was previously a fake button that just showed an alert() and
+    // did nothing; this is what actually makes it reach the admin.
+    if (body.action === 'report_listing') {
+      return await reportListing(req, res, body);
+    }
 
     // Two ways in: a signed-in user's access token (normal landlord self-submission,
     // goes to 'pending' for review), or the admin password (quick-add tool for
