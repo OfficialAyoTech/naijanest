@@ -334,11 +334,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="messages" id="messages"></div>
       <div id="propsArea"></div>
       <div class="quick-chips" id="chips">
-        <span class="chip" onclick="sendChip(this)">2-bedroom in Lekki under ₦1.2m</span>
-        <span class="chip" onclick="sendChip(this)">Self-con in Surulere</span>
-        <span class="chip" onclick="sendChip(this)">3-bedroom Abuja under ₦2m</span>
-        <span class="chip" onclick="sendChip(this)">Flat in Ilorin Kwara</span>
-        <span class="chip" onclick="sendChip(this)">Cheap house in Kebbi</span>
+        <span class="chip" onclick="sendChip(this)">Show me available rentals</span>
       </div>
       <div class="input-row">
         <input type="text" id="userInput" placeholder="Describe what you're looking for..." onkeydown="if(event.key==='Enter')sendMsg()"/>
@@ -743,7 +739,7 @@ function openDetail(id){
       <div class="nbhd-full"><div class="nbhd-label"><i class="ti ti-school"></i> Nearby schools</div><div style="font-size:12.5px;color:var(--text);margin-top:4px">${nb.schools.join(' · ')}</div></div>
       <button class="wa-btn" onclick="contactWhatsApp('${nb.landlord_phone||'08000000000'}','${p.name}')"><i class="ti ti-brand-whatsapp" style="font-size:18px"></i> Contact on WhatsApp</button>
       <button class="inspect-btn" onclick="openSchedule(${p.id})">📅 Schedule Inspection</button>
-      <button class="report-btn" onclick="alert('Thank you for reporting. Our team will investigate within 24 hours.')"><i class="ti ti-alert-triangle"></i> Report suspicious listing</button>
+      <button class="report-btn" onclick="reportListing(${p.id})"><i class="ti ti-alert-triangle"></i> Report suspicious listing</button>
     </div>`;
   document.getElementById('detailOverlay').style.display='flex';
   updateFavButton(p.id);
@@ -882,6 +878,22 @@ async function raiseDisputeFlow(escrowId){
     if(selectedProp) renderRentPaySection(selectedProp);
     alert('Reported. Our team will review and reach out.');
   }catch(e){ alert('Could not submit report: ' + e.message); }
+}
+
+async function reportListing(propertyId){
+  const reason = prompt('What seems off about this listing? (e.g. price too good to be true, photos look fake, landlord asking for money before a viewing)');
+  if(reason === null) return; // cancelled — reason itself can be blank, that's fine
+  try{
+    const resp = await fetch('/api/submit-property', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'report_listing', property_id: propertyId, reason: (reason||'').trim() })
+    });
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error || 'Could not submit report');
+    alert('Thank you for reporting — our team will review this listing.');
+  }catch(e){
+    alert('Could not submit report: ' + e.message);
+  }
 }
 
 function contactWhatsApp(phone, propName){
@@ -1061,6 +1073,58 @@ async function loadRealProperties(){
   propertiesLoaded = true;
   updateCoverageStats();
   renderDemoGrid();
+  renderChatChips();
+}
+
+// Chat suggestion chips, generated from whatever's actually live right now —
+// not hardcoded to any particular state. As inventory grows into new states,
+// these update automatically on the next page load, no manual edits needed.
+// Spreads across distinct states first (so five chips aren't all the same
+// city if inventory happens to be concentrated), then fills any remaining
+// slots from whatever's left.
+function renderChatChips(){
+  const el = document.getElementById('chips');
+  if(!el) return;
+
+  const live = PROPS.filter(p => p.area && p.city);
+  if(!live.length){
+    el.innerHTML = `
+      <span class="chip" onclick="sendChip(this)">Show me available rentals</span>
+      <span class="chip" onclick="sendChip(this)">What states do you have listings in?</span>`;
+    return;
+  }
+
+  const shuffled = [...live].sort(() => Math.random() - 0.5);
+  const seenKey = new Set();
+  const seenState = new Set();
+  const picks = [];
+
+  for(const p of shuffled){
+    const key = `${p.area}|${p.city}`;
+    if(seenKey.has(key) || seenState.has(p.city)) continue;
+    picks.push(p); seenKey.add(key); seenState.add(p.city);
+    if(picks.length >= 5) break;
+  }
+  if(picks.length < 5){
+    for(const p of shuffled){
+      const key = `${p.area}|${p.city}`;
+      if(seenKey.has(key)) continue;
+      picks.push(p); seenKey.add(key);
+      if(picks.length >= 5) break;
+    }
+  }
+
+  const typeLabels = {'self-con':'Self-con','mini-flat':'Mini-flat','flat':'Flat','duplex':'Duplex','bungalow':'Bungalow','terrace':'Terrace','mansion':'Mansion'};
+  const phraseStyles = [
+    p => `${typeLabels[p.type]||'Property'} in ${p.area}, ${p.city}`,
+    p => `${p.bed}-bedroom in ${p.area}, ${p.city}`,
+    p => `Cheap house in ${p.area}, ${p.city}`,
+  ];
+
+  el.innerHTML = picks.map((p,i) => {
+    const label = phraseStyles[i % phraseStyles.length](p);
+    return `<span class="chip" onclick="sendChip(this)">${escHtml(label)}</span>`;
+  }).join('');
 }
 
 // Keeps the homepage stats honest — driven entirely by whatever's actually
