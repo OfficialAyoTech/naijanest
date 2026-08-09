@@ -185,6 +185,12 @@
 
     <!-- REPORTS (public "Report suspicious listing" submissions) -->
     <div class="view" id="view-reports">
+      <div class="tabs">
+        <button class="tab active" onclick="filterReports('open',this)">Open</button>
+        <button class="tab" onclick="filterReports('resolved',this)">Resolved</button>
+        <button class="tab" onclick="filterReports('dismissed',this)">Dismissed</button>
+        <button class="tab" onclick="filterReports('all',this)">All</button>
+      </div>
       <div id="reportsContent"></div>
     </div>
 
@@ -681,35 +687,68 @@ async function resolveDispute(escrowId, resolution){
 // button that showed an alert() and went nowhere — this is where those
 // reports now actually land, findable regardless of whether the WhatsApp
 // alert itself managed to deliver.
+let reportsFilter = 'open';
+
+function filterReports(status, el){
+  reportsFilter = status;
+  document.querySelectorAll('#view-reports .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderReports();
+}
+
 function renderReports(){
   const el = document.getElementById('reportsContent');
   if (!el) return;
-  const open = allReports.filter(r => r.status === 'open');
   const badge = document.getElementById('reportBadge');
-  if (badge) badge.textContent = open.length ? ` (${open.length})` : '';
+  const openCount = allReports.filter(r => r.status === 'open').length;
+  if (badge) badge.textContent = openCount ? ` (${openCount})` : '';
 
-  if (!open.length){
-    el.innerHTML = '<div style="color:var(--text-sec);font-size:12.5px">No open reports ✅</div>';
+  const rows = reportsFilter === 'all' ? allReports : allReports.filter(r => r.status === reportsFilter);
+  if (!rows.length){
+    el.innerHTML = `<div style="color:var(--text-sec);font-size:12.5px">No ${reportsFilter === 'all' ? '' : reportsFilter + ' '}reports</div>`;
     return;
   }
 
-  el.innerHTML = open.map(r => {
+  const statusBadge = { open: {label:'Open', color:'#d97706'}, resolved: {label:'✅ Resolved', color:'#1a6b3a'}, dismissed: {label:'Dismissed', color:'#555'} };
+
+  el.innerHTML = rows.map(r => {
     const prop = allProps.find(p => p.id === r.property_id);
     const label = prop ? `${escapeHtml(prop.name)} — ${escapeHtml(prop.area)}, ${escapeHtml(prop.city)}` : `Property #${r.property_id} (listing not found — may already be deleted)`;
+    const sb = statusBadge[r.status] || {label: r.status, color:'#555'};
+    const isOpen = r.status === 'open';
+
+    // Same wa.me deep-link pattern as the tenant-facing "Contact on WhatsApp"
+    // button — no backend call needed, just opens WhatsApp with the
+    // landlord's number and a pre-filled message about this specific report.
+    let contactBtn = '';
+    if (prop && prop.landlord_phone) {
+      const digits = prop.landlord_phone.replace(/\D/g, '');
+      const intl = digits.startsWith('0') ? '234' + digits.substring(1) : digits;
+      const msg = encodeURIComponent(`Hi ${prop.landlord_name || ''}, this is NaijaNest admin. Your listing "${prop.name}" was reported by a user. Reason given: "${r.reason || 'none given'}". Can we discuss?`);
+      contactBtn = `<a class="unpublish-btn" style="text-decoration:none;display:inline-block" href="https://wa.me/${intl}?text=${msg}" target="_blank">💬 Contact landlord</a>`;
+    }
+
     return `
     <div class="prop-card">
-      <div style="font-weight:600;font-size:14px;margin-bottom:4px">${label}</div>
-      <div style="font-size:12.5px;color:var(--text-sec);margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="font-weight:600;font-size:14px">${label}</div>
+        <div style="font-size:12px;font-weight:600;color:${sb.color}">${sb.label}</div>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-sec);margin:4px 0 6px">
         Reported ${new Date(r.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+        ${r.resolved_at ? ` · ${r.status === 'resolved' ? 'Resolved' : 'Dismissed'} ${new Date(r.resolved_at).toLocaleString('en-GB',{day:'numeric',month:'short'})}` : ''}
       </div>
       <div style="background:var(--surface,#f9fafb);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px">
         <strong>Reason given:</strong> ${escapeHtml(r.reason || '(none given)')}
+        ${r.admin_notes ? `<br><strong>Your note:</strong> ${escapeHtml(r.admin_notes)}` : ''}
       </div>
-      <div style="display:flex;gap:8px">
+      ${isOpen ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${contactBtn}
         ${prop ? `<button class="reject-btn" onclick="updateProp(${prop.id},'rejected')">❌ Reject listing</button>` : ''}
         <button class="approve-btn" onclick="resolveReport('${r.id}','resolved')">✅ Mark resolved</button>
         <button class="unpublish-btn" onclick="resolveReport('${r.id}','dismissed')">Dismiss</button>
-      </div>
+      </div>` : ''}
     </div>`;
   }).join('');
 }
