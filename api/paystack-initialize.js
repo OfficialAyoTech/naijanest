@@ -148,12 +148,21 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
   const legalFeePercent = Number(property.legal_fee_percent) || 0;
   const cautionFee = Number(property.caution_fee) || 0;
 
+  // NaijaNest's own guaranteed commission — unlike agency_fee/legal_fee (which
+  // are landlord-set and landlord-editable, including down to 0), this is a
+  // fixed percentage with no field anywhere for anyone to change. It applies
+  // to every completed rental automatically, same non-transfer mechanism as
+  // agency/legal fee below (never sent anywhere via Paystack Transfer, so it
+  // simply stays in the platform's balance once rent releases).
+  const PLATFORM_FEE_PERCENT = 5;
+
   // All amounts in kobo (Paystack's base unit) from here on.
   const rentAmount = Math.round(price * 100);
   const agencyFeeAmount = Math.round(price * (agencyFeePercent / 100) * 100);
   const legalFeeAmount = Math.round(price * (legalFeePercent / 100) * 100);
   const cautionFeeAmount = Math.round(cautionFee * 100);
-  const totalAmount = rentAmount + agencyFeeAmount + legalFeeAmount + cautionFeeAmount;
+  const platformFeeAmount = Math.round(price * (PLATFORM_FEE_PERCENT / 100) * 100);
+  const totalAmount = rentAmount + agencyFeeAmount + legalFeeAmount + cautionFeeAmount + platformFeeAmount;
 
   if (totalAmount <= 0) {
     return res.status(400).json({ error: 'This listing does not have a valid price set' });
@@ -191,6 +200,7 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
       property_id, renter_id: user.id, landlord_id: property.user_id, reference,
       rent_amount: rentAmount, agency_fee_amount: agencyFeeAmount,
       legal_fee_amount: legalFeeAmount, caution_fee_amount: cautionFeeAmount,
+      platform_fee_amount: platformFeeAmount,
       total_amount: totalAmount, status: 'pending_payment',
     }),
   });
@@ -201,6 +211,7 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
     breakdown: {
       rent: rentAmount / 100, agency_fee: agencyFeeAmount / 100,
       legal_fee: legalFeeAmount / 100, caution_fee: cautionFeeAmount / 100,
+      platform_fee: platformFeeAmount / 100,
       total: totalAmount / 100,
     },
   });

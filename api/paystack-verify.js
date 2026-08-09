@@ -245,7 +245,7 @@ async function myEscrow(req, res) {
     `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions` +
     `?or=(renter_id.eq.${user.id},landlord_id.eq.${user.id})&order=created_at.desc` +
     `&select=id,property_id,renter_id,landlord_id,rent_amount,agency_fee_amount,legal_fee_amount,` +
-    `caution_fee_amount,total_amount,status,confirm_deadline,funded_at,confirmed_at,disputed_at,` +
+    `caution_fee_amount,platform_fee_amount,total_amount,status,confirm_deadline,funded_at,confirmed_at,disputed_at,` +
     `dispute_reason,released_at,refunded_at,reference,created_at`,
     { headers }
   );
