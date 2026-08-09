@@ -135,6 +135,7 @@
       <button class="main-tab" onclick="showView('waitlist',this)">Waitlist</button>
       <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
       <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
+      <button class="main-tab" onclick="showView('reports',this)">⚠️ Reports<span id="reportBadge"></span></button>
       <button class="main-tab" onclick="showView('payments',this)">💳 Payments</button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
@@ -180,6 +181,11 @@
     <!-- DISPUTES -->
     <div class="view" id="view-disputes">
       <div id="disputesContent"></div>
+    </div>
+
+    <!-- REPORTS (public "Report suspicious listing" submissions) -->
+    <div class="view" id="view-reports">
+      <div id="reportsContent"></div>
     </div>
 
     <!-- PAYMENTS (all escrow, regardless of status) -->
@@ -267,6 +273,7 @@ let allPayments = [];
 let allEvents = [];
 let allErrors = [];
 let allEscrow = [];
+let allReports = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
 
@@ -461,6 +468,7 @@ async function loadData() {
     allEvents = data.events || [];
     allErrors = data.errors || [];
     allEscrow = data.escrow || [];
+    allReports = data.reports || [];
 
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
@@ -474,6 +482,7 @@ async function loadData() {
     renderMetrics();
     renderDisputes();
     renderPayments();
+    renderReports();
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -662,6 +671,59 @@ async function resolveDispute(escrowId, resolution){
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Could not resolve dispute');
     alert(`Done — ${resolution === 'release' ? 'released' : 'refunded'}.`);
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+// Public "Report suspicious listing" submissions. Was previously a fake
+// button that showed an alert() and went nowhere — this is where those
+// reports now actually land, findable regardless of whether the WhatsApp
+// alert itself managed to deliver.
+function renderReports(){
+  const el = document.getElementById('reportsContent');
+  if (!el) return;
+  const open = allReports.filter(r => r.status === 'open');
+  const badge = document.getElementById('reportBadge');
+  if (badge) badge.textContent = open.length ? ` (${open.length})` : '';
+
+  if (!open.length){
+    el.innerHTML = '<div style="color:var(--text-sec);font-size:12.5px">No open reports ✅</div>';
+    return;
+  }
+
+  el.innerHTML = open.map(r => {
+    const prop = allProps.find(p => p.id === r.property_id);
+    const label = prop ? `${escapeHtml(prop.name)} — ${escapeHtml(prop.area)}, ${escapeHtml(prop.city)}` : `Property #${r.property_id} (listing not found — may already be deleted)`;
+    return `
+    <div class="prop-card">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">${label}</div>
+      <div style="font-size:12.5px;color:var(--text-sec);margin-bottom:6px">
+        Reported ${new Date(r.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+      </div>
+      <div style="background:var(--surface,#f9fafb);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px">
+        <strong>Reason given:</strong> ${escapeHtml(r.reason || '(none given)')}
+      </div>
+      <div style="display:flex;gap:8px">
+        ${prop ? `<button class="reject-btn" onclick="updateProp(${prop.id},'rejected')">❌ Reject listing</button>` : ''}
+        <button class="approve-btn" onclick="resolveReport('${r.id}','resolved')">✅ Mark resolved</button>
+        <button class="unpublish-btn" onclick="resolveReport('${r.id}','dismissed')">Dismiss</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function resolveReport(reportId, resolution){
+  const notes = prompt('Optional note for your own records:') || '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'resolve_report', report_id: reportId, resolution, admin_notes: notes })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not update report');
     await loadData();
   } catch(e) {
     alert('Error: ' + e.message);
