@@ -130,12 +130,15 @@
     <div class="field-row">
       <div class="field">
         <label>Agency fee (% of rent)</label>
-        <input type="number" id="agency_fee_percent" placeholder="e.g. 10" min="0" max="100"/>
+        <input type="number" id="agency_fee_percent" value="10" min="0" max="20"/>
       </div>
       <div class="field">
         <label>Legal fee (% of rent)</label>
-        <input type="number" id="legal_fee_percent" placeholder="e.g. 10" min="0" max="100"/>
+        <input type="number" id="legal_fee_percent" value="10" min="0" max="20"/>
       </div>
+    </div>
+    <div class="field" style="margin-top:-8px">
+      <span style="font-size:11.5px;color:var(--text-sec)">These are what NaijaNest charges instead of a traditional agent — it's how the platform stays free to list on. Set either to 0 if you'd rather not charge it; renters will always see the exact amounts before paying.</span>
     </div>
     <div class="field">
       <label>Caution fee / deposit (₦)</label>
