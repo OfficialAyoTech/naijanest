@@ -679,13 +679,18 @@ function openDetail(id){
   // Full cost breakdown — agency/legal fees are conventionally a % of annual rent
   // in Nigeria, caution fee is a flat refundable deposit. Only shown if the
   // landlord actually provided figures; we never guess or estimate on their behalf.
-  const hasFeeData = p.agency_fee_percent != null || p.legal_fee_percent != null || p.caution_fee != null;
+  // NaijaNest's guaranteed 5% commission — always present, not landlord-set,
+  // so the breakdown is always real even for a listing with no agency/legal/
+  // caution fee entered at all.
+  const PLATFORM_FEE_PERCENT = 5;
+  const platformFeeAmt = p.price ? Math.round(p.price * PLATFORM_FEE_PERCENT / 100) : 0;
+
   let feeBreakdownHtml = '';
-  if (hasFeeData) {
+  if (p.price) {
     const agencyAmt = p.agency_fee_percent != null ? Math.round(p.price * p.agency_fee_percent / 100) : null;
     const legalAmt = p.legal_fee_percent != null ? Math.round(p.price * p.legal_fee_percent / 100) : null;
     const cautionAmt = p.caution_fee != null ? Math.round(p.caution_fee) : null;
-    const total = p.price + (agencyAmt||0) + (legalAmt||0) + (cautionAmt||0);
+    const total = p.price + (agencyAmt||0) + (legalAmt||0) + (cautionAmt||0) + platformFeeAmt;
     feeBreakdownHtml = `
       <div class="sec-title">Full cost breakdown</div>
       <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px">
@@ -693,13 +698,14 @@ function openDetail(id){
         ${agencyAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Agency fee (${p.agency_fee_percent}%)</span><span style="font-weight:600">${fmt(agencyAmt)}</span></div>`:''}
         ${legalAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Legal fee (${p.legal_fee_percent}%)</span><span style="font-weight:600">${fmt(legalAmt)}</span></div>`:''}
         ${cautionAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Caution fee (refundable)</span><span style="font-weight:600">${fmt(cautionAmt)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">NaijaNest platform fee (${PLATFORM_FEE_PERCENT}%)</span><span style="font-weight:600">${fmt(platformFeeAmt)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid var(--border)"><span style="font-weight:700">Total upfront</span><span style="font-weight:700;color:var(--green)">${fmt(total)}</span></div>
       </div>`;
   } else {
     feeBreakdownHtml = `
       <div class="sec-title">Full cost breakdown</div>
       <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--text-sec)">
-        This landlord hasn't listed agency/legal/caution fees yet — ask them directly for the full upfront cost before proceeding.
+        This listing doesn't have a price set yet — ask the landlord directly for the full upfront cost before proceeding.
       </div>`;
   }
 

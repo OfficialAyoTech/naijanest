@@ -858,7 +858,8 @@ function renderPayments(){
         (rent ₦${Number(e.rent_amount/100).toLocaleString()}
         · agency ₦${Number(e.agency_fee_amount/100).toLocaleString()}
         · legal ₦${Number(e.legal_fee_amount/100).toLocaleString()}
-        · caution ₦${Number(e.caution_fee_amount/100).toLocaleString()})
+        · caution ₦${Number(e.caution_fee_amount/100).toLocaleString()}
+        · platform fee ₦${Number((e.platform_fee_amount||0)/100).toLocaleString()})
       </div>
       <div style="font-size:11.5px;color:var(--text-sec);margin-top:4px">
         Created ${new Date(e.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
