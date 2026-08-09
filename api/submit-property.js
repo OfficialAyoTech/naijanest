@@ -220,10 +220,10 @@ function validateProperty(body) {
 }
 
 // Public report action — rate-limited to 3 per IP per hour so this can't be
-// used to spam the admin WhatsApp. No persistence to a table for now (this
-// is meant to be low-effort and immediate, matching how disputes alert you);
-// if report volume ever justifies a dedicated dashboard view, that's an easy
-// follow-up, not a reason to hold back a working fix today.
+// used to spam the admin WhatsApp. Persisted to listing_reports so it's
+// findable in the admin dashboard even if the WhatsApp alert itself fails to
+// deliver (e.g. the number isn't yet approved as a Meta test recipient) —
+// the WhatsApp message is a nice-to-have nudge, not the only record.
 async function reportListing(req, res, body) {
   const { property_id, reason } = body;
   if (!property_id) return res.status(400).json({ error: 'Missing property_id' });
@@ -244,8 +244,21 @@ async function reportListing(req, res, body) {
   const propertyLabel = property ? `${property.name} — ${property.area}, ${property.city}` : `Property #${property_id}`;
 
   const cleanReason = reason ? String(reason).slice(0, 500) : '(no reason given)';
+
+  const insertResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ property_id, reason: cleanReason, reporter_ip: ip }),
+  });
+  if (!insertResp.ok) {
+    const err = await insertResp.text();
+    await logError('report-listing-insert', new Error(`Could not save report for property ${property_id}: ${err}`));
+    // Still try the WhatsApp alert below even if the DB write failed —
+    // better a report reaches you one way than neither.
+  }
+
   await notifyAdminWhatsApp(
-    `🚩 Listing reported as suspicious: ${propertyLabel} (id ${property_id})\nReason: ${cleanReason}\nReview in the admin dashboard.`
+    `🚩 Listing reported as suspicious: ${propertyLabel} (id ${property_id})\nReason: ${cleanReason}\nReview in the admin dashboard → Reports tab.`
   );
 
   return res.status(200).json({ success: true });

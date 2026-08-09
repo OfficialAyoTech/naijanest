@@ -159,6 +159,29 @@ async function resolveEscrowDispute(req, res, serviceKey) {
 // actually completed (status 'released'); the caution fee sat untouched
 // through the whole rent flow up to this point. Full refund or full forfeit
 // only — no partial split for now.
+// Marks a listing report as dismissed (not credible / already handled) or
+// resolved (acted on — e.g. rejected the listing separately via the
+// Submissions tab). This just clears it from the open-reports view; it
+// doesn't itself touch the listing's status — that's a deliberate separate
+// step so a report can't accidentally auto-reject something.
+async function resolveReport(req, res, serviceKey) {
+  const { report_id, resolution, admin_notes } = req.body || {};
+  if (!report_id || !['dismissed', 'resolved'].includes(resolution)) {
+    return res.status(400).json({ error: 'Missing report_id or invalid resolution (must be "dismissed" or "resolved")' });
+  }
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports?id=eq.${report_id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({ status: resolution, resolved_at: new Date().toISOString(), admin_notes: admin_notes || null }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    return res.status(400).json({ error: `Could not update report: ${err}` });
+  }
+  return res.status(200).json({ success: true });
+}
+
 async function settleCautionFee(req, res, serviceKey) {
   const { escrow_id, decision, admin_notes } = req.body || {};
   if (!escrow_id || !['refund', 'forfeit'].includes(decision)) {
@@ -278,13 +301,16 @@ export default async function handler(req, res) {
     if (action === 'settle_caution_fee') {
       return await settleCautionFee(req, res, serviceKey);
     }
+    if (action === 'resolve_report') {
+      return await resolveReport(req, res, serviceKey);
+    }
 
     const headers = {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
@@ -295,6 +321,7 @@ export default async function handler(req, res) {
       fetch(`${process.env.SUPABASE_URL}/rest/v1/rate_limit_events?select=key,created_at&created_at=gte.${new Date(Date.now() - 90*24*60*60*1000).toISOString()}&order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?order=created_at.desc&limit=200`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports?order=created_at.desc&limit=200`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -314,8 +341,9 @@ export default async function handler(req, res) {
     const events = eventsResp.ok ? await eventsResp.json() : [];
     const errors = errorsResp.ok ? await errorsResp.json() : [];
     const escrow = escrowResp.ok ? await escrowResp.json() : [];
+    const reports = reportsResp.ok ? await reportsResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow });
+    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
