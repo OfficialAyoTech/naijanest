@@ -328,6 +328,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="app-logo-name">Naija<span>Nest</span></div>
       </div>
       <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
+      <a href="#" class="back-to-home" onclick="openFAQ();return false;" style="margin-left:4px">FAQ</a>
       <div id="acctBtnApp"></div>
     </div>
     <div class="city-pills" id="cityPills"></div>
@@ -952,7 +953,15 @@ function contactWhatsApp(phone, propName){
 }
 
 function closeDetail(){document.getElementById('detailOverlay').style.display='none';}
-function openFAQ(){document.getElementById('faqOverlay').style.display='flex';}
+function openFAQ(){
+  // #faqOverlay lives inside #appPage (its position:absolute relies on #app
+  // as the positioning context), so it can't render correctly while the
+  // landing page is showing and #appPage is still display:none. Ensure
+  // we're in the app view first, THEN show the overlay — otherwise clicking
+  // FAQ from the landing page silently does nothing.
+  if(document.getElementById('landingPage').style.display !== 'none') showApp();
+  document.getElementById('faqOverlay').style.display='flex';
+}
 function closeFAQ(){document.getElementById('faqOverlay').style.display='none';}
 function switchPhoto(src,el){
   document.getElementById('mainPhoto').src=src;
