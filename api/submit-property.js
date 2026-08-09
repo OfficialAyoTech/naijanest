@@ -131,20 +131,21 @@ function validateProperty(body) {
 
   // Fee breakdown — optional (not every landlord knows exact figures upfront),
   // but validated if provided so we never store garbage. Agency/legal fees are
-  // conventionally a % of annual rent in Nigeria; caution fee is a flat refundable
-  // deposit amount.
+  // conventionally a % of annual rent in Nigeria (typically ~10% each) — capped
+  // at 20% each here as a sanity guardrail against an accidental or predatory
+  // extreme value; nothing legitimate should need to exceed that individually.
   let agencyFeePercent = null;
   if (body.agency_fee_percent !== undefined && body.agency_fee_percent !== null && body.agency_fee_percent !== '') {
     agencyFeePercent = parseFloat(body.agency_fee_percent);
-    if (!Number.isFinite(agencyFeePercent) || agencyFeePercent < 0 || agencyFeePercent > 100) {
-      return { error: 'Agency fee must be a percentage between 0 and 100' };
+    if (!Number.isFinite(agencyFeePercent) || agencyFeePercent < 0 || agencyFeePercent > 20) {
+      return { error: 'Agency fee must be a percentage between 0 and 20' };
     }
   }
   let legalFeePercent = null;
   if (body.legal_fee_percent !== undefined && body.legal_fee_percent !== null && body.legal_fee_percent !== '') {
     legalFeePercent = parseFloat(body.legal_fee_percent);
-    if (!Number.isFinite(legalFeePercent) || legalFeePercent < 0 || legalFeePercent > 100) {
-      return { error: 'Legal fee must be a percentage between 0 and 100' };
+    if (!Number.isFinite(legalFeePercent) || legalFeePercent < 0 || legalFeePercent > 20) {
+      return { error: 'Legal fee must be a percentage between 0 and 20' };
     }
   }
   let cautionFee = null;
