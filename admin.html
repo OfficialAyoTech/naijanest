@@ -136,6 +136,7 @@
       <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
       <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
       <button class="main-tab" onclick="showView('reports',this)">⚠️ Reports<span id="reportBadge"></span></button>
+      <button class="main-tab" onclick="showView('faq',this)">❓ FAQ</button>
       <button class="main-tab" onclick="showView('payments',this)">💳 Payments</button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
@@ -192,6 +193,31 @@
         <button class="tab" onclick="filterReports('all',this)">All</button>
       </div>
       <div id="reportsContent"></div>
+    </div>
+
+    <!-- FAQ (public-facing, editable here — reads live directly from index.html) -->
+    <div class="view" id="view-faq">
+      <button class="approve-btn" style="margin-bottom:14px;max-width:200px" onclick="showFaqForm()">+ Add FAQ entry</button>
+      <div id="faqForm" style="display:none;background:#fff;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+        <input type="hidden" id="faqEditId"/>
+        <div style="margin-bottom:8px">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Question</label>
+          <input type="text" id="faqQuestion" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box"/>
+        </div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Answer</label>
+          <textarea id="faqAnswer" rows="4" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:inherit"></textarea>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Order (lower shows first)</label>
+          <input type="number" id="faqSortOrder" value="0" style="width:100px;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"/>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="approve-btn" onclick="saveFaq()">Save</button>
+          <button class="unpublish-btn" onclick="hideFaqForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="faqContent"></div>
     </div>
 
     <!-- PAYMENTS (all escrow, regardless of status) -->
@@ -280,6 +306,7 @@ let allEvents = [];
 let allErrors = [];
 let allEscrow = [];
 let allReports = [];
+let allFaq = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
 
@@ -475,6 +502,7 @@ async function loadData() {
     allErrors = data.errors || [];
     allEscrow = data.escrow || [];
     allReports = data.reports || [];
+    allFaq = data.faq || [];
 
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
@@ -489,6 +517,7 @@ async function loadData() {
     renderDisputes();
     renderPayments();
     renderReports();
+    renderFaq();
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -763,6 +792,94 @@ async function resolveReport(reportId, resolution){
     });
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Could not update report');
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+// Public FAQ — index.html reads this table directly (no backend call), so
+// anything saved here shows up live on the site immediately. No separate
+// "publish" step.
+function renderFaq(){
+  const el = document.getElementById('faqContent');
+  if (!el) return;
+  if (!allFaq.length){
+    el.innerHTML = '<div class="empty">No FAQ entries yet — click "+ Add FAQ entry" above</div>';
+    return;
+  }
+  const sorted = [...allFaq].sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+  el.innerHTML = sorted.map(f => `
+    <div class="prop-card">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px">${escapeHtml(f.question)}</div>
+      <div style="font-size:12.5px;color:var(--text-sec);margin-bottom:10px;white-space:pre-wrap">${escapeHtml(f.answer)}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="unpublish-btn" onclick="editFaq('${f.id}')">✏️ Edit</button>
+        <button class="reject-btn" onclick="deleteFaqEntry('${f.id}')">🗑 Delete</button>
+        <span style="font-size:11px;color:var(--text-sec);margin-left:auto">Order: ${f.sort_order||0}</span>
+      </div>
+    </div>`).join('');
+}
+
+function showFaqForm(){
+  document.getElementById('faqEditId').value = '';
+  document.getElementById('faqQuestion').value = '';
+  document.getElementById('faqAnswer').value = '';
+  document.getElementById('faqSortOrder').value = String(allFaq.length);
+  document.getElementById('faqForm').style.display = 'block';
+}
+
+function hideFaqForm(){
+  document.getElementById('faqForm').style.display = 'none';
+}
+
+function editFaq(faqId){
+  const entry = allFaq.find(f => f.id === faqId);
+  if (!entry) return;
+  document.getElementById('faqEditId').value = entry.id;
+  document.getElementById('faqQuestion').value = entry.question;
+  document.getElementById('faqAnswer').value = entry.answer;
+  document.getElementById('faqSortOrder').value = entry.sort_order || 0;
+  document.getElementById('faqForm').style.display = 'block';
+  document.getElementById('faqForm').scrollIntoView({behavior:'smooth'});
+}
+
+async function saveFaq(){
+  const faqId = document.getElementById('faqEditId').value;
+  const question = document.getElementById('faqQuestion').value.trim();
+  const answer = document.getElementById('faqAnswer').value.trim();
+  const sort_order = document.getElementById('faqSortOrder').value;
+  if (!question || !answer){ alert('Question and answer are both required.'); return; }
+
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(
+        faqId
+          ? { admin_password: adminPassword, action: 'update_faq', faq_id: faqId, question, answer, sort_order }
+          : { admin_password: adminPassword, action: 'add_faq', question, answer, sort_order }
+      )
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not save FAQ entry');
+    hideFaqForm();
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function deleteFaqEntry(faqId){
+  if (!confirm('Delete this FAQ entry? This removes it from the live site immediately.')) return;
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'delete_faq', faq_id: faqId })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not delete FAQ entry');
     await loadData();
   } catch(e) {
     alert('Error: ' + e.message);
