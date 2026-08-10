@@ -164,6 +164,49 @@ async function resolveEscrowDispute(req, res, serviceKey) {
 // Submissions tab). This just clears it from the open-reports view; it
 // doesn't itself touch the listing's status — that's a deliberate separate
 // step so a report can't accidentally auto-reject something.
+// FAQ management — the public-facing FAQ (index.html, both AI assistant
+// prompts reference the same content conceptually) is readable by anyone
+// directly via Supabase's anon key (RLS allows SELECT to everyone — see
+// migration). Only these three actions, gated behind the admin password
+// like everything else in this file, can actually change what's shown.
+async function addFaq(req, res, serviceKey) {
+  const { question, answer, sort_order } = req.body || {};
+  if (!question || !answer) return res.status(400).json({ error: 'Missing question or answer' });
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/faq_entries`, {
+    method: 'POST', headers: { ...headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({ question: String(question).slice(0, 500), answer: String(answer).slice(0, 3000), sort_order: Number(sort_order) || 0 }),
+  });
+  if (!resp.ok) return res.status(400).json({ error: `Could not add FAQ entry: ${await resp.text()}` });
+  return res.status(200).json({ success: true });
+}
+
+async function updateFaq(req, res, serviceKey) {
+  const { faq_id, question, answer, sort_order } = req.body || {};
+  if (!faq_id) return res.status(400).json({ error: 'Missing faq_id' });
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const patch = { updated_at: new Date().toISOString() };
+  if (question !== undefined) patch.question = String(question).slice(0, 500);
+  if (answer !== undefined) patch.answer = String(answer).slice(0, 3000);
+  if (sort_order !== undefined) patch.sort_order = Number(sort_order) || 0;
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/faq_entries?id=eq.${faq_id}`, {
+    method: 'PATCH', headers, body: JSON.stringify(patch),
+  });
+  if (!resp.ok) return res.status(400).json({ error: `Could not update FAQ entry: ${await resp.text()}` });
+  return res.status(200).json({ success: true });
+}
+
+async function deleteFaq(req, res, serviceKey) {
+  const { faq_id } = req.body || {};
+  if (!faq_id) return res.status(400).json({ error: 'Missing faq_id' });
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/faq_entries?id=eq.${faq_id}`, {
+    method: 'DELETE', headers,
+  });
+  if (!resp.ok) return res.status(400).json({ error: `Could not delete FAQ entry: ${await resp.text()}` });
+  return res.status(200).json({ success: true });
+}
+
 async function resolveReport(req, res, serviceKey) {
   const { report_id, resolution, admin_notes } = req.body || {};
   if (!report_id || !['dismissed', 'resolved'].includes(resolution)) {
@@ -304,13 +347,22 @@ export default async function handler(req, res) {
     if (action === 'resolve_report') {
       return await resolveReport(req, res, serviceKey);
     }
+    if (action === 'add_faq') {
+      return await addFaq(req, res, serviceKey);
+    }
+    if (action === 'update_faq') {
+      return await updateFaq(req, res, serviceKey);
+    }
+    if (action === 'delete_faq') {
+      return await deleteFaq(req, res, serviceKey);
+    }
 
     const headers = {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp, faqResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
@@ -322,6 +374,7 @@ export default async function handler(req, res) {
       fetch(`${process.env.SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?order=created_at.desc&limit=200`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports?order=created_at.desc&limit=200`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/faq_entries?order=sort_order.asc`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -342,8 +395,9 @@ export default async function handler(req, res) {
     const errors = errorsResp.ok ? await errorsResp.json() : [];
     const escrow = escrowResp.ok ? await escrowResp.json() : [];
     const reports = reportsResp.ok ? await reportsResp.json() : [];
+    const faq = faqResp.ok ? await faqResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports });
+    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports, faq });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
