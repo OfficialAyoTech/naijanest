@@ -114,13 +114,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #appPage{display:none;min-height:100vh;flex-direction:column}
 #app{width:100%;max-width:500px;margin:0 auto;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;height:calc(100vh - 2rem);margin-top:1rem;position:relative}
 .app-header{padding:1rem 1.25rem 0.75rem;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.app-header>#acctBtnApp{flex-shrink:0;margin-left:auto}
 .app-logo{display:flex;align-items:center;gap:7px}
 .app-logo-icon{width:28px;height:28px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
 .app-logo-icon i{color:#fff;font-size:15px}
 .app-logo-name{font-size:16px;font-weight:700;color:var(--text)}
 .app-logo-name span{color:var(--green)}
-.back-to-home{font-size:12px;color:var(--text-sec);cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:20px;border:0.5px solid var(--border)}
+.back-to-home{font-size:12px;color:var(--text-sec);cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:20px;border:0.5px solid var(--border);white-space:nowrap}
+.app-nav-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px}
 .city-pills{display:flex;gap:5px;padding:6px 1.25rem;flex-shrink:0;overflow-x:auto}
 .city-pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--green-light);color:var(--green);border:0.5px solid var(--green-mid);white-space:nowrap}
 .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
@@ -296,14 +296,44 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="wl-field"><input class="wl-input" id="wlWa" placeholder="WhatsApp number (e.g. 08012345678)"/></div>
       <div class="wl-field">
         <select class="wl-select" id="wlCity">
-          <option value="">Which city are you in?</option>
-          <option value="Lagos">Lagos</option>
-          <option value="Abuja">Abuja</option>
-          <option value="Jos">Jos</option>
-          <option value="Port Harcourt">Port Harcourt</option>
+          <option value="">Which state are you in?</option>
+          <option value="Abia">Abia</option>
+          <option value="Abuja">Abuja (FCT)</option>
+          <option value="Adamawa">Adamawa</option>
+          <option value="Akwa Ibom">Akwa Ibom</option>
+          <option value="Anambra">Anambra</option>
+          <option value="Bauchi">Bauchi</option>
+          <option value="Bayelsa">Bayelsa</option>
+          <option value="Benue">Benue</option>
+          <option value="Borno">Borno</option>
+          <option value="Cross River">Cross River</option>
+          <option value="Delta">Delta</option>
+          <option value="Ebonyi">Ebonyi</option>
+          <option value="Edo">Edo</option>
+          <option value="Ekiti">Ekiti</option>
+          <option value="Enugu">Enugu</option>
+          <option value="Gombe">Gombe</option>
+          <option value="Imo">Imo</option>
+          <option value="Jigawa">Jigawa</option>
+          <option value="Kaduna">Kaduna</option>
           <option value="Kano">Kano</option>
-          <option value="Ibadan">Ibadan</option>
-          <option value="Other">Other</option>
+          <option value="Katsina">Katsina</option>
+          <option value="Kebbi">Kebbi</option>
+          <option value="Kogi">Kogi</option>
+          <option value="Kwara">Kwara</option>
+          <option value="Lagos">Lagos</option>
+          <option value="Nasarawa">Nasarawa</option>
+          <option value="Niger">Niger</option>
+          <option value="Ogun">Ogun</option>
+          <option value="Ondo">Ondo</option>
+          <option value="Osun">Osun</option>
+          <option value="Oyo">Oyo</option>
+          <option value="Plateau">Plateau</option>
+          <option value="Rivers">Rivers</option>
+          <option value="Sokoto">Sokoto</option>
+          <option value="Taraba">Taraba</option>
+          <option value="Yobe">Yobe</option>
+          <option value="Zamfara">Zamfara</option>
         </select>
       </div>
       <div class="wl-field">
@@ -337,9 +367,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="app-logo-icon"><i class="ti ti-home-2"></i></div>
         <div class="app-logo-name">Naija<span>Nest</span></div>
       </div>
-      <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
-      <a href="#" class="back-to-home" onclick="openFAQ();return false;" style="margin-left:4px">FAQ</a>
-      <div id="acctBtnApp"></div>
+      <div class="app-nav-links">
+        <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
+        <a href="#" class="back-to-home" onclick="openFAQ();return false;">FAQ</a>
+        <div id="acctBtnApp"></div>
+      </div>
     </div>
     <div class="city-pills" id="cityPills"></div>
     <div class="chat-area">
@@ -366,39 +398,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="back-btn" onclick="closeFAQ()"><i class="ti ti-arrow-left"></i></button>
         <span style="font-size:14px;font-weight:600">Frequently asked questions</span>
       </div>
-      <div class="overlay-body" style="padding:16px">
-        <details open style="margin-bottom:12px;background:var(--surface);border-radius:12px;padding:12px 14px">
-          <summary style="font-weight:600;font-size:14px;cursor:pointer">What am I actually paying for?</summary>
-          <div style="font-size:13px;color:var(--text-sec);margin-top:10px;line-height:1.6">
-            Your total payment can have up to five parts:
-            <ul style="margin:8px 0 0;padding-left:18px">
-              <li><strong>Annual rent</strong> — goes straight to the landlord</li>
-              <li><strong>Agency fee</strong> (if the landlord charges one) — replaces what you'd normally pay a real estate agent</li>
-              <li><strong>Legal fee</strong> (if the landlord charges one) — covers setting up your tenancy through NaijaNest</li>
-              <li><strong>Caution fee / deposit</strong> — fully refundable, never touched by NaijaNest, returned or paid to the landlord depending on the property's condition when your tenancy ends</li>
-              <li><strong>NaijaNest platform fee (5%)</strong> — separate from the agency fee, this is what keeps NaijaNest running: verifying listings, holding your payment securely until you confirm move-in, and giving you somewhere to turn if something goes wrong</li>
-            </ul>
-            Everything is shown before you pay — nothing is added afterward.
-          </div>
-        </details>
-        <details style="margin-bottom:12px;background:var(--surface);border-radius:12px;padding:12px 14px">
-          <summary style="font-weight:600;font-size:14px;cursor:pointer">Why are there two fees going to NaijaNest?</summary>
-          <div style="font-size:13px;color:var(--text-sec);margin-top:10px;line-height:1.6">
-            Agency fee is the <strong>landlord's own choice</strong> — it replaces what they'd pay a traditional agent, and they can set it to zero. The <strong>platform fee is fixed at 5%</strong> and is NaijaNest's own cost of running the service — the same way a payment processor takes a small cut to handle any transaction. One is optional and landlord-controlled; the other always applies and isn't something anyone sets or removes.
-          </div>
-        </details>
-        <details style="margin-bottom:12px;background:var(--surface);border-radius:12px;padding:12px 14px">
-          <summary style="font-weight:600;font-size:14px;cursor:pointer">Is my rent payment actually safe?</summary>
-          <div style="font-size:13px;color:var(--text-sec);margin-top:10px;line-height:1.6">
-            Your payment is held securely by NaijaNest until you confirm you've moved in — the landlord doesn't receive it immediately. If something's wrong (place doesn't match the listing, landlord never hands over keys), you can report it before confirming and NaijaNest will review before anything is released.
-          </div>
-        </details>
-        <details style="margin-bottom:12px;background:var(--surface);border-radius:12px;padding:12px 14px">
-          <summary style="font-weight:600;font-size:14px;cursor:pointer">What happens to my caution fee / deposit?</summary>
-          <div style="font-size:13px;color:var(--text-sec);margin-top:10px;line-height:1.6">
-            It's held untouched — NaijaNest never takes a cut of it. When your tenancy ends, it's either refunded back to you or paid to the landlord, depending on the condition the property is left in.
-          </div>
-        </details>
+      <div class="overlay-body" style="padding:16px" id="faqBody">
+        <div style="font-size:12.5px;color:var(--text-sec)">Loading...</div>
       </div>
     </div>
     <div class="overlay" id="schedOverlay" style="display:none">
@@ -963,7 +964,8 @@ function contactWhatsApp(phone, propName){
 }
 
 function closeDetail(){document.getElementById('detailOverlay').style.display='none';}
-function openFAQ(){
+let FAQ_CACHE = null;
+async function openFAQ(){
   // #faqOverlay lives inside #appPage (its position:absolute relies on #app
   // as the positioning context), so it can't render correctly while the
   // landing page is showing and #appPage is still display:none. Ensure
@@ -971,8 +973,32 @@ function openFAQ(){
   // FAQ from the landing page silently does nothing.
   if(document.getElementById('landingPage').style.display !== 'none') showApp();
   document.getElementById('faqOverlay').style.display='flex';
+  await renderFAQContent();
 }
 function closeFAQ(){document.getElementById('faqOverlay').style.display='none';}
+
+async function renderFAQContent(){
+  const body = document.getElementById('faqBody');
+  if(!body) return;
+  try{
+    if(!FAQ_CACHE){
+      const {data, error} = await NaijaAuth.client.from('faq_entries').select('*').order('sort_order', {ascending:true});
+      if(error) throw error;
+      FAQ_CACHE = data || [];
+    }
+    if(!FAQ_CACHE.length){
+      body.innerHTML = `<div style="font-size:12.5px;color:var(--text-sec)">No FAQ entries yet.</div>`;
+      return;
+    }
+    body.innerHTML = FAQ_CACHE.map((f,i) => `
+      <details ${i===0?'open':''} style="margin-bottom:12px;background:var(--surface);border-radius:12px;padding:12px 14px">
+        <summary style="font-weight:600;font-size:14px;cursor:pointer">${escHtml(f.question)}</summary>
+        <div style="font-size:13px;color:var(--text-sec);margin-top:10px;line-height:1.6;white-space:pre-wrap">${escHtml(f.answer)}</div>
+      </details>`).join('');
+  }catch(e){
+    body.innerHTML = `<div style="font-size:12.5px;color:var(--text-sec)">Could not load FAQ right now — try again shortly.</div>`;
+  }
+}
 function switchPhoto(src,el){
   document.getElementById('mainPhoto').src=src;
   document.querySelectorAll('.photo-thumb').forEach(t=>t.classList.remove('active'));
