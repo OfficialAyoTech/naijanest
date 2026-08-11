@@ -1,6 +1,7 @@
 import { logError, notifyAdminWhatsApp, notifyRentFunded, notifyRentReleased, notifyConfirmReminder } from '../lib/notify.js';
 import { authenticateUser } from '../lib/auth.js';
 import { releaseEscrow } from '../lib/escrow.js';
+import { namesLikelyMatch } from '../lib/name-match.js';
 
 const FEATURED_DAYS = 30;
 const CONFIRM_WINDOW_DAYS = 7; // keep in sync with paystack-initialize.js / paystack-webhook.js
@@ -292,7 +293,48 @@ async function saveBankDetails(req, res) {
     }),
   });
 
+  // Bank details are usually added here, on "My Listings", after a listing
+  // already exists — so the submit-time cross-check in submit-property.js
+  // often has nothing to compare against yet. Re-run it now against this
+  // user's existing listings so a mismatch still gets caught once there's
+  // actually a bank name to check it against.
+  try {
+    await reflagExistingListings(user.id, resolveData.data.account_name, serviceKey);
+  } catch (e) {
+    console.error('saveBankDetails: re-flagging existing listings failed:', e.message);
+  }
+
   return res.status(200).json({ success: true, account_name: resolveData.data.account_name });
+}
+
+async function reflagExistingListings(userId, bankAccountName, serviceKey) {
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const resp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/properties?user_id=eq.${userId}&select=id,name,landlord_name,bank_name_mismatch`,
+    { headers }
+  );
+  if (!resp.ok) return;
+  const listings = await resp.json();
+
+  const newlyFlagged = [];
+  for (const listing of listings) {
+    const mismatch = !namesLikelyMatch(listing.landlord_name, bankAccountName);
+    if (mismatch === listing.bank_name_mismatch) continue; // unchanged, skip the write
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${listing.id}`, {
+      method: 'PATCH', headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({ bank_name_mismatch: mismatch, bank_account_name_snapshot: bankAccountName }),
+    });
+    if (mismatch) newlyFlagged.push(listing.name);
+  }
+
+  if (newlyFlagged.length) {
+    await notifyAdminWhatsApp(
+      `⚠️ Bank name mismatch found after payout details update:\n` +
+      `Name on file with Paystack: ${bankAccountName}\n` +
+      `Listing(s) with a different landlord name: ${newlyFlagged.join(', ')}\n` +
+      `Worth a closer look.`
+    );
+  }
 }
 
 // Renter confirms they've received the keys / moved in. Releases funds to

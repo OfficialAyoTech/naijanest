@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { logError, notifyAdminWhatsApp } from '../lib/notify.js';
 import { isRateLimited } from '../lib/rate-limit.js';
+import { namesLikelyMatch } from '../lib/name-match.js';
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
@@ -323,16 +324,60 @@ export default async function handler(req, res) {
       ? { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Prefer': 'return=minimal' }
       : { 'Content-Type': 'application/json', 'apikey': process.env.SUPABASE_ANON_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`, 'Prefer': 'return=minimal' };
 
+    // Cross-check the "Landlord name" typed on the listing form against the
+    // Paystack-verified bank account name already on file for this signed-in
+    // user (set via "My Listings" → payout details, which resolves it
+    // through Paystack's bank/resolve — see saveBankDetails in
+    // paystack-verify.js). This never blocks the submission: Nigerian names
+    // have too many legitimate spelling/order variants to safely hard-fail
+    // on, and admin already reviews every pending listing before it goes
+    // live. It just flags the listing so that review is a closer look —
+    // "listed under one name, paid out to a different person's account" is
+    // exactly the shape of a common rental scam. Admin quick-add entries
+    // skip this (no linked landlord account to check against), as does any
+    // landlord who hasn't set up payout details yet — nothing to compare.
+    let bankNameMismatch = null;
+    let bankAccountNameSnapshot = null;
+    if (user && !isAdminEntry) {
+      try {
+        const profResp = await fetch(
+          `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=bank_account_name`,
+          { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+        );
+        if (profResp.ok) {
+          const rows = await profResp.json();
+          const bankAccountName = rows[0]?.bank_account_name;
+          if (bankAccountName) {
+            bankAccountNameSnapshot = bankAccountName;
+            bankNameMismatch = !namesLikelyMatch(validated.data.landlord_name, bankAccountName);
+          }
+        }
+      } catch (e) {
+        console.error('submit-property: bank name cross-check failed:', e.message);
+      }
+    }
+
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties`, {
       method: 'POST',
       headers: insertHeaders,
       body: JSON.stringify({
         ...validated.data,
         user_id: user ? user.id : null,
-        status: isAdminEntry ? 'approved' : 'pending'
+        status: isAdminEntry ? 'approved' : 'pending',
+        bank_name_mismatch: bankNameMismatch,
+        bank_account_name_snapshot: bankAccountNameSnapshot,
       })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
+
+    if (bankNameMismatch) {
+      await notifyAdminWhatsApp(
+        `⚠️ Bank name mismatch on new listing: "${validated.data.name}"\n` +
+        `Landlord name on listing: ${validated.data.landlord_name}\n` +
+        `Name on file with Paystack: ${bankAccountNameSnapshot}\n` +
+        `Worth a closer look before approving.`
+      );
+    }
 
     // Best-effort: tag this user's profile as a landlord now that they've actually
     // listed a property. Self-declared, not a security boundary (see submit-property
