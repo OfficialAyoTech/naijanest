@@ -842,7 +842,7 @@ function renderSupport(){
   el.innerHTML = rows.map(m => {
     const sb = statusBadge[m.status] || {label: m.status, color:'#555'};
     const isOpen = m.status === 'open';
-    const replyLink = buildReplyLink(m.contact);
+    const replyLink = buildReplyLink(m.contact, m.message);
 
     return `
     <div class="prop-card">
@@ -869,14 +869,20 @@ function renderSupport(){
 
 // contact is free text the user typed (email or phone) — no separate field
 // for it, so we sniff which it is to offer a one-click reply that doesn't
-// require saving the number or leaving the dashboard: mailto: opens their
-// default mail client, wa.me opens a WhatsApp chat with that number without
-// needing it saved as a contact first.
-function buildReplyLink(contact){
+// require saving the number or leaving the dashboard. For email this opens
+// Gmail's web compose view directly (pre-filled) rather than a mailto: link
+// — mailto: only works if the browser/OS has a default mail app registered,
+// which isn't a safe assumption, and silently opens a blank tab otherwise.
+// wa.me opens a WhatsApp chat with that number without needing it saved as
+// a contact first.
+function buildReplyLink(contact, originalMessage){
   const trimmed = (contact || '').trim();
   if (!trimmed) return null;
   if (trimmed.includes('@')) {
-    return { href: `mailto:${trimmed}`, label: '✉️ Reply by email' };
+    const subject = encodeURIComponent('Re: your message to NaijaNest support');
+    const quoted = (originalMessage || '').split('\n').map(l => '> ' + l).join('\n');
+    const body = encodeURIComponent(`\n\n---\nYou wrote:\n${quoted}`);
+    return { href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(trimmed)}&su=${subject}&body=${body}`, label: '✉️ Reply by email' };
   }
   const digits = trimmed.replace(/\D/g, '');
   if (digits.length >= 10) {
