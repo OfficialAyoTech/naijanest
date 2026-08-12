@@ -339,9 +339,9 @@ async function verifyLandlordPhoneOtp(req, res, body) {
 // limited, persisted so it's findable in the admin dashboard even if the
 // WhatsApp alert doesn't land, WhatsApp used as a nice-to-have nudge on top.
 async function contactSupport(req, res, body) {
-  const name = truncate(escapeHtml((body.name || '').trim()), 100);
-  const contact = truncate(escapeHtml((body.contact || '').trim()), 150);
-  const message = truncate(escapeHtml((body.message || '').trim()), 2000);
+  const name = truncate((body.name || '').trim(), 100);
+  const contact = truncate((body.contact || '').trim(), 150);
+  const message = truncate((body.message || '').trim(), 2000);
   if (!contact) return res.status(400).json({ error: 'Please share an email or phone number so we can reach you back' });
   if (!message) return res.status(400).json({ error: 'Please enter a message' });
 
