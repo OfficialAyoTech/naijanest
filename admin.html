@@ -842,6 +842,7 @@ function renderSupport(){
   el.innerHTML = rows.map(m => {
     const sb = statusBadge[m.status] || {label: m.status, color:'#555'};
     const isOpen = m.status === 'open';
+    const replyLink = buildReplyLink(m.contact);
 
     return `
     <div class="prop-card">
@@ -856,13 +857,33 @@ function renderSupport(){
       <div style="background:var(--surface,#f9fafb);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px;white-space:pre-wrap">${escapeHtml(m.message)}
         ${m.admin_notes ? `<br><br><strong>Your note:</strong> ${escapeHtml(m.admin_notes)}` : ''}
       </div>
-      ${isOpen ? `
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${replyLink ? `<a href="${replyLink.href}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:0 14px;height:34px;border-radius:8px;border:0.5px solid var(--border);color:var(--text);font-size:12.5px;text-decoration:none;font-weight:600">${replyLink.label}</a>` : ''}
+        ${isOpen ? `
         <button class="approve-btn" onclick="resolveSupportMessage('${m.id}','resolved')">✅ Mark resolved</button>
-        <button class="unpublish-btn" onclick="resolveSupportMessage('${m.id}','dismissed')">Dismiss</button>
-      </div>` : ''}
+        <button class="unpublish-btn" onclick="resolveSupportMessage('${m.id}','dismissed')">Dismiss</button>` : ''}
+      </div>
     </div>`;
   }).join('');
+}
+
+// contact is free text the user typed (email or phone) — no separate field
+// for it, so we sniff which it is to offer a one-click reply that doesn't
+// require saving the number or leaving the dashboard: mailto: opens their
+// default mail client, wa.me opens a WhatsApp chat with that number without
+// needing it saved as a contact first.
+function buildReplyLink(contact){
+  const trimmed = (contact || '').trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('@')) {
+    return { href: `mailto:${trimmed}`, label: '✉️ Reply by email' };
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length >= 10) {
+    const e164 = digits.startsWith('234') ? digits : (digits.startsWith('0') ? '234' + digits.slice(1) : digits);
+    return { href: `https://wa.me/${e164}`, label: '💬 Reply on WhatsApp' };
+  }
+  return null;
 }
 
 async function resolveSupportMessage(messageId, resolution){

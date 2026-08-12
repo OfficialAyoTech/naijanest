@@ -166,6 +166,8 @@
           <option value="1">1 bathroom</option>
           <option value="2">2 bathrooms</option>
           <option value="3">3 bathrooms</option>
+          <option value="4">4 bathrooms</option>
+          <option value="5">5+ bathrooms</option>
         </select>
       </div>
     </div>
@@ -413,25 +415,40 @@ function togAmenity(el) {
 let selectedPhotos = [];
 
 function previewPhotos(input) {
-  let files = Array.from(input.files);
-  if (files.length > 6) {
-    alert('Max 6 photos — using the first 6 you selected.');
-    files = files.slice(0, 6);
+  // Native <input type="file"> only ever reports the files picked in the
+  // *current* dialog, not a running total — so this appends to what's
+  // already selected instead of overwriting it, up to the 6-photo max.
+  const newFiles = Array.from(input.files);
+  let combined = selectedPhotos.concat(newFiles);
+  if (combined.length > 6) {
+    alert('Max 6 photos — using the first 6.');
+    combined = combined.slice(0, 6);
   }
-  selectedPhotos = files;
+  selectedPhotos = combined;
+  renderPhotoPreviews();
+
+  // Sync the underlying input's FileList to match selectedPhotos exactly —
+  // keeps it consistent, and lets picking the same file again later still
+  // fire a change event (browsers won't re-fire on an unchanged selection).
+  const dt = new DataTransfer();
+  selectedPhotos.forEach(f => dt.items.add(f));
+  input.files = dt.files;
+}
+
+function renderPhotoPreviews() {
   const previews = document.getElementById('photoPreviews');
   const count = document.getElementById('photoCount');
-  previews.innerHTML = files.map((f,i) => {
+  previews.innerHTML = selectedPhotos.map((f,i) => {
     const url = URL.createObjectURL(f);
     return `<div class="photo-preview-wrap">
       <img class="photo-preview-img" src="${url}" alt="Photo ${i+1}"/>
       <button class="photo-preview-remove" onclick="removePhoto(${i})">×</button>
     </div>`;
   }).join('');
-  count.textContent = files.length > 0 ? `${files.length} photo${files.length>1?'s':''} selected` : '';
-  if(files.length < 3) {
+  count.textContent = selectedPhotos.length > 0 ? `${selectedPhotos.length} photo${selectedPhotos.length>1?'s':''} selected` : '';
+  if(selectedPhotos.length < 3) {
     count.style.color = '#dc2626';
-    count.textContent += files.length > 0 ? ' — please add at least 3 photos' : '';
+    count.textContent += selectedPhotos.length > 0 ? ' — please add at least 3 photos' : '';
   } else {
     count.style.color = '#16a34a';
     count.textContent += ' ✓';
@@ -443,7 +460,7 @@ function removePhoto(index) {
   const dt = new DataTransfer();
   selectedPhotos.forEach(f => dt.items.add(f));
   document.getElementById('photoInput').files = dt.files;
-  previewPhotos(document.getElementById('photoInput'));
+  renderPhotoPreviews();
 }
 
 // Resize + compress a photo client-side (max 1280px edge, JPEG q0.7) before upload —
