@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { logError, notifyAdminWhatsApp } from '../lib/notify.js';
 import { isRateLimited } from '../lib/rate-limit.js';
 import { namesLikelyMatch } from '../lib/name-match.js';
+import { sendWhatsAppOtp, generatePin, issueOtpSessionToken, checkOtpSessionToken, toE164Digits } from '../lib/whatsapp-otp.js';
+import { issuePhoneVerifiedToken, checkPhoneVerifiedToken } from '../lib/phone-verify-token.js';
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
@@ -266,6 +268,108 @@ async function reportListing(req, res, body) {
   return res.status(200).json({ success: true });
 }
 
+// Step 1 of landlord phone verification: generate a 6-digit code, deliver it
+// over WhatsApp (see lib/whatsapp-otp.js for the test-tier delivery caveat),
+// and hand back a signed session token the client presents again to verify.
+// No auth required, so rate-limited two ways: per-IP (protects against
+// abuse of your WhatsApp messaging quota) and per-phone (stops this being
+// used to spam OTP messages at a number that isn't the caller's — a real
+// harassment vector for an unauthenticated "send code" endpoint).
+async function sendLandlordPhoneOtp(req, res, body) {
+  const digits = (body.phone || '').replace(/[^\d+]/g, '');
+  if (!/^(\+?234\d{10}|0\d{10})$/.test(digits)) {
+    return res.status(400).json({ error: 'Please enter a valid Nigerian phone number' });
+  }
+  const e164 = toE164Digits(digits);
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const ip = getClientIp(req);
+  const [ipLimited, phoneLimited] = await Promise.all([
+    isRateLimited(`phone-otp-send:ip:${ip}`, 5, 60, serviceKey),
+    isRateLimited(`phone-otp-send:phone:${e164}`, 3, 60, serviceKey),
+  ]);
+  if (ipLimited || phoneLimited) {
+    return res.status(429).json({ error: 'Too many verification codes requested — please try again later' });
+  }
+
+  try {
+    const pin = generatePin();
+    await sendWhatsAppOtp(e164, pin);
+    const sessionToken = issueOtpSessionToken(e164, pin);
+    return res.status(200).json({ success: true, session_token: sessionToken });
+  } catch (e) {
+    await logError('submit-property-send-otp', e);
+    return res.status(502).json({ error: 'Could not send verification code on WhatsApp — please try again' });
+  }
+}
+
+// Step 2: check the code the landlord typed back in against the signed
+// session token from step 1. On success, issues a separate short-lived
+// signed token (see lib/phone-verify-token.js) that the final listing
+// submission below must present for this same phone number.
+async function verifyLandlordPhoneOtp(req, res, body) {
+  const digits = (body.phone || '').replace(/[^\d+]/g, '');
+  const sessionToken = (body.session_token || '').trim();
+  const pin = (body.pin || '').trim();
+  if (!digits || !sessionToken || !pin) {
+    return res.status(400).json({ error: 'Missing phone, session_token, or pin' });
+  }
+  const e164 = toE164Digits(digits);
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const ip = getClientIp(req);
+  const limited = await isRateLimited(`phone-otp-verify:ip:${ip}`, 10, 60, serviceKey);
+  if (limited) {
+    return res.status(429).json({ error: 'Too many attempts — please try again later' });
+  }
+
+  if (!checkOtpSessionToken(sessionToken, e164, pin)) {
+    return res.status(400).json({ error: 'Incorrect or expired code' });
+  }
+  try {
+    const token = issuePhoneVerifiedToken(e164);
+    return res.status(200).json({ success: true, verified_token: token });
+  } catch (e) {
+    await logError('submit-property-verify-otp', e);
+    return res.status(502).json({ error: 'Could not verify code — please try again' });
+  }
+}
+
+// Public "contact support" action — same shape as reportListing: rate
+// limited, persisted so it's findable in the admin dashboard even if the
+// WhatsApp alert doesn't land, WhatsApp used as a nice-to-have nudge on top.
+async function contactSupport(req, res, body) {
+  const name = truncate(escapeHtml((body.name || '').trim()), 100);
+  const contact = truncate(escapeHtml((body.contact || '').trim()), 150);
+  const message = truncate(escapeHtml((body.message || '').trim()), 2000);
+  if (!contact) return res.status(400).json({ error: 'Please share an email or phone number so we can reach you back' });
+  if (!message) return res.status(400).json({ error: 'Please enter a message' });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const ip = getClientIp(req);
+  const limited = await isRateLimited(`contact-support:${ip}`, 5, 60, serviceKey);
+  if (limited) {
+    return res.status(429).json({ error: 'Too many messages sent — please try again later' });
+  }
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const insertResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/support_messages`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ name: name || null, contact, message, reporter_ip: ip }),
+  });
+  if (!insertResp.ok) {
+    const err = await insertResp.text();
+    await logError('contact-support-insert', new Error(`Could not save support message: ${err}`));
+  }
+
+  await notifyAdminWhatsApp(
+    `📩 New support message${name ? ` from ${name}` : ''}:\n${message}\n\nReach them at: ${contact}\nReview in the admin dashboard → Support tab.`
+  );
+
+  return res.status(200).json({ success: true });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -280,6 +384,15 @@ export default async function handler(req, res) {
     // did nothing; this is what actually makes it reach the admin.
     if (body.action === 'report_listing') {
       return await reportListing(req, res, body);
+    }
+    if (body.action === 'contact_support') {
+      return await contactSupport(req, res, body);
+    }
+    if (body.action === 'send_landlord_phone_otp') {
+      return await sendLandlordPhoneOtp(req, res, body);
+    }
+    if (body.action === 'verify_landlord_phone_otp') {
+      return await verifyLandlordPhoneOtp(req, res, body);
     }
 
     // Two ways in: a signed-in user's access token (normal landlord self-submission,
@@ -357,6 +470,29 @@ export default async function handler(req, res) {
       }
     }
 
+    // Require proof the landlord actually holds the phone number entered on
+    // the form — see sendLandlordPhoneOtp/verifyLandlordPhoneOtp above.
+    // Gated behind LANDLORD_PHONE_OTP_ENFORCE: the OTP is delivered over
+    // WhatsApp (lib/whatsapp-otp.js), and while WHATSAPP_PHONE_NUMBER_ID is
+    // still on Meta's test tier, delivery only reaches pre-approved test
+    // recipients — hard-blocking on it right now would mean no real
+    // landlord could submit a listing at all. Flip this to 'true' once the
+    // real WhatsApp Business number is live (see the open item about
+    // registering one). Until then this stays informational-only, same as
+    // the bank-name check above — landlord_phone_verified is still recorded
+    // per listing either way. Admin quick-add entries skip this outright,
+    // same reasoning as the bank-name check (admin is personally vetting
+    // the data).
+    const enforcePhoneOtp = process.env.LANDLORD_PHONE_OTP_ENFORCE === 'true';
+    let landlordPhoneVerified = null;
+    if (!isAdminEntry) {
+      const phoneE164 = toE164Digits(validated.data.landlord_phone);
+      landlordPhoneVerified = checkPhoneVerifiedToken(body.landlord_phone_verified_token, phoneE164);
+      if (enforcePhoneOtp && !landlordPhoneVerified) {
+        return res.status(400).json({ error: 'Please verify the landlord phone number before submitting — tap "Send code" next to the phone field.' });
+      }
+    }
+
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties`, {
       method: 'POST',
       headers: insertHeaders,
@@ -366,6 +502,7 @@ export default async function handler(req, res) {
         status: isAdminEntry ? 'approved' : 'pending',
         bank_name_mismatch: bankNameMismatch,
         bank_account_name_snapshot: bankAccountNameSnapshot,
+        landlord_phone_verified: landlordPhoneVerified,
       })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }

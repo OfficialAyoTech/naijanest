@@ -225,6 +225,24 @@ async function resolveReport(req, res, serviceKey) {
   return res.status(200).json({ success: true });
 }
 
+async function resolveSupportMessage(req, res, serviceKey) {
+  const { message_id, resolution, admin_notes } = req.body || {};
+  if (!message_id || !['dismissed', 'resolved'].includes(resolution)) {
+    return res.status(400).json({ error: 'Missing message_id or invalid resolution (must be "dismissed" or "resolved")' });
+  }
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/support_messages?id=eq.${message_id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({ status: resolution, resolved_at: new Date().toISOString(), admin_notes: admin_notes || null }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    return res.status(400).json({ error: `Could not update support message: ${err}` });
+  }
+  return res.status(200).json({ success: true });
+}
+
 async function settleCautionFee(req, res, serviceKey) {
   const { escrow_id, decision, admin_notes } = req.body || {};
   if (!escrow_id || !['refund', 'forfeit'].includes(decision)) {
@@ -347,6 +365,9 @@ export default async function handler(req, res) {
     if (action === 'resolve_report') {
       return await resolveReport(req, res, serviceKey);
     }
+    if (action === 'resolve_support_message') {
+      return await resolveSupportMessage(req, res, serviceKey);
+    }
     if (action === 'add_faq') {
       return await addFaq(req, res, serviceKey);
     }
@@ -362,7 +383,7 @@ export default async function handler(req, res) {
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp, faqResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp, faqResp, supportResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
@@ -375,6 +396,7 @@ export default async function handler(req, res) {
       fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?order=created_at.desc&limit=200`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports?order=created_at.desc&limit=200`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/faq_entries?order=sort_order.asc`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/support_messages?order=created_at.desc&limit=200`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -396,8 +418,9 @@ export default async function handler(req, res) {
     const escrow = escrowResp.ok ? await escrowResp.json() : [];
     const reports = reportsResp.ok ? await reportsResp.json() : [];
     const faq = faqResp.ok ? await faqResp.json() : [];
+    const support = supportResp.ok ? await supportResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports, faq });
+    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports, faq, support });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
