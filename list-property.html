@@ -46,6 +46,10 @@
   .success-title{font-size:16px;font-weight:600;color:var(--green);margin-bottom:6px}
   .success-sub{font-size:13px;color:#2d7a4a}
   .note{font-size:12px;color:var(--text-sec);background:var(--surface);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;border-left:3px solid var(--green)}
+  .verify-btn{padding:0 12px;height:32px;background:var(--white);color:var(--green);border:0.5px solid var(--green);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .verify-btn:disabled{opacity:0.5;cursor:default}
+  .verify-ok{font-size:12px;color:var(--green);font-weight:600;display:flex;align-items:center;gap:5px}
+  .verify-row{display:flex;gap:8px;align-items:center}
 .photo-upload-area{border:2px dashed var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:border-color .15s;background:var(--surface);margin-bottom:10px}
 .photo-upload-area:hover{border-color:var(--green)}
 .photo-upload-area i{font-size:28px;color:var(--text-muted);display:block;margin-bottom:6px}
@@ -242,7 +246,8 @@
     <div class="field-row">
       <div class="field">
         <label>Phone number</label>
-        <input type="tel" id="landlord_phone" placeholder="08012345678"/>
+        <input type="tel" id="landlord_phone" placeholder="08012345678" oninput="onLandlordPhoneChanged()"/>
+        <div id="phoneOtpArea" style="margin-top:8px"></div>
       </div>
       <div class="field">
         <label>Email address</label>
@@ -265,6 +270,8 @@
     <div class="success-sub">Thank you! Your property has been submitted for review.<br>We'll verify your details and publish it within 24 hours.<br><br>We'll contact you on the phone number provided.</div>
     <a href="index.html" style="display:inline-block;margin-top:1rem;padding:10px 20px;background:var(--green);color:#fff;border-radius:var(--radius);text-decoration:none;font-size:13.5px">Back to NaijaNest</a>
   </div>
+
+  <div class="note" style="text-align:center;border-left:none;background:none">Need help? <a href="contact.html" style="color:var(--green);font-weight:600">Contact support</a></div>
 </div>
 
 <script>
@@ -274,6 +281,90 @@
 const LGA_DATA = {"Abia":["Aba North","Aba South","Arochukwu","Bende","Ikwuano","Isiala Ngwa North","Isiala Ngwa South","Isuikwuato","Obi Ngwa","Ohafia","Osisioma","Ugwunagbo","Ukwa East","Ukwa West","Umu-Nneochi","Umuahia North","Umuahia South"],"Abuja":["Abaji","Abuja","Bwari","Gwagwalada","Kuje","Kwali"],"Adamawa":["Demsa","Fufore","Ganye","Girei","Gombi","Guyuk","Hong","Jada","Lamurde","Madagali","Maiha","Mayo Belwa","Michika","Mubi North","Mubi South","Numan","Shelleng","Song","Toungo","Yola North","Yola South"],"Akwa Ibom":["Abak","Eastern Obolo","Eket","Esit Eket","Essien Udim","Etim Ekpo","Etinan","Ibeno","Ibesikpo Asutan","Ibiono Ibom","Ika","Ikono","Ikot Abasi","Ikot Ekpene","Ini","Itu","Mbo","Mkpat Enin","Nsit Atai","Nsit Ibom","Nsit Ubium","Obot Akara","Okobo","Onna","Oron","Oruk Anam","Udung Uko","Ukanafun","Uruan","Urue Offong/Oruko","Uyo"],"Anambra":["Aguata","Anambra East","Anambra West","Anaocha","Awka North","Awka South","Ayamelum","Dunukofia","Ekwusigo","Idemili North","Idemili South","Ihiala","Njikoka","Nnewi North","Nnewi South","Ogbaru","Onitsha North","Onitsha South","Orumba North","Orumba South","Oyi"],"Bauchi":["Alkaleri","Bauchi","Bogoro","Damban","Darazo","Dass","Gamawa","Ganjuwa","Giade","Itas/Gadau","Jama'are","Katagum","Kirfi","Misau","Ningi","Shira","Tafawa Balewa","Toro","Warji","Zaki"],"Bayelsa":["Brass","Ekeremor","Kolokuma/Opokuma","Nembe","Ogbia","Sagbama","Southern Ijaw","Yenagoa"],"Benue":["Ado","Agatu","Apa","Buruku","Gboko","Guma","Gwer East","Gwer West","Katsina Ala","Konshisha","Kwande","Logo","Makurdi","Obi","Ogbadibo","Ohimini","Oju","Okpokwu","Otukpo","Tarka","Ukum","Ushongo","Vandeikya"],"Borno":["Abadam","Askira/Uba","Bama","Bayo","Biu","Chibok","Damboa","Dikwa","Gubio","Guzamala","Gwoza","Hawul","Jere","Kaga","Kala/Balge","Konduga","Kukawa","Kwaya Kusar","Mafa","Magumeri","Maiduguri","Marte","Mobbar","Monguno","Ngala","Nganzai","Shani"],"Cross River":["Abi","Akamkpa","Akpabuyo","Bakassi","Bekwarra","Biase","Boki","Calabar Municipal","Calabar South","Etung","Ikom","Obanliku","Obubra","Obudu","Odukpani","Ogoja","Yakurr","Yala"],"Delta":["Aniocha North","Aniocha South","Bomadi","Burutu","Ethiope East","Ethiope West","Ika North East","Ika South","Isoko North","Isoko South","Ndokwa East","Ndokwa West","Okpe","Oshimili North","Oshimili South","Patani","Sapele","Udu","Ughelli North","Ughelli South","Ukwuani","Uvwie","Warri North","Warri South","Warri South West"],"Ebonyi":["Abakaliki","Afikpo North","Afikpo South","Ebonyi","Ezza North","Ezza South","Ikwo","Ishielu","Ivo","Izzi","Ohaozara","Ohaukwu","Onicha"],"Edo":["Akoko Edo","Egor","Esan Central","Esan North East","Esan South East","Esan West","Etsako Central","Etsako East","Etsako West","Igueben","Ikpoba Okha","Oredo","Orhionmwon","Ovia North East","Ovia South West","Owan East","Owan West","Uhunmwonde"],"Ekiti":["Ado-Ekiti","Efon","Ekiti East","Ekiti South West","Ekiti West","Emure","Gbonyin","Ido-Osi","Ijero","Ikere","Ikole","Ilejemeje","Irepodun/Ifelodun","Ise/Orun","Moba","Oye"],"Enugu":["Aninri","Awgu","Enugu East","Enugu North","Enugu South","Ezeagu","Igbo Etiti","Igbo Eze North","Igbo Eze South","Isi-Uzo","Nkanu East","Nkanu West","Nsukka","Oji-River","Udenu","Udi","Uzo-Uwani"],"Gombe":["Akko","Balanga","Billiri","Dukku","Funakaye","Gombe","Kaltungo","Kwami","Nafada","Shongom","Yamaltu/Deba"],"Imo":["Aboh Mbaise","Ahiazu Mbaise","Ehime Mbano","Ezinihitte Mbaise","Ideato North","Ideato South","Ihitte/Uboma","Ikeduru","Isiala Mbano","Isu","Mbaitoli","Ngor Okpala","Njaba","Nkwerre","Nwangele","Obowo","Oguta","Ohaji/Egbema","Okigwe","Onuimo","Orlu","Orsu","Oru East","Oru West","Owerri Municipal","Owerri North","Owerri West"],"Jigawa":["Auyo","Babura","Biriniwa","Birnin Kudu","Buji","Dutse","Gagarawa","Garki","Gumel","Guri","Gwaram","Gwiwa","Hadejia","Jahun","Kafin Hausa","Kaugama","Kazaure","Kiri Kasama","Kiyawa","Maigatari","Malam Madori","Miga","Ringim","Roni","Sule Tankarkar","Taura","Yankwashi"],"Kaduna":["Birnin Gwari","Chikun","Giwa","Igabi","Ikara","Jaba","Jema'a","Kachia","Kaduna North","Kaduna South","Kagarko","Kajuru","Kaura","Kauru","Kubau","Kudan","Lere","Makarfi","Sabon Gari","Sanga","Soba","Zangon Kataf","Zaria"],"Kano":["Ajingi","Albasu","Bagwai","Bebeji","Bichi","Bunkure","Dala","Dambatta","Dawakin Kudu","Dawakin Tofa","Doguwa","Fagge","Gabasawa","Garko","Garun Malam","Gaya","Gezawa","Gwale","Gwarzo","Kabo","Kano Municipal","Karaye","Kibiya","Kiru","Kunchi","Kura","Madobi","Makoda","Minjibir","Nasarawa","Rano","Rimin Gado","Rogo","Shanono","Sumaila","Takai","Tarauni","Tofa","Tsanyawa","Tudun Wada","Ungogo","Warawa","Wudil","kumbotso"],"Katsina":["Bakori","Batagarawa","Batsari","Baure","Bindawa","Charanchi","Dan Musa","DanDume","Danja","Daura","Dutsi","Dutsin-Ma","Faskari","Funtua","Ingawa","Jibia","Kafur","Kaita","Kankara","Kankia","Katsina","Kurfi","Kusada","Mai'Adua","Malumfashi","Mani","Mashi","Matazu","Musawa","Rimi","Sabuwa","Safana","Sandamu","Zango"],"Kebbi":["Aliero","Arewa Dandi","Argungu","Augie","Bagudo","Birnin Kebbi","Bunza","Dandi","Danko-Wasagu","Fakai","Gwandu","Jega","Kalgo","Koko/Besse","Maiyama","Ngaski","Sakaba","Shanga","Suru","Yauri","Zuru"],"Kogi":["Adavi","Ajaokuta","Ankpa","Bassa","Dekina","Ibaji","Idah","Igalamela Odolu","Ijumu","Kabba/Bunu","Kogi","Lokoja","Mopa-Muro","Ofu","Ogori/Magongo","Okehi","Okene","Olamaboro","Omala","Yagba East","Yagba West"],"Kwara":["Asa","Baruten","Edu","Ekiti","Ifelodun","Ilorin East","Ilorin South","Ilorin West","Irepodun","Isin","Kaiama","Moro","Offa","Oke-Ero","Oyun","Pategi"],"Lagos":["Agege","Ajeromi-Ifelodun","Alimosho","Amuwo-Odofin","Apapa","Badagry","Epe","Eti-Osa","Ibeju-Lekki","Ifako-Ijaiye","Ikeja","Ikorodu","Kosofe","Lagos Island","Lagos Mainland","Mushin","Ojo","Oshodi-Isolo","Somolu","Surulere"],"Nasarawa":["Akwanga","Awe","Doma","Karu","Keana","Keffi","Kokona","Lafia","Nasarawa","Nasarawa Egon","Obi","Toto","Wamba"],"Niger":["Agaie","Agwara","Bida","Borgu","Bosso","Chanchaga","Edati","Gbako","Gurara","Katcha","Kontagora","Lapai","Lavun","Magama","Mariga","Mashegu","Mokwa","Munya","Paikoro","Rafi","Rijau","Shiroro","Suleja","Tafa","Wushishi"],"Ogun":["Abeokuta North","Abeokuta South","Ado-Odo/Ota","Ewekoro","Ifo","Ijebu East","Ijebu North","Ijebu North East","Ijebu Ode","Ikenne","Imeko Afon","Ipokia","Obafemi Owode","Odeda","Odogbolu","Ogun Waterside","Remo North","Shagamu","Yewa North","Yewa South"],"Ondo":["Akoko North East","Akoko North West","Akoko South East","Akoko South West","Akure North","Akure South","Ese Odo","Idanre","Ifedore","Ilaje","Ile Oluji/Okeigbo","Irele","Odigbo","Okitipupa","Ondo East","Ondo West","Ose","Owo"],"Osun":["Aiyedire","Atakunmosa East","Atakunmosa West","Ayedaade","Boluwaduro","Boripe","Ede North","Ede South","Egbedore","Ejigbo","Ife Central","Ife East","Ife North","Ife South","Ifedayo","Ifelodun","Ila","Ilesa East","Ilesa West","Irepodun","Irewole","Isokan","Iwo","Obokun","Odo-Otin","Ola-Oluwa","Olorunda","Oriade","Orolu","Osogbo"],"Oyo":["Afijio","Akinyele","Atiba","Atisbo","Egbeda","Ibadan North","Ibadan North East","Ibadan North West","Ibadan South East","Ibadan South West","Ibarapa Central","Ibarapa East","Ibarapa North","Ido","Irepo","Iseyin","Itesiwaju","Iwajowa","Kajola","Lagelu","Ogbomosho North","Ogbomosho South","Ogo Oluwa","Olorunsogo","Oluyole","Ona Ara","Oorelope","Ori Ire","Oyo East","Oyo West","Saki East","Saki West","Surulere"],"Plateau":["Barkin Ladi","Bassa","Bokkos","Jos East","Jos North","Jos South","Kanam","Kanke","Langtang North","Langtang South","Mangu","Mikang","Pankshin","Qua'an Pan","Riyom","Shendam","Wase"],"Rivers":["Abua-Odual","Ahoada East","Ahoada West","Akuku-Toru","Andoni","Asari-Toru","Bonny","Degema","Eleme","Emohua","Etche","Gokana","Ikwerre","Khana","Obio/Akpor","Ogba/Egbema/Ndoni","Ogu/Bolo","Okrika","Omuma","Opobo/Nkoro","Oyigbo","Port Harcourt","Tai"],"Sokoto":["Binji","Bodinga","Dange/Shuni","Gada","Goronyo","Gudu","Gwadabawa","Illela","Isa","Kebbe","Kware","Rabah","Sabon Birni","Shagari","Silame","Sokoto North","Sokoto South","Tambuwal","Tangaza","Tureta","Wamako","Wurno","Yabo"],"Taraba":["Ardo Kola","Bali","Donga","Gashaka","Gassol","Ibi","Jalingo","Karim Lamido","Kurmi","Lau","Sardauna","Takum","Ussa","Wukari","Yorro","Zing"],"Yobe":["Bade","Bursari","Damaturu","Fika","Fune","Geidam","Gujba","Gulani","Jakusko","Karasuwa","Machina","Nangere","Nguru","Potiskum","Tarmuwa","Yunusari","Yusufari"],"Zamfara":["Anka","Bakura","Birnin Magaji/Kiyaw","Bukkuyum","Bungudu","Gummi","Gusau","Kaura Namoda","Maradun","Maru","Shinkafi","Talata Mafara","Tsafe","Zurmi"]};
 
 let selectedAmenities = [];
+
+// Phone OTP verification state. verifiedPhone/verifiedToken only stay valid
+// for the exact phone number they were issued for — any edit to the field
+// clears them, so a landlord can't verify one number then quietly change it.
+let phoneOtpState = { sessionToken: null, verifiedPhone: null, verifiedToken: null };
+
+function onLandlordPhoneChanged() {
+  const current = document.getElementById('landlord_phone').value.trim();
+  if (current !== phoneOtpState.verifiedPhone) {
+    phoneOtpState.verifiedToken = null;
+  }
+  renderPhoneOtpArea();
+}
+
+function renderPhoneOtpArea() {
+  const area = document.getElementById('phoneOtpArea');
+  const phone = document.getElementById('landlord_phone').value.trim();
+
+  if (phoneOtpState.verifiedToken && phone === phoneOtpState.verifiedPhone) {
+    area.innerHTML = `<div class="verify-ok"><i class="ti ti-circle-check-filled"></i> Phone verified</div>`;
+    return;
+  }
+
+  if (!phoneOtpState.sessionToken) {
+    area.innerHTML = `<div class="verify-row"><button type="button" class="verify-btn" id="sendOtpBtn" onclick="sendPhoneOtp()">Send code</button><span style="font-size:11.5px;color:var(--text-sec)">We'll WhatsApp you a 6-digit code to confirm this number</span></div>`;
+    return;
+  }
+
+  area.innerHTML = `
+    <div class="verify-row">
+      <input type="text" id="otpCodeInput" placeholder="6-digit code" maxlength="6" style="width:110px;height:32px;padding:0 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px"/>
+      <button type="button" class="verify-btn" id="verifyOtpBtn" onclick="verifyPhoneOtp()">Verify</button>
+      <button type="button" style="background:none;border:none;color:var(--text-sec);font-size:11.5px;text-decoration:underline;cursor:pointer" onclick="resetPhoneOtp()">Resend</button>
+    </div>`;
+}
+
+async function sendPhoneOtp() {
+  const phone = document.getElementById('landlord_phone').value.trim();
+  if (!phone) { alert('Please enter your phone number first.'); return; }
+  const btn = document.getElementById('sendOtpBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+  try {
+    const resp = await fetch('/api/submit-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send_landlord_phone_otp', phone })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not send code');
+    phoneOtpState.sessionToken = data.session_token;
+    renderPhoneOtpArea();
+  } catch (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Send code'; }
+  }
+}
+
+function resetPhoneOtp() {
+  phoneOtpState = { sessionToken: null, verifiedPhone: null, verifiedToken: null };
+  renderPhoneOtpArea();
+}
+
+async function verifyPhoneOtp() {
+  const phone = document.getElementById('landlord_phone').value.trim();
+  const pin = document.getElementById('otpCodeInput').value.trim();
+  if (!pin) { alert('Please enter the code we sent you.'); return; }
+  const btn = document.getElementById('verifyOtpBtn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  try {
+    const resp = await fetch('/api/submit-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'verify_landlord_phone_otp', phone, session_token: phoneOtpState.sessionToken, pin })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Incorrect or expired code');
+    phoneOtpState.verifiedPhone = phone;
+    phoneOtpState.verifiedToken = data.verified_token;
+    renderPhoneOtpArea();
+  } catch (e) {
+    alert(e.message);
+    btn.disabled = false; btn.textContent = 'Verify';
+  }
+}
 
 function populateStates() {
   const stateSelect = document.getElementById('stateSelect');
@@ -285,6 +376,7 @@ function populateStates() {
   });
 }
 populateStates();
+renderPhoneOtpArea();
 
 function onStateChange() {
   const state = document.getElementById('stateSelect').value;
@@ -436,6 +528,10 @@ async function submitProperty() {
   if (!price) { alert('Please enter the annual rent price.'); return; }
   if (!landlordNameVal) { alert('Please enter your full name.'); return; }
   if (!landlordPhoneVal) { alert('Please enter your phone number.'); return; }
+  if (!phoneOtpState.verifiedToken || phoneOtpState.verifiedPhone !== landlordPhoneVal) {
+    alert('Please verify your phone number (tap "Send code" next to the phone field) before submitting.');
+    return;
+  }
   if (!ninVal) { alert('Please enter your NIN number.'); return; }
   if (!security_info) { alert('Please describe the security situation in the area.'); return; }
   if (!water_info) { alert('Please describe the water supply.'); return; }
@@ -461,7 +557,7 @@ async function submitProperty() {
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, access_token })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, access_token, landlord_phone_verified_token: phoneOtpState.verifiedToken })
     });
     const data = await resp.json();
     if (data.success) {

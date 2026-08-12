@@ -136,6 +136,7 @@
       <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
       <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
       <button class="main-tab" onclick="showView('reports',this)">⚠️ Reports<span id="reportBadge"></span></button>
+      <button class="main-tab" onclick="showView('support',this)">📩 Support<span id="supportBadge"></span></button>
       <button class="main-tab" onclick="showView('faq',this)">❓ FAQ</button>
       <button class="main-tab" onclick="showView('payments',this)">💳 Payments</button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
@@ -193,6 +194,17 @@
         <button class="tab" onclick="filterReports('all',this)">All</button>
       </div>
       <div id="reportsContent"></div>
+    </div>
+
+    <!-- SUPPORT (public "Contact us" complaint/inquiry submissions) -->
+    <div class="view" id="view-support">
+      <div class="tabs">
+        <button class="tab active" onclick="filterSupport('open',this)">Open</button>
+        <button class="tab" onclick="filterSupport('resolved',this)">Resolved</button>
+        <button class="tab" onclick="filterSupport('dismissed',this)">Dismissed</button>
+        <button class="tab" onclick="filterSupport('all',this)">All</button>
+      </div>
+      <div id="supportContent"></div>
     </div>
 
     <!-- FAQ (public-facing, editable here — reads live directly from index.html) -->
@@ -306,6 +318,7 @@ let allEvents = [];
 let allErrors = [];
 let allEscrow = [];
 let allReports = [];
+let allSupportMessages = [];
 let allFaq = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
@@ -503,6 +516,7 @@ async function loadData() {
     allEscrow = data.escrow || [];
     allReports = data.reports || [];
     allFaq = data.faq || [];
+    allSupportMessages = data.support || [];
 
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
@@ -517,6 +531,7 @@ async function loadData() {
     renderDisputes();
     renderPayments();
     renderReports();
+    renderSupport();
     renderFaq();
     return true;
   } catch (e) {
@@ -798,6 +813,74 @@ async function resolveReport(reportId, resolution){
   }
 }
 
+// "Contact us" submissions (contact.html → api/submit-property.js action=contact_support).
+// Same open/resolved/dismissed shape as Reports above.
+let supportFilter = 'open';
+
+function filterSupport(status, el){
+  supportFilter = status;
+  document.querySelectorAll('#view-support .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderSupport();
+}
+
+function renderSupport(){
+  const el = document.getElementById('supportContent');
+  if (!el) return;
+  const badge = document.getElementById('supportBadge');
+  const openCount = allSupportMessages.filter(m => m.status === 'open').length;
+  if (badge) badge.textContent = openCount ? ` (${openCount})` : '';
+
+  const rows = supportFilter === 'all' ? allSupportMessages : allSupportMessages.filter(m => m.status === supportFilter);
+  if (!rows.length){
+    el.innerHTML = `<div style="color:var(--text-sec);font-size:12.5px">No ${supportFilter === 'all' ? '' : supportFilter + ' '}messages</div>`;
+    return;
+  }
+
+  const statusBadge = { open: {label:'Open', color:'#d97706'}, resolved: {label:'✅ Resolved', color:'#1a6b3a'}, dismissed: {label:'Dismissed', color:'#555'} };
+
+  el.innerHTML = rows.map(m => {
+    const sb = statusBadge[m.status] || {label: m.status, color:'#555'};
+    const isOpen = m.status === 'open';
+
+    return `
+    <div class="prop-card">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="font-weight:600;font-size:14px">${escapeHtml(m.name || 'Anonymous')}</div>
+        <div style="font-size:12px;font-weight:600;color:${sb.color}">${sb.label}</div>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-sec);margin:4px 0 6px">
+        ${new Date(m.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · Reach at: ${escapeHtml(m.contact)}
+        ${m.resolved_at ? ` · ${m.status === 'resolved' ? 'Resolved' : 'Dismissed'} ${new Date(m.resolved_at).toLocaleString('en-GB',{day:'numeric',month:'short'})}` : ''}
+      </div>
+      <div style="background:var(--surface,#f9fafb);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px;white-space:pre-wrap">${escapeHtml(m.message)}
+        ${m.admin_notes ? `<br><br><strong>Your note:</strong> ${escapeHtml(m.admin_notes)}` : ''}
+      </div>
+      ${isOpen ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="approve-btn" onclick="resolveSupportMessage('${m.id}','resolved')">✅ Mark resolved</button>
+        <button class="unpublish-btn" onclick="resolveSupportMessage('${m.id}','dismissed')">Dismiss</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function resolveSupportMessage(messageId, resolution){
+  const notes = prompt('Optional note for your own records:') || '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'resolve_support_message', message_id: messageId, resolution, admin_notes: notes })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not update support message');
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
 // Public FAQ — index.html reads this table directly (no backend call), so
 // anything saved here shows up live on the site immediately. No separate
 // "publish" step.
@@ -1044,6 +1127,7 @@ function renderProps() {
         ${p.photo_urls.map(url=>`<img src="${escapeHtml(url)}" loading="lazy" decoding="async" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;border:0.5px solid var(--border)" onclick="window.open('${escapeHtml(url)}','_blank')"/>`).join('')}
       </div>` : `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ No photos uploaded</div>`}
       ${p.bank_name_mismatch ? `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ Bank name mismatch — landlord name on listing is "${escapeHtml(p.landlord_name)}" but Paystack has the payout account under "${escapeHtml(p.bank_account_name_snapshot||'')}". Verify before approving.</div>` : ''}
+      ${p.landlord_phone_verified===true ? `<div style="font-size:11px;color:var(--green);margin-bottom:8px">✓ Landlord phone verified via WhatsApp OTP</div>` : (p.landlord_phone_verified===false ? `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ Landlord phone not verified</div>` : '')}
       <div class="prop-meta">
         <strong>Location:</strong> ${escapeHtml(p.area)}${p.lga?', '+escapeHtml(p.lga):''}, ${escapeHtml(p.city)}<br>
         <strong>Type:</strong> ${escapeHtml(p.type)} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>
