@@ -6,6 +6,7 @@ import { authenticateUser } from '../lib/auth.js';
 const FEATURED_PRICE_KOBO = 500000; // ₦5,000 — change this one constant to adjust pricing
 const FEATURED_DAYS = 30;
 const CONFIRM_WINDOW_DAYS = 7; // renter has this long to confirm move-in before auto-release
+const FUND_HANDLING_DOC_VERSION = '2026-08-14'; // must match "Last updated" on how-payments-work.html
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { property_id, access_token, purpose, whatsapp_number } = req.body || {};
+    const { property_id, access_token, purpose, whatsapp_number, fund_handling_consent } = req.body || {};
     if (!property_id || !access_token) {
       return res.status(400).json({ error: 'Missing property_id or access_token' });
     }
@@ -26,6 +27,14 @@ export default async function handler(req, res) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (purpose === 'rent_escrow') {
+      // Consent is required, not optional — the client checkbox disables the pay
+      // button until checked, but we never trust client-side gating alone.
+      // If this field is missing or false, the request is rejected outright.
+      if (fund_handling_consent !== true) {
+        return res.status(400).json({
+          error: 'Please confirm you understand how NaijaNest holds and releases payments before continuing.',
+        });
+      }
       return await initializeRentEscrow({ req, res, user, property_id, serviceKey, whatsapp_number });
     }
     return await initializeFeaturedListing({ req, res, user, property_id, serviceKey });
@@ -202,6 +211,13 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
       legal_fee_amount: legalFeeAmount, caution_fee_amount: cautionFeeAmount,
       platform_fee_amount: platformFeeAmount,
       total_amount: totalAmount, status: 'pending_payment',
+      // Consent proof: recorded server-side with our own timestamp (never the
+      // client's clock) and the doc version constant above, so if either
+      // changes later, existing rows stay a truthful record of what was agreed
+      // to at the time — not silently updated to reflect a newer version.
+      fund_handling_consent: true,
+      fund_handling_doc_version: FUND_HANDLING_DOC_VERSION,
+      fund_handling_consent_at: new Date().toISOString(),
     }),
   });
 
