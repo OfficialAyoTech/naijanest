@@ -202,6 +202,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .inspect-btn{width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px}
 .inspect-btn:hover{background:var(--green-dark)}
 .wa-btn{width:100%;padding:11px;background:#25d366;color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+.wa-btn:disabled{background:#c9cdc9;cursor:not-allowed}
 .field-group{margin-bottom:13px}
 .field-label{font-size:12.5px;color:var(--text-sec);margin-bottom:5px}
 .field-input{width:100%;height:38px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 12px;font-size:13.5px;background:var(--surface);color:var(--text);outline:none}
@@ -366,7 +367,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <footer class="footer">
     <div style="margin-bottom:6px"><strong style="color:#fff">NaijaNest</strong> — Nigeria's AI Rental Assistant</div>
-    <div>© 2026 NaijaNest by AyoTech · <a href="list-property.html">List your property</a> · <a href="contact.html">Contact support</a> · <a href="admin.html">Admin</a></div>
+    <div>© 2026 NaijaNest by AyoTech · <a href="list-property.html">List your property</a> · <a href="how-payments-work.html">How payments work</a> · <a href="contact.html">Contact support</a> · <a href="admin.html">Admin</a></div>
   </footer>
 </div>
 
@@ -869,7 +870,17 @@ async function renderRentPaySection(p){
   const row = rows.filter(r => r.property_id === p.id).sort((a,b)=> new Date(b.created_at)-new Date(a.created_at))[0];
 
   if(!row || ['released','refunded','payment_failed'].includes(row.status)){
-    el.innerHTML = `<button class="wa-btn" style="background:var(--green)" onclick="payRent(${p.id})" id="payRentBtn">🔒 Pay Rent Securely${row?` (again)`:''}</button>`;
+    el.innerHTML = `
+      <div style="background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:11px 13px;margin-bottom:10px;font-size:12px;color:#155730;line-height:1.5">
+        <i class="ti ti-lock" style="font-size:13px;vertical-align:-1px"></i>
+        Your payment is held securely and released to the landlord once you confirm move-in, or automatically after 7 days if no issue is reported.
+        <a href="how-payments-work.html" target="_blank" style="color:var(--green);font-weight:600;text-decoration:underline">Learn more →</a>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-sec);margin-bottom:10px;cursor:pointer;line-height:1.5">
+        <input type="checkbox" id="payConsentCheck" onchange="document.getElementById('payRentBtn').disabled=!this.checked" style="margin-top:2px;width:15px;height:15px;accent-color:var(--green);cursor:pointer;flex-shrink:0"/>
+        <span>I understand how NaijaNest holds and releases my payment (<a href="how-payments-work.html" target="_blank" style="color:var(--green);text-decoration:underline">read more</a>)</span>
+      </label>
+      <button class="wa-btn" style="background:var(--green)" onclick="payRent(${p.id})" id="payRentBtn" disabled>🔒 Pay Rent Securely${row?` (again)`:''}</button>`;
     return;
   }
 
@@ -908,7 +919,14 @@ async function payRent(propertyId){
 
     const resp = await fetch('/api/paystack-initialize', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ property_id: propertyId, access_token, purpose: 'rent_escrow', whatsapp_number })
+      body: JSON.stringify({
+        property_id: propertyId, access_token, purpose: 'rent_escrow', whatsapp_number,
+        // Consent to the fund-handling disclosure, captured at the moment of payment.
+        // See TODO in api/paystack-initialize.js — this needs to be saved server-side
+        // (e.g. on the escrow row) along with fund_handling_doc_version below.
+        fund_handling_consent: true,
+        fund_handling_doc_version: '2026-08-14'
+      })
     });
     const data = await resp.json();
     if(!data.authorization_url) throw new Error(data.error || 'Could not start payment');
