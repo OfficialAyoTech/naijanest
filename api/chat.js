@@ -43,6 +43,13 @@ async function checkRateLimit(ip) {
 }
 
 
+function formatRetryWait(seconds) {
+  if (!seconds || seconds <= 0) return 'a moment';
+  if (seconds < 60) return `about ${Math.ceil(seconds)} second${seconds >= 1.5 ? 's' : ''}`;
+  const mins = Math.ceil(seconds / 60);
+  return `about ${mins} minute${mins > 1 ? 's' : ''}`;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -54,7 +61,7 @@ export default async function handler(req, res) {
   const allowed = await checkRateLimit(ip);
   if (!allowed) {
     return res.status(200).json({
-      content: [{ type: 'text', text: "You're sending messages a bit quickly — please wait a minute and try again 🙏" }]
+      content: [{ type: 'text', text: "Whoa, one at a time! 😅 You're chatting a bit fast for me to keep up. Give me about a minute to catch my breath, then try again — I'll be right here 🙏" }]
     });
   }
 
@@ -68,6 +75,8 @@ export default async function handler(req, res) {
     'qwen/qwen3.6-27b',      // Backup - fast, strong reasoning/coding
     'openai/gpt-oss-20b'     // Last resort - smaller, fastest, cheapest
   ];
+
+  let lastRetryAfterSeconds = null;
 
   for (const model of models) {
     try {
@@ -92,13 +101,29 @@ export default async function handler(req, res) {
         const errorCode = data?.error?.code;
         if (errorCode === 'rate_limit_exceeded') {
           console.log(`Model ${model} rate limited, trying next...`);
+          // Groq sends a retry-after header (seconds) on 429s — capture it so
+          // that if every model ends up rate limited, we can tell the user a
+          // real wait time instead of a generic "try later".
+          const headerRetry = parseFloat(response.headers.get('retry-after'));
+          if (!isNaN(headerRetry)) {
+            lastRetryAfterSeconds = headerRetry;
+          } else {
+            // Fallback: Groq's error message sometimes embeds it, e.g.
+            // "Please try again in 6m 11.52s."
+            const msgMatch = /try again in (?:(\d+)m\s*)?([\d.]+)s/i.exec(data?.error?.message || '');
+            if (msgMatch) {
+              const mins = msgMatch[1] ? parseInt(msgMatch[1], 10) : 0;
+              const secs = parseFloat(msgMatch[2]);
+              lastRetryAfterSeconds = mins * 60 + secs;
+            }
+          }
           continue; // Try next model
         }
         // Other error - return friendly message
         console.error(`Model ${model} error:`, JSON.stringify(data));
         await logError('chat', new Error(`Groq API error on ${model}: ${JSON.stringify(data?.error || data)}`));
         return res.status(200).json({
-          content: [{ type: 'text', text: 'Hi! 👋 Our AI assistant is taking a short break. Please try again in a few minutes 🙏' }]
+          content: [{ type: 'text', text: "Hey! 👋 I'm having a small hiccup on my end right now — nothing wrong with your account or search, just me. Please try sending that again in a couple of minutes, I'll be back to normal 🙏 In the meantime, feel free to browse the listings on the homepage!" }]
         });
       }
 
@@ -114,7 +139,8 @@ export default async function handler(req, res) {
 
   // All models failed
   await logError('chat', new Error('All Groq models failed or were rate-limited'));
+  const waitText = lastRetryAfterSeconds ? formatRetryWait(lastRetryAfterSeconds) : 'a few minutes';
   return res.status(200).json({
-    content: [{ type: 'text', text: 'Hi! 👋 Our AI assistant is taking a short break right now. Please try again in a few minutes 🙏' }]
+    content: [{ type: 'text', text: `I'm sorry, I'm really swamped with chats right now and can't respond properly 😔 This is on my end, not yours. Please try again in ${waitText} — or, if you're in a hurry, you can browse verified listings directly on the homepage, or reach out through our Contact Support page and we'll help you find a place 🏡🙏` }]
   });
 }
