@@ -685,11 +685,13 @@ bub.innerHTML='<p>'+formatted+'</p>';}
   return div;
 }
 
-function showProps(ids){
-  const area=document.getElementById('propsArea');
-  if(!ids||!ids.length){area.innerHTML='';return;}
+// Shared card-strip builder — used by live chat (showProps, into #propsArea)
+// and by history playback (renderHistoryIntoMessages, inline per turn) so the
+// two contexts never drift out of sync with each other's markup.
+function buildPropCardsHtml(ids){
+  if(!ids||!ids.length) return '';
   const props=ids.map(id=>PROPS.find(p=>p.id===id)).filter(Boolean);
-  if(!props.length){area.innerHTML='';return;}
+  if(!props.length) return '';
   let html='<div class="props-scroll" style="padding:8px 1rem 4px">';
   props.forEach(p=>{
     html+=`<div class="chat-prop-card" onclick="openDetail(${p.id})">
@@ -705,7 +707,12 @@ function showProps(ids){
       </div>
     </div>`;
   });
-  area.innerHTML=html+'</div>';
+  return html+'</div>';
+}
+
+function showProps(ids){
+  const area=document.getElementById('propsArea');
+  area.innerHTML = buildPropCardsHtml(ids);
 }
 
 async function sendMsg(){
@@ -1454,8 +1461,12 @@ function startNewChat(){
 
 // Re-renders the #messages panel from the `history` array — used when a saved
 // chat is reopened. The SHOW_PROPS marker is stripped from assistant text for
-// display (same as sendMsg does live); we don't re-fetch/re-render the property
-// cards for older turns, only the plain conversation text.
+// display (same as sendMsg does live). Any properties that were shown at that
+// point in the original conversation are re-rendered inline, right under that
+// specific assistant turn, using the same card markup live chat uses. A
+// property that's since been removed/rented out just quietly won't have a
+// card (buildPropCardsHtml already filters out unmatched ids) — no broken
+// cards, no errors.
 function renderHistoryIntoMessages(){
   const msgs = document.getElementById('messages');
   msgs.innerHTML = '';
@@ -1463,14 +1474,26 @@ function renderHistoryIntoMessages(){
   history.forEach(m=>{
     if(m.role !== 'user' && m.role !== 'assistant') return;
     const role = m.role === 'user' ? 'user' : 'ai';
+    const raw = m.content || '';
+    const match = raw.match(/SHOW_PROPS:\[([^\]]*)\]/);
+    const ids = match ? match[1].split(',').map(s=>parseInt(s.trim())).filter(Boolean) : [];
     // Strip the waitlist-count suffix we append to user messages, and the
     // SHOW_PROPS marker we append to assistant messages, before display.
-    let text = (m.content || '')
+    let text = raw
       .replace(/\s*\[Current NaijaNest waitlist signups:[^\]]*\]\s*$/,'')
       .replace(/SHOW_PROPS:\[[^\]]*\]/,'')
       .trim();
     if(text) addMsg(role, text);
+    if(role === 'ai' && ids.length){
+      const cardsHtml = buildPropCardsHtml(ids);
+      if(cardsHtml){
+        const wrap = document.createElement('div');
+        wrap.innerHTML = cardsHtml;
+        msgs.appendChild(wrap.firstElementChild);
+      }
+    }
   });
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 // ---- INIT ACCOUNT UI ----
