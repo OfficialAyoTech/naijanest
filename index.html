@@ -382,6 +382,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="app-nav-links">
         <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
         <a href="#" class="back-to-home" onclick="openFAQ();return false;">FAQ</a>
+        <a href="#" class="back-to-home" onclick="openMyChats();return false;">💬 My Chats</a>
         <div id="acctBtnApp"></div>
       </div>
     </div>
@@ -427,6 +428,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span style="font-size:14px;font-weight:600">❤️ My Favorites</span>
       </div>
       <div class="overlay-body" id="favBody" style="padding:1rem"></div>
+    </div>
+    <div class="overlay" id="chatsOverlay" style="display:none">
+      <div class="overlay-header">
+        <button class="back-btn" onclick="closeMyChats()"><i class="ti ti-arrow-left"></i></button>
+        <span style="font-size:14px;font-weight:600">💬 My Chats</span>
+      </div>
+      <div class="overlay-body" id="chatsBody" style="padding:1rem"></div>
     </div>
   </div>
 </div>
@@ -1371,6 +1379,98 @@ async function saveChatHistory(){
       if(data) currentChatSessionId = data.id;
     }
   }catch(e){ console.log('Could not save chat history'); }
+}
+
+// ---- MY CHATS (reopen a previously saved conversation) ----
+async function openMyChats(){
+  // #chatsOverlay lives inside #appPage, same positioning requirement as FAQ —
+  // make sure we're in the app view first or the overlay renders nowhere visible.
+  if(document.getElementById('landingPage').style.display !== 'none') showApp();
+  if(!NaijaAuth.isLoggedIn()){
+    NaijaAuth.openLoginModal();
+    return;
+  }
+  document.getElementById('chatsOverlay').style.display='flex';
+  await renderMyChatsList();
+}
+function closeMyChats(){ document.getElementById('chatsOverlay').style.display='none'; }
+
+async function renderMyChatsList(){
+  const body = document.getElementById('chatsBody');
+  if(!body) return;
+  body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">Loading your chats...</div>';
+  try{
+    const {data, error} = await NaijaAuth.client
+      .from('chat_sessions')
+      .select('id,title,updated_at')
+      .eq('user_id', NaijaAuth.currentUser.id)
+      .order('updated_at', {ascending:false});
+    if(error) throw error;
+    if(!data || !data.length){
+      body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">No saved chats yet. Start a conversation and it\'ll show up here automatically.</div>';
+      return;
+    }
+    body.innerHTML = data.map(s => `
+      <div onclick="openChatSession('${s.id}')" style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;cursor:pointer">
+        <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:3px">${escHtml(s.title || 'Chat')}</div>
+        <div style="font-size:11.5px;color:var(--text-muted)"><i class="ti ti-clock" style="font-size:11px"></i> ${timeAgo(s.updated_at) || 'just now'}</div>
+      </div>`).join('')
+      + `<button class="ghost-btn" onclick="startNewChat()">+ Start a new chat</button>`;
+  }catch(e){
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">Could not load your chats right now — try again shortly.</div>';
+  }
+}
+
+async function openChatSession(sessionId){
+  try{
+    const {data, error} = await NaijaAuth.client
+      .from('chat_sessions')
+      .select('id,messages')
+      .eq('id', sessionId)
+      .eq('user_id', NaijaAuth.currentUser.id)
+      .maybeSingle();
+    if(error || !data) throw error || new Error('Chat not found');
+
+    // Swap in this session as the live conversation — further messages sent
+    // will UPDATE this same row (via saveChatHistory's currentChatSessionId
+    // branch) rather than creating a new one.
+    history = data.messages || [];
+    currentChatSessionId = data.id;
+    renderHistoryIntoMessages();
+    closeMyChats();
+  }catch(e){
+    alert('Could not open that chat — please try again.');
+  }
+}
+
+function startNewChat(){
+  history = [];
+  currentChatSessionId = null;
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('propsArea').innerHTML = '';
+  closeMyChats();
+  setTimeout(()=>{addMsg('ai','Welcome back! 🏠 What are you looking for today?')},200);
+}
+
+// Re-renders the #messages panel from the `history` array — used when a saved
+// chat is reopened. The SHOW_PROPS marker is stripped from assistant text for
+// display (same as sendMsg does live); we don't re-fetch/re-render the property
+// cards for older turns, only the plain conversation text.
+function renderHistoryIntoMessages(){
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  document.getElementById('propsArea').innerHTML = '';
+  history.forEach(m=>{
+    if(m.role !== 'user' && m.role !== 'assistant') return;
+    const role = m.role === 'user' ? 'user' : 'ai';
+    // Strip the waitlist-count suffix we append to user messages, and the
+    // SHOW_PROPS marker we append to assistant messages, before display.
+    let text = (m.content || '')
+      .replace(/\s*\[Current NaijaNest waitlist signups:[^\]]*\]\s*$/,'')
+      .replace(/SHOW_PROPS:\[[^\]]*\]/,'')
+      .trim();
+    if(text) addMsg(role, text);
+  });
 }
 
 // ---- INIT ACCOUNT UI ----
