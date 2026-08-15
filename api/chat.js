@@ -64,9 +64,9 @@ export default async function handler(req, res) {
 
   // Try primary model first, fall back to backup if rate limited
   const models = [
-    'llama-3.3-70b-versatile',  // Primary - smarter
-    'llama-3.1-8b-instant',     // Backup - faster, uses fewer tokens
-    'gemma2-9b-it'              // Last resort
+    'openai/gpt-oss-120b',   // Primary - smarter (replaces deprecated llama-3.3-70b-versatile)
+    'qwen/qwen3.6-27b',      // Backup - fast, strong reasoning/coding
+    'openai/gpt-oss-20b'     // Last resort - smaller, fastest, cheapest
   ];
 
   for (const model of models) {
