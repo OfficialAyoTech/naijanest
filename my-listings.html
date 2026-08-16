@@ -57,6 +57,16 @@
   .escrow-actions button{flex:1;border-radius:20px;padding:7px 10px;font-size:11.5px;font-weight:500;cursor:pointer}
   .btn-confirm{background:var(--green);color:#fff;border:none}
   .btn-dispute{background:#fff;color:#dc2626;border:1px solid #dc2626}
+  .receipt-btn{width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:20px;padding:7px 10px;font-size:11.5px;color:var(--text-sec);cursor:pointer}
+  .tabs{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+  .tab-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:12.5px;color:var(--text-sec);cursor:pointer;font-family:inherit}
+  .tab-btn.active{background:var(--green);border-color:var(--green);color:#fff;font-weight:500}
+  .receipt-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:1rem}
+  .receipt-modal{background:#fff;border-radius:16px;padding:1.25rem;max-width:380px;width:100%;max-height:80vh;overflow-y:auto}
+  .receipt-row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12.5px}
+  .receipt-row span:first-child{color:var(--text-sec);flex-shrink:0}
+  .receipt-row span:last-child{font-weight:600;text-align:right}
+  .receipt-close{margin-top:14px;width:100%;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}
 </style>
 </head>
 <body>
@@ -88,6 +98,9 @@
 <script>
 function fmt(n){ return '₦' + Number(n).toLocaleString(); }
 
+let MY_PROPERTIES = [];
+let currentListingsTab = 'all';
+
 async function render(){
   const content = document.getElementById('content');
   if(!NaijaAuth.isLoggedIn()){
@@ -102,15 +115,49 @@ async function render(){
       .eq('user_id', NaijaAuth.currentUser.id)
       .order('id', {ascending:false});
     if(error) throw error;
-    if(!data || !data.length){
-      content.innerHTML = `
-        <a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List a property</a>
-        <div class="empty-state">You haven't submitted any listings yet.</div>`;
-      return;
-    }
-    content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List another property</a>
-      <div id="paymentBanner"></div>` +
-      data.map(p => {
+    MY_PROPERTIES = data || [];
+    renderListingsList();
+  }catch(e){
+    content.innerHTML = `<div class="empty-state">Could not load your listings. Please try again.</div>`;
+  }
+}
+
+function selectListingsTab(tab){
+  currentListingsTab = tab;
+  renderListingsList();
+}
+
+// Renders from the already-fetched MY_PROPERTIES — switching tabs just
+// re-filters in memory, no extra network round-trip per click.
+function renderListingsList(){
+  const content = document.getElementById('content');
+  if(!MY_PROPERTIES.length){
+    content.innerHTML = `
+      <a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List a property</a>
+      <div class="empty-state">You haven't submitted any listings yet.</div>`;
+    return;
+  }
+
+  const counts = {
+    all: MY_PROPERTIES.length,
+    approved: MY_PROPERTIES.filter(p=>p.status==='approved').length,
+    pending: MY_PROPERTIES.filter(p=>p.status!=='approved' && p.status!=='rejected').length,
+    rejected: MY_PROPERTIES.filter(p=>p.status==='rejected').length,
+  };
+  const tabDefs = [
+    {key:'all', label:'All'}, {key:'approved', label:'Live'},
+    {key:'pending', label:'Pending'}, {key:'rejected', label:'Rejected'},
+  ];
+  const tabsHtml = `<div class="tabs">${tabDefs.map(t => `
+    <button class="tab-btn${currentListingsTab===t.key?' active':''}" onclick="selectListingsTab('${t.key}')">${t.label} (${counts[t.key]})</button>`).join('')}</div>`;
+
+  const filtered = currentListingsTab === 'all' ? MY_PROPERTIES
+    : currentListingsTab === 'pending' ? MY_PROPERTIES.filter(p=>p.status!=='approved' && p.status!=='rejected')
+    : MY_PROPERTIES.filter(p=>p.status===currentListingsTab);
+
+  const listHtml = !filtered.length
+    ? `<div class="empty-state">No listings in this category.</div>`
+    : filtered.map(p => {
         const isFeatured = p.featured && p.featured_until && new Date(p.featured_until) > new Date();
         return `
         <div class="listing-card">
@@ -124,9 +171,11 @@ async function render(){
           </div>
         </div>`;
       }).join('');
-  }catch(e){
-    content.innerHTML = `<div class="empty-state">Could not load your listings. Please try again.</div>`;
-  }
+
+  content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List another property</a>
+    <div id="paymentBanner"></div>
+    ${tabsHtml}
+    ${listHtml}`;
 }
 
 async function featureListing(propertyId){
@@ -283,10 +332,15 @@ async function renderEscrowSection(){
     window.__myUserId = data.user_id;
   }catch(e){}
 
+  ESCROW_ROWS = rows; // cached so the receipt modal doesn't need a second fetch
   if(!rows.length){ el.innerHTML = ''; return; }
 
   const paid = rows.filter(r => r.renter_id === window.__myUserId);
   const received = rows.filter(r => r.landlord_id === window.__myUserId);
+
+  // A receipt only makes sense once a payment actually succeeded — nothing
+  // to show for a row still stuck at pending_payment or that never went through.
+  const hasReceipt = r => !['pending_payment','payment_failed'].includes(r.status);
 
   const rowHtml = (r, isRenter) => {
     const {text, color} = escrowStatusLabel(r);
@@ -295,10 +349,13 @@ async function renderEscrowSection(){
         <button class="btn-confirm" onclick="mlConfirmMoveIn('${r.id}')">✅ Confirm move-in</button>
         <button class="btn-dispute" onclick="mlRaiseDispute('${r.id}')">🚩 Report a problem</button>
       </div>` : '';
+    const receiptBtn = hasReceipt(r)
+      ? `<button class="receipt-btn" onclick="openMlReceipt('${r.id}')">🧾 View Payment Receipt</button>` : '';
     return `<div class="card">
       <div class="escrow-status" style="color:${color}">${text}</div>
       <div class="escrow-meta">${fmt(r.total_amount / 100)} total · ${new Date(r.created_at).toLocaleDateString()}</div>
       ${actions}
+      ${receiptBtn}
     </div>`;
   };
 
@@ -306,6 +363,76 @@ async function renderEscrowSection(){
     ${paid.length ? `<div class="section-title">Rent payments I've made</div>${paid.map(r=>rowHtml(r,true)).join('')}` : ''}
     ${received.length ? `<div class="section-title">Rent payments received</div>${received.map(r=>rowHtml(r,false)).join('')}` : ''}
   `;
+}
+
+// ---- Payment receipt modal (works for both sides: paid or received) ----
+let ESCROW_ROWS = [];
+
+function ensureReceiptModal(){
+  if(document.getElementById('mlReceiptOverlay')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'mlReceiptOverlay';
+  wrap.className = 'receipt-modal-overlay';
+  wrap.innerHTML = `<div class="receipt-modal" id="mlReceiptBody"></div>`;
+  wrap.addEventListener('click', (e) => { if(e.target === wrap) closeMlReceipt(); });
+  document.body.appendChild(wrap);
+}
+
+async function openMlReceipt(escrowId){
+  ensureReceiptModal();
+  const row = ESCROW_ROWS.find(r => String(r.id) === String(escrowId));
+  if(!row){ alert('Could not find this payment record.'); return; }
+
+  const body = document.getElementById('mlReceiptBody');
+  body.innerHTML = `<div style="text-align:center;padding:1rem;color:var(--text-sec);font-size:13px">Loading...</div>`;
+  document.getElementById('mlReceiptOverlay').style.display = 'flex';
+
+  let propLabel = `Property #${row.property_id}`;
+  try{
+    const {data} = await NaijaAuth.client.from('properties').select('name,area,city').eq('id', row.property_id).maybeSingle();
+    if(data) propLabel = `${data.name} — ${data.area}, ${data.city}`;
+  }catch(e){}
+
+  const statusLabels = {
+    pending_payment:'Payment pending', funded:'Held in escrow', confirmed:'Move-in confirmed',
+    disputed:'Under dispute review', released:'Released to landlord', refunded:'Refunded to tenant',
+    payment_failed:'Payment failed',
+  };
+  const infoRows = [
+    ['Reference', row.reference],
+    ['Property', propLabel],
+    ['Status', statusLabels[row.status] || row.status],
+    ['Paid on', row.created_at ? new Date(row.created_at).toLocaleString() : '—'],
+  ];
+  if(row.confirmed_at) infoRows.push(['Move-in confirmed', new Date(row.confirmed_at).toLocaleString()]);
+  if(row.released_at) infoRows.push(['Released to landlord', new Date(row.released_at).toLocaleString()]);
+  if(row.refunded_at) infoRows.push(['Refunded', new Date(row.refunded_at).toLocaleString()]);
+
+  const breakdown = [
+    ['Rent', row.rent_amount],
+    ['Agency fee', row.agency_fee_amount],
+    ['Legal fee', row.legal_fee_amount],
+    ['Caution fee (refundable)', row.caution_fee_amount],
+    ['NaijaNest platform fee', row.platform_fee_amount],
+  ].filter(([,amt]) => amt != null && amt > 0);
+
+  body.innerHTML = `
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px">🧾 Payment Receipt</div>
+    <div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:12px">
+      ${infoRows.map(([label,val]) => `<div class="receipt-row"><span>${label}</span><span>${escapeHtml(String(val))}</span></div>`).join('')}
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Amount breakdown</div>
+    <div style="background:var(--surface);border-radius:10px;padding:12px">
+      ${breakdown.map(([label,amt]) => `<div class="receipt-row"><span>${label}</span><span>${fmt(amt/100)}</span></div>`).join('')}
+      <div class="receipt-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px"><span style="font-weight:700;color:var(--text)">Total</span><span style="color:var(--green)">${fmt((row.total_amount||0)/100)}</span></div>
+    </div>
+    <button class="receipt-close" onclick="closeMlReceipt()">Close</button>
+  `;
+}
+
+function closeMlReceipt(){
+  const el = document.getElementById('mlReceiptOverlay');
+  if(el) el.style.display = 'none';
 }
 
 async function mlConfirmMoveIn(escrowId){
