@@ -1406,7 +1406,7 @@ function updateCoverageStats(){
 let waitlistCount = 0;
 async function fetchWaitlistCount() {
   try {
-    const resp = await fetch('/api/waitlist-count');
+    const resp = await fetch('/api/waitlist');
     const data = await resp.json();
     waitlistCount = data.count || 0;
   } catch(e) {
