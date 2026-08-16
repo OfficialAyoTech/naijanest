@@ -382,6 +382,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="app-nav-links">
         <a href="#" class="back-to-home" onclick="showLanding()"><i class="ti ti-arrow-left" style="font-size:12px"></i> Home</a>
         <a href="#" class="back-to-home" onclick="openFAQ();return false;">FAQ</a>
+        <a href="#" class="back-to-home" onclick="openChatHistory();return false;"><i class="ti ti-history" style="font-size:12px"></i> History</a>
         <div id="acctBtnApp"></div>
       </div>
     </div>
@@ -434,6 +435,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span style="font-size:14px;font-weight:600">🧾 Payment Receipt</span>
       </div>
       <div class="overlay-body" id="receiptBody" style="padding:1rem"></div>
+    </div>
+    <div class="overlay" id="historyOverlay" style="display:none">
+      <div class="overlay-header">
+        <button class="back-btn" onclick="closeChatHistory()"><i class="ti ti-arrow-left"></i></button>
+        <span style="font-size:14px;font-weight:600">🕘 Chat History</span>
+      </div>
+      <div class="overlay-body" id="historyBody" style="padding:1rem"></div>
     </div>
   </div>
 </div>
@@ -1458,6 +1466,61 @@ async function saveChatHistory(){
       if(data) currentChatSessionId = data.id;
     }
   }catch(e){ console.log('Could not save chat history'); }
+}
+
+// Lists past conversations, saved via saveChatHistory() above — this data
+// was already being written every message; there was just no UI to browse it.
+async function openChatHistory(){
+  if(!NaijaAuth.isLoggedIn()){ NaijaAuth.openLoginModal(); return; }
+  if(document.getElementById('landingPage').style.display !== 'none') showApp(); // same reason as openFAQ — overlay needs #appPage visible to position correctly
+  const body = document.getElementById('historyBody');
+  body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">Loading...</div>';
+  document.getElementById('historyOverlay').style.display='flex';
+  try{
+    const {data, error} = await NaijaAuth.client.from('chat_sessions')
+      .select('id,title,updated_at')
+      .eq('user_id', NaijaAuth.currentUser.id)
+      .order('updated_at', {ascending:false});
+    if(error) throw error;
+    if(!data || !data.length){
+      body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">No saved conversations yet. Start chatting and it\'ll show up here automatically.</div>';
+      return;
+    }
+    body.innerHTML = data.map(s => `
+      <div onclick="loadChatSession('${s.id}')" style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px">${escHtml(s.title || 'Chat')}</div>
+        <div style="font-size:11px;color:var(--text-muted)"><i class="ti ti-clock" style="font-size:10px"></i> ${timeAgo(s.updated_at)}</div>
+      </div>`).join('');
+  }catch(e){
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">Could not load chat history — try again shortly.</div>';
+  }
+}
+function closeChatHistory(){ document.getElementById('historyOverlay').style.display='none'; }
+
+// Reopens a past conversation into the live chat window, and points
+// currentChatSessionId at it so continuing the chat updates this same row
+// instead of quietly starting a second one.
+async function loadChatSession(sessionId){
+  try{
+    const {data, error} = await NaijaAuth.client.from('chat_sessions').select('*').eq('id', sessionId).maybeSingle();
+    if(error || !data) throw error || new Error('Session not found');
+    history = data.messages || [];
+    currentChatSessionId = data.id;
+    document.getElementById('messages').innerHTML = '';
+    document.getElementById('propsArea').innerHTML = '';
+    history.forEach(m => {
+      if(m.role === 'user'){
+        addMsg('user', String(m.content).replace(/\s*\[Current NaijaNest waitlist signups:.*?\]\s*$/,''));
+      } else if(m.role === 'assistant'){
+        const display = String(m.content).replace(/SHOW_PROPS:\[[^\]]*\]/,'').trim();
+        addMsg('ai', display);
+      }
+    });
+    document.getElementById('chips').style.display='none';
+    closeChatHistory();
+  }catch(e){
+    alert('Could not load this conversation — try again.');
+  }
 }
 
 // ---- INIT ACCOUNT UI ----
