@@ -1160,11 +1160,34 @@ function renderSched(){
 function selDate(val,el){schedState.date=val;document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
 function selSlot(i,el){schedState.slot=i;document.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
 
-function confirmInspect(){
+async function confirmInspect(){
   const name=document.getElementById('nameInp').value.trim();
   const phone=document.getElementById('phoneInp').value.trim();
   if(!schedState.date||schedState.slot===null||!name||!phone){alert('Please fill in all details.');return;}
   const slots=['Morning (8–11am)','Afternoon (12–3pm)','Evening (4–6pm)'];
+
+  const btn = document.querySelector('#schedBody .inspect-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Booking...'; }
+
+  try{
+    let access_token = null;
+    try{ access_token = await NaijaAuth.getAccessToken(); }catch(e){ /* not logged in — booking still allowed */ }
+
+    const resp = await fetch('/api/book-inspection', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        property_id: selectedProp.id, renter_name: name, renter_phone: phone,
+        inspection_date: schedState.date, time_slot: slots[schedState.slot], access_token,
+      }),
+    });
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error || 'Could not book inspection');
+  }catch(e){
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm Inspection'; }
+    alert('Could not book your inspection (' + e.message + '). Please try again, or contact the agent directly on WhatsApp.');
+    return; // don't show a fake success screen if the booking didn't actually save
+  }
+
   const d=new Date(schedState.date);
   document.getElementById('schedBody').innerHTML=`
     <div class="sched-pad" style="padding-top:2rem">
@@ -1178,6 +1201,7 @@ function confirmInspect(){
       <button class="ghost-btn" onclick="closeSchedule();closeDetail();">Back to search</button>
     </div>`;
 }
+
 
 // ---- LANDING GRID (real listings only) ----
 function renderDemoGrid(filter='all'){
