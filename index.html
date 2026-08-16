@@ -428,6 +428,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="overlay-body" id="favBody" style="padding:1rem"></div>
     </div>
+    <div class="overlay" id="receiptOverlay" style="display:none">
+      <div class="overlay-header">
+        <button class="back-btn" onclick="closeReceipt()"><i class="ti ti-arrow-left"></i></button>
+        <span style="font-size:14px;font-weight:600">🧾 Payment Receipt</span>
+      </div>
+      <div class="overlay-body" id="receiptBody" style="padding:1rem"></div>
+    </div>
   </div>
 </div>
 
@@ -869,7 +876,7 @@ async function renderRentPaySection(p){
   // renter or landlord, so just take the most recent row for this property.
   const row = rows.filter(r => r.property_id === p.id).sort((a,b)=> new Date(b.created_at)-new Date(a.created_at))[0];
 
-  if(!row || ['released','refunded','payment_failed'].includes(row.status)){
+  if(!row || row.status === 'payment_failed'){
     el.innerHTML = `
       <div style="background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:11px 13px;margin-bottom:10px;font-size:12px;color:#155730;line-height:1.5">
         <i class="ti ti-lock" style="font-size:13px;vertical-align:-1px"></i>
@@ -881,6 +888,31 @@ async function renderRentPaySection(p){
         <span>I understand how NaijaNest holds and releases my payment (<a href="how-payments-work.html" target="_blank" style="color:var(--green);text-decoration:underline">read more</a>)</span>
       </label>
       <button class="wa-btn" style="background:var(--green)" onclick="payRent(${p.id})" id="payRentBtn" disabled>🔒 Pay Rent Securely${row?` (again)`:''}</button>`;
+    return;
+  }
+
+  // released / refunded — a real payment happened, so show the receipt.
+  // Still gate any "pay again" behind the same consent checkbox as a fresh
+  // payment: payRent() always sends fund_handling_consent:true, so every
+  // button that can trigger it needs the same disabled-until-checked gate,
+  // not just the first one.
+  if(['released','refunded'].includes(row.status)){
+    const {text, color} = escrowStatusLabel(row);
+    el.innerHTML = `
+      <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:12.5px;font-weight:600;color:${color}">${text}</div>
+        <button onclick="openReceipt('${row.id}')" style="width:100%;margin-top:8px;background:none;border:0.5px solid var(--border);border-radius:20px;padding:7px 12px;font-size:11.5px;color:var(--text-sec);cursor:pointer">🧾 View Payment Receipt</button>
+      </div>
+      <div style="background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:11px 13px;margin-bottom:10px;font-size:12px;color:#155730;line-height:1.5">
+        <i class="ti ti-lock" style="font-size:13px;vertical-align:-1px"></i>
+        Your payment is held securely and released to the landlord once you confirm move-in, or automatically after 7 days if no issue is reported.
+        <a href="how-payments-work.html" target="_blank" style="color:var(--green);font-weight:600;text-decoration:underline">Learn more →</a>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-sec);margin-bottom:10px;cursor:pointer;line-height:1.5">
+        <input type="checkbox" id="payConsentCheck" onchange="document.getElementById('payRentBtn').disabled=!this.checked" style="margin-top:2px;width:15px;height:15px;accent-color:var(--green);cursor:pointer;flex-shrink:0"/>
+        <span>I understand how NaijaNest holds and releases my payment (<a href="how-payments-work.html" target="_blank" style="color:var(--green);text-decoration:underline">read more</a>)</span>
+      </label>
+      <button class="wa-btn" style="background:var(--green)" onclick="payRent(${p.id})" id="payRentBtn" disabled>🔒 Pay Rent Securely (again)</button>`;
     return;
   }
 
@@ -897,8 +929,55 @@ async function renderRentPaySection(p){
     <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:12.5px;font-weight:600;color:${color}">${text}</div>
       ${actions}
+      <button onclick="openReceipt('${row.id}')" style="width:100%;margin-top:8px;background:none;border:0.5px solid var(--border);border-radius:20px;padding:7px 12px;font-size:11.5px;color:var(--text-sec);cursor:pointer">🧾 View Payment Receipt</button>
     </div>`;
 }
+
+// ---- Payment receipt: proof of an on-platform payment, unavailable for
+// anything paid directly to a landlord off-app — this is the visible perk
+// that gives tenants a real reason to keep paying through NaijaNest. ----
+function openReceipt(escrowId){
+  const row = (MY_ESCROW||[]).find(r => String(r.id) === String(escrowId));
+  if(!row){ alert('Could not find this payment record.'); return; }
+  const prop = PROPS.find(pr => pr.id === row.property_id);
+
+  const statusLabels = {
+    pending_payment:'Payment pending', funded:'Held in escrow', confirmed:'Move-in confirmed',
+    disputed:'Under dispute review', released:'Released to landlord', refunded:'Refunded to tenant',
+    payment_failed:'Payment failed',
+  };
+  const infoRows = [
+    ['Reference', row.reference],
+    ['Property', prop ? `${prop.name} — ${prop.area}, ${prop.city}` : `Property #${row.property_id}`],
+    ['Status', statusLabels[row.status] || row.status],
+    ['Paid on', row.created_at ? new Date(row.created_at).toLocaleString() : '—'],
+  ];
+  if(row.confirmed_at) infoRows.push(['Move-in confirmed', new Date(row.confirmed_at).toLocaleString()]);
+  if(row.released_at) infoRows.push(['Released to landlord', new Date(row.released_at).toLocaleString()]);
+  if(row.refunded_at) infoRows.push(['Refunded', new Date(row.refunded_at).toLocaleString()]);
+
+  const breakdown = [
+    ['Rent', row.rent_amount],
+    ['Agency fee', row.agency_fee_amount],
+    ['Legal fee', row.legal_fee_amount],
+    ['Caution fee (refundable)', row.caution_fee_amount],
+    ['NaijaNest platform fee', row.platform_fee_amount],
+  ].filter(([,amt]) => amt != null && amt > 0);
+
+  document.getElementById('receiptBody').innerHTML = `
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:14px">
+      ${infoRows.map(([label,val]) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12.5px"><span style="color:var(--text-sec);flex-shrink:0">${label}</span><span style="font-weight:600;text-align:right">${escHtml(String(val))}</span></div>`).join('')}
+    </div>
+    <div class="sec-title">Amount breakdown</div>
+    <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+      ${breakdown.map(([label,amt]) => `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">${label}</span><span style="font-weight:600">${fmtFull(amt/100)}</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid var(--border)"><span style="font-weight:700">Total paid</span><span style="font-weight:700;color:var(--green)">${fmtFull((row.total_amount||0)/100)}</span></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--text-muted);line-height:1.6">This receipt is proof of a payment made through NaijaNest's secure payment system. Payments made directly to a landlord outside NaijaNest don't generate a record like this.</div>
+  `;
+  document.getElementById('receiptOverlay').style.display='flex';
+}
+function closeReceipt(){ document.getElementById('receiptOverlay').style.display='none'; }
 
 async function payRent(propertyId){
   const btn = document.getElementById('payRentBtn');
