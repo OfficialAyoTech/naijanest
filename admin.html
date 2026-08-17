@@ -173,6 +173,25 @@
     <!-- WAITLIST -->
     <div class="view" id="view-waitlist">
       <input type="text" class="search-input" id="wlSearch" placeholder="Search by name, WhatsApp, or city..." oninput="renderWaitlist()"/>
+
+      <div class="city-breakdown" style="margin-bottom:1rem">
+        <h3>📣 Bulk WhatsApp outreach</h3>
+        <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
+          Sends to everyone checked below, using your WhatsApp template. On Meta's test tier, only pre-approved test numbers will actually receive it.
+        </p>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" id="wlSelectAll" onchange="toggleSelectAllWaitlist(this)"/>
+          Select all (<span id="wlFilteredCount">0</span> shown below)
+        </label>
+        <textarea id="wlBulkMessage" placeholder="Message to send..." maxlength="500"
+          style="width:100%;min-height:80px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:13.5px;font-family:inherit;resize:vertical" oninput="updateWlSendState()"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <span style="font-size:11px;color:var(--text-sec)"><span id="wlSelectedCount">0</span> selected</span>
+          <button class="approve-btn" style="flex:none;padding:8px 18px" id="wlSendBtn" onclick="sendBulkWaitlistMessage()" disabled>Send</button>
+        </div>
+        <div id="wlSendResult" style="font-size:12.5px;margin-top:8px"></div>
+      </div>
+
       <div id="waitlistList"></div>
     </div>
 
@@ -1241,18 +1260,93 @@ function renderProps() {
     </div>`).join('');
 }
 
+// Bulk waitlist outreach — tracks which waitlist ids are checked across
+// re-renders (e.g. as the search box filters the list) so a selection isn't
+// lost just because the visible list changed.
+let selectedWaitlistIds = new Set();
+
+function toggleSelectAllWaitlist(checkbox){
+  const q = (document.getElementById('wlSearch').value || '').toLowerCase();
+  const filtered = allWaitlist.filter(w =>
+    !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q)
+  );
+  if (checkbox.checked) {
+    filtered.forEach(w => selectedWaitlistIds.add(w.id));
+  } else {
+    filtered.forEach(w => selectedWaitlistIds.delete(w.id));
+  }
+  renderWaitlist();
+}
+
+function toggleWaitlistRecipient(id, checked){
+  if (checked) selectedWaitlistIds.add(id); else selectedWaitlistIds.delete(id);
+  updateWlSendState();
+}
+
+function updateWlSendState(){
+  const countEl = document.getElementById('wlSelectedCount');
+  if (countEl) countEl.textContent = selectedWaitlistIds.size;
+  const msg = (document.getElementById('wlBulkMessage').value || '').trim();
+  document.getElementById('wlSendBtn').disabled = !(selectedWaitlistIds.size > 0 && msg.length > 0);
+}
+
+async function sendBulkWaitlistMessage(){
+  const btn = document.getElementById('wlSendBtn');
+  const resultEl = document.getElementById('wlSendResult');
+  const message = (document.getElementById('wlBulkMessage').value || '').trim();
+  const ids = Array.from(selectedWaitlistIds);
+  if (!ids.length || !message) return;
+
+  if (!confirm(`Send this message to ${ids.length} waitlist ${ids.length===1?'contact':'contacts'} on WhatsApp?`)) return;
+
+  btn.disabled = true; btn.textContent = 'Sending...';
+  resultEl.textContent = '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'bulk_message_waitlist', recipient_ids: ids, message })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Send failed');
+    resultEl.style.color = data.failed_count ? '#d97706' : 'var(--green)';
+    resultEl.innerHTML = `✅ Sent to ${data.sent} of ${data.total}.` +
+      (data.failed_count ? `<br>⚠️ ${data.failed_count} failed: ${data.failed.map(f=>escapeHtml(f.name||f.id)).join(', ')}` : '');
+    selectedWaitlistIds.clear();
+    const selectAllBox = document.getElementById('wlSelectAll');
+    if (selectAllBox) selectAllBox.checked = false;
+    document.getElementById('wlBulkMessage').value = '';
+    renderWaitlist();
+  } catch(e) {
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Send';
+  updateWlSendState();
+}
+
 function renderWaitlist() {
   const q = (document.getElementById('wlSearch').value || '').toLowerCase();
   const filtered = allWaitlist.filter(w =>
     !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q)
   );
+
+  const countEl = document.getElementById('wlFilteredCount');
+  if (countEl) countEl.textContent = filtered.length;
+  const selectAllBox = document.getElementById('wlSelectAll');
+  if (selectAllBox) selectAllBox.checked = filtered.length > 0 && filtered.every(w => selectedWaitlistIds.has(w.id));
+  updateWlSendState();
+
   const list = document.getElementById('waitlistList');
   if (!filtered.length) { list.innerHTML = '<div class="empty">No waitlist entries found</div>'; return; }
   list.innerHTML = filtered.map(w => `
     <div class="wl-card">
-      <div>
-        <div class="wl-name">${escapeHtml(w.name)}</div>
-        <div class="wl-meta">${escapeHtml(w.whatsapp)} · ${escapeHtml(w.city)}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" ${selectedWaitlistIds.has(w.id)?'checked':''} onchange="toggleWaitlistRecipient(${w.id}, this.checked)"/>
+        <div>
+          <div class="wl-name">${escapeHtml(w.name)}</div>
+          <div class="wl-meta">${escapeHtml(w.whatsapp)} · ${escapeHtml(w.city)}</div>
+        </div>
       </div>
       <span class="wl-role">${escapeHtml(w.role)||'—'}</span>
     </div>`).join('');
