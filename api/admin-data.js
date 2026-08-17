@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { logError, notifyRentReleased, notifyRenter, notifyLandlordCustom } from '../lib/notify.js';
+import { logError, notifyRentReleased, notifyRenter, notifyLandlordCustom, notifyWhatsApp } from '../lib/notify.js';
 import { releaseEscrow } from '../lib/escrow.js';
 
 const MAX_ATTEMPTS = 5;
@@ -334,6 +334,77 @@ async function settleCautionFee(req, res, serviceKey) {
   return res.status(200).json({ success: true, decision: 'forfeited' });
 }
 
+// Bulk WhatsApp outreach to selected waitlist signups, from the admin
+// dashboard's Waitlist tab. Reuses notifyWhatsApp (the same pre-approved
+// "escrow_notification" template used everywhere else) rather than requiring
+// a new Meta template — the {{1}} slot gets the person's name, {{2}} gets
+// the admin's freeform message. Sends are sequential with a short delay
+// between each to stay comfortably under WhatsApp API rate limits when
+// messaging many people back-to-back; a failed send for one person never
+// stops the rest.
+//
+// NOTE: while WHATSAPP_PHONE_NUMBER_ID is still on Meta's test tier, this
+// will only actually deliver to numbers pre-approved as test recipients —
+// everything else gets rejected by the WhatsApp API (visible in the
+// per-recipient failure list this returns, and in Metrics > Recent errors).
+async function bulkMessageWaitlist(req, res, serviceKey) {
+  const { recipient_ids, message } = req.body || {};
+  if (!Array.isArray(recipient_ids) || recipient_ids.length === 0) {
+    return res.status(400).json({ error: 'No recipients selected' });
+  }
+  const trimmedMessage = (message || '').trim();
+  if (!trimmedMessage) return res.status(400).json({ error: 'Message is empty' });
+  if (trimmedMessage.length > 500) {
+    return res.status(400).json({ error: 'Message is too long (max 500 characters)' });
+  }
+  // Cap batch size per request so one accidental "select all" on a huge
+  // waitlist can't turn into a request that runs past Vercel's function
+  // timeout (sequential sends with a 300ms gap add up fast).
+  if (recipient_ids.length > 150) {
+    return res.status(400).json({ error: 'Please send to 150 or fewer recipients at a time.' });
+  }
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const idList = recipient_ids.map(id => Number(id)).filter(n => Number.isFinite(n));
+  if (!idList.length) return res.status(400).json({ error: 'Invalid recipient ids' });
+
+  const resp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/waitlist?id=in.(${idList.join(',')})&select=id,name,whatsapp`,
+    { headers }
+  );
+  if (!resp.ok) {
+    const err = await resp.text();
+    return res.status(400).json({ error: `Could not load recipients: ${err}` });
+  }
+  const recipients = await resp.json();
+
+  let sent = 0;
+  const failed = [];
+  for (const r of recipients) {
+    if (!r.whatsapp) {
+      failed.push({ id: r.id, name: r.name, reason: 'No WhatsApp number on file' });
+      continue;
+    }
+    const ok = await notifyWhatsApp(r.whatsapp, r.name, trimmedMessage);
+    if (ok) {
+      sent++;
+    } else {
+      failed.push({ id: r.id, name: r.name, reason: 'WhatsApp API rejected the message — see Metrics > Recent errors' });
+    }
+    // Stay well under WhatsApp Cloud API's send-rate limits.
+    await new Promise(resolveDelay => setTimeout(resolveDelay, 300));
+  }
+
+  return res.status(200).json({
+    success: true,
+    total: recipients.length,
+    sent,
+    failed_count: failed.length,
+    failed,
+  });
+}
+
 // Returns ALL properties + waitlist data for the admin dashboard.
 // Gated by ADMIN_PASSWORD (checked server-side, never trust the client),
 // with brute-force protection (rate limiting + constant-time comparison).
@@ -376,6 +447,9 @@ export default async function handler(req, res) {
     }
     if (action === 'delete_faq') {
       return await deleteFaq(req, res, serviceKey);
+    }
+    if (action === 'bulk_message_waitlist') {
+      return await bulkMessageWaitlist(req, res, serviceKey);
     }
 
     const headers = {
