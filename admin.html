@@ -132,14 +132,14 @@
 
     <div class="main-tabs">
       <button class="main-tab active" onclick="showView('overview',this)">Overview</button>
-      <button class="main-tab" onclick="showView('submissions',this)">Submissions</button>
-      <button class="main-tab" onclick="showView('waitlist',this)">Waitlist</button>
+      <button class="main-tab" onclick="showView('submissions',this)">Submissions<span id="submissionsBadge"></span></button>
+      <button class="main-tab" onclick="showView('waitlist',this)">Waitlist<span id="waitlistBadge"></span></button>
       <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
       <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
       <button class="main-tab" onclick="showView('reports',this)">⚠️ Reports<span id="reportBadge"></span></button>
       <button class="main-tab" onclick="showView('support',this)">📩 Support<span id="supportBadge"></span></button>
       <button class="main-tab" onclick="showView('faq',this)">❓ FAQ</button>
-      <button class="main-tab" onclick="showView('payments',this)">💳 Payments</button>
+      <button class="main-tab" onclick="showView('payments',this)">💳 Payments<span id="paymentsBadge"></span></button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
 
@@ -309,7 +309,6 @@
     </div>
   </div>
 </div>
-
 <script>
 let adminPassword = sessionStorage.getItem('naijanest_admin_pw') || '';
 let allProps = [];
@@ -534,6 +533,9 @@ async function loadData() {
     renderReports();
     renderSupport();
     renderFaq();
+    updateSubmissionsBadge();
+    updateWaitlistBadge();
+    updatePaymentsBadge();
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -547,6 +549,52 @@ function updateStats() {
   document.getElementById('pendingCount').textContent = allProps.filter(p=>p.status==='pending').length;
   document.getElementById('approvedCount').textContent = allProps.filter(p=>p.status==='approved').length;
   document.getElementById('waitlistCount').textContent = allWaitlist.length;
+}
+
+// ---- Notification badges for Submissions / Waitlist / Payments ----
+// (Disputes/Reports/Support already had this — see renderDisputes/renderReports/renderSupport.)
+//
+// Submissions: a real "still needs action" count (pending review), same idea
+// as the other three.
+// Waitlist & Payments: neither has a resolved/dismissed status to count
+// against, so instead this tracks "new since I last opened that tab" —
+// same everyday pattern as an email/Slack unread badge. The timestamp lives
+// in localStorage (per browser/device you're logged into as admin), and
+// resets to "now" the first time ever so you don't get hit with a giant
+// backlog count on day one — only genuinely new arrivals after that count.
+function getOrInitLastSeen(key){
+  const storageKey = 'naAdmin_' + key + '_lastSeen';
+  const stored = localStorage.getItem(storageKey);
+  if (stored) return stored;
+  const now = new Date().toISOString();
+  localStorage.setItem(storageKey, now);
+  return now;
+}
+function markSeen(key){
+  localStorage.setItem('naAdmin_' + key + '_lastSeen', new Date().toISOString());
+}
+
+function updateSubmissionsBadge(){
+  const badge = document.getElementById('submissionsBadge');
+  if (!badge) return;
+  const count = allProps.filter(p => p.status === 'pending').length;
+  badge.textContent = count ? ` (${count})` : '';
+}
+
+function updateWaitlistBadge(){
+  const badge = document.getElementById('waitlistBadge');
+  if (!badge) return;
+  const lastSeen = getOrInitLastSeen('waitlist');
+  const count = allWaitlist.filter(w => w.created_at && new Date(w.created_at) > new Date(lastSeen)).length;
+  badge.textContent = count ? ` (${count})` : '';
+}
+
+function updatePaymentsBadge(){
+  const badge = document.getElementById('paymentsBadge');
+  if (!badge) return;
+  const lastSeen = getOrInitLastSeen('payments');
+  const count = allEscrow.filter(e => e.created_at && new Date(e.created_at) > new Date(lastSeen)).length;
+  badge.textContent = count ? ` (${count})` : '';
 }
 
 function trendLabel(thisWeek, priorWeek){
@@ -670,7 +718,7 @@ function renderMetrics(){
           <span class="error-time">${new Date(e.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
           <div class="error-message">${escapeHtml(e.message)}</div>
         </div>
-      `).join('') : '<div style="color:var(--text-sec);font-size:12.5px">No errors logged \u2014 things are running clean ✅</div>'}
+      `).join('') : '<div style="color:var(--text-sec);font-size:12.5px">No errors logged — things are running clean ✅</div>'}
       ${allErrors.length > 20 ? `<p style="font-size:11px;color:var(--text-sec);margin-top:6px">Showing 20 most recent of ${allErrors.length}. Errors from paystack-webhook, whatsapp-webhook, chat, submit-property, and approve-property are monitored; you also get a WhatsApp alert (max once per 15 min per source) when a new one occurs.</p>` : `<p style="font-size:11px;color:var(--text-sec);margin-top:6px">Errors from paystack-webhook, whatsapp-webhook, chat, submit-property, and approve-property are monitored; you also get a WhatsApp alert (max once per 15 min per source) when a new one occurs.</p>`}
     </div>
   `;
@@ -1106,6 +1154,12 @@ function showView(name, el) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('view-' + name).classList.add('active');
+
+  // Opening these two counts as "having seen everything up to now" — the
+  // badge recalculates immediately after, so it visibly clears on click,
+  // same as opening an email inbox.
+  if (name === 'waitlist') { markSeen('waitlist'); updateWaitlistBadge(); }
+  if (name === 'payments') { markSeen('payments'); updatePaymentsBadge(); }
 }
 
 function countBy(arr, key) {
@@ -1218,6 +1272,7 @@ async function updateProp(id, status) {
       updateStats();
       renderOverview();
       renderProps();
+      updateSubmissionsBadge();
     } else {
       alert('Error: ' + JSON.stringify(data.error));
     }
@@ -1242,6 +1297,7 @@ async function deleteProp(id, name) {
       updateStats();
       renderOverview();
       renderProps();
+      updateSubmissionsBadge();
     } else {
       alert('Error: ' + JSON.stringify(data.error));
     }
