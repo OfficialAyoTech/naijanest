@@ -334,6 +334,33 @@ async function settleCautionFee(req, res, serviceKey) {
   return res.status(200).json({ success: true, decision: 'forfeited' });
 }
 
+// Saves admin-edited HTML for a static public page (currently just
+// "how_payments_works"). Upsert on the primary key so the first save creates
+// the row and every save after that just updates it — the admin dashboard
+// doesn't need to know or care whether a row already exists.
+async function updateSiteContent(req, res, serviceKey) {
+  const { key, html } = req.body || {};
+  if (!key || typeof html !== 'string') {
+    return res.status(400).json({ error: 'Missing key or html' });
+  }
+  if (html.length > 50000) {
+    return res.status(400).json({ error: 'Content is too long (max 50,000 characters)' });
+  }
+  const headers = {
+    apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates,return=minimal',
+  };
+  const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/site_content`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ key, html, updated_at: new Date().toISOString() }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    return res.status(400).json({ error: `Could not save content: ${err}` });
+  }
+  return res.status(200).json({ success: true });
+}
+
 // Bulk WhatsApp outreach to selected waitlist signups, from the admin
 // dashboard's Waitlist tab. Reuses notifyWhatsApp (the same pre-approved
 // "escrow_notification" template used everywhere else) rather than requiring
@@ -451,13 +478,16 @@ export default async function handler(req, res) {
     if (action === 'bulk_message_waitlist') {
       return await bulkMessageWaitlist(req, res, serviceKey);
     }
+    if (action === 'update_site_content') {
+      return await updateSiteContent(req, res, serviceKey);
+    }
 
     const headers = {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
     };
 
-    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp, faqResp, supportResp] = await Promise.all([
+    const [propsResp, waitlistResp, paymentsResp, eventsResp, errorsResp, escrowResp, reportsResp, faqResp, supportResp, siteContentResp] = await Promise.all([
       fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?order=created_at.desc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?order=created_at.desc`, { headers }),
@@ -471,6 +501,7 @@ export default async function handler(req, res) {
       fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports?order=created_at.desc&limit=200`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/faq_entries?order=sort_order.asc`, { headers }),
       fetch(`${process.env.SUPABASE_URL}/rest/v1/support_messages?order=created_at.desc&limit=200`, { headers }),
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/site_content`, { headers }),
     ]);
 
     if (!propsResp.ok) {
@@ -493,8 +524,9 @@ export default async function handler(req, res) {
     const reports = reportsResp.ok ? await reportsResp.json() : [];
     const faq = faqResp.ok ? await faqResp.json() : [];
     const support = supportResp.ok ? await supportResp.json() : [];
+    const siteContent = siteContentResp.ok ? await siteContentResp.json() : [];
 
-    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports, faq, support });
+    return res.status(200).json({ properties, waitlist, payments, events, errors, escrow, reports, faq, support, siteContent });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
