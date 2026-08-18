@@ -65,6 +65,8 @@ a{color:var(--green)}
 }
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/auth.js"></script>
 <body>
   <nav class="nav">
     <a href="index.html" class="logo">
@@ -78,84 +80,123 @@ a{color:var(--green)}
     <h1 class="page-title">How NaijaNest Handles Your Money</h1>
     <p class="page-sub">A plain-language explanation for tenants and landlords using NaijaNest.</p>
 
-    <div class="tracker">
-      <div class="tracker-label">The journey of a payment</div>
-      <div class="track">
-        <div class="track-step">
-          <div class="track-line"></div>
-          <div class="track-dot"></div>
-          <div class="track-title">Paid</div>
-          <div class="track-desc">Tenant pays rent, fees &amp; deposit via Paystack</div>
+    <!-- Everything inside #editableContent is what the admin dashboard's
+         Payment Policy tab can overwrite. What's hardcoded here is the
+         fallback shown until the first save happens there (or if the fetch
+         below fails for any reason) — the page is never blank. -->
+    <div id="editableContent">
+      <div class="tracker">
+        <div class="tracker-label">The journey of a payment</div>
+        <div class="track">
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Paid</div>
+            <div class="track-desc">Tenant pays rent, fees &amp; deposit via Paystack</div>
+          </div>
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Held</div>
+            <div class="track-desc">Funds sit with AyoTech Innovations Hub</div>
+          </div>
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Confirmed or 7 days</div>
+            <div class="track-desc">Tenant confirms move-in, or window closes</div>
+          </div>
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Released</div>
+            <div class="track-desc">Landlord is paid; our fee is retained</div>
+          </div>
         </div>
-        <div class="track-step">
-          <div class="track-line"></div>
-          <div class="track-dot"></div>
-          <div class="track-title">Held</div>
-          <div class="track-desc">Funds sit with AyoTech Innovations Hub</div>
+      </div>
+
+      <section>
+        <h2>What happens when a tenant pays</h2>
+        <p>When a tenant pays rent, agency fees, documentation fees, and a caution deposit through NaijaNest, here's exactly what happens to that money:</p>
+        <ol>
+          <li><strong>Payment is collected</strong> through our payment processor, Paystack.</li>
+          <li><strong>Funds are held</strong> by AyoTech Innovations Hub (the company that operates NaijaNest) in a business account, not a personal account.</li>
+          <li><strong>Funds are released to the landlord</strong> once one of the following happens: the tenant confirms they have moved in and everything is as agreed, or <strong>7 days</strong> pass from the payment date without a dispute being raised — whichever comes first.</li>
+          <li><strong>Our fee</strong> (the agency/documentation fee, plus NaijaNest's platform fee) is retained by AyoTech Innovations Hub as payment for the service. The rest (rent + deposit) is intended for the landlord.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>How long we hold funds</h2>
+        <p>We release funds to the landlord as soon as the tenant confirms move-in, or automatically once the <strong>7-day confirmation window</strong> closes if no dispute has been raised — whichever happens first.</p>
+      </section>
+
+      <section>
+        <h2>What happens if there's a dispute</h2>
+        <p>If a tenant reports a problem (e.g. the property doesn't match the listing, or the landlord never provided access), or a landlord reports an issue with a tenant:</p>
+        <ul>
+          <li>Funds are held and are not released to either party until NaijaNest has reviewed the report.</li>
+          <li>We will ask both the tenant and landlord for their account of what happened, and any evidence they can provide.</li>
+          <li>Based on that review, the outcome may be: releasing the funds to the landlord as normal, refunding the tenant in full or in part, or another resolution appropriate to the situation. We aim to be fair to both sides and will explain our decision to both parties.</li>
+          <li>If either party disagrees with the outcome, they can request a further review by contacting us directly.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What NaijaNest is — and isn't</h2>
+        <div class="callout">
+          <strong>NaijaNest is not a licensed escrow provider, bank, or financial institution.</strong>
+          We use Paystack, a licensed payment processor, to move money, but the decision of when to release funds to a landlord is made by AyoTech Innovations Hub based on the rules described above.
         </div>
-        <div class="track-step">
-          <div class="track-line"></div>
-          <div class="track-dot"></div>
-          <div class="track-title">Confirmed or 7 days</div>
-          <div class="track-desc">Tenant confirms move-in, or window closes</div>
-        </div>
-        <div class="track-step">
-          <div class="track-line"></div>
-          <div class="track-dot"></div>
-          <div class="track-title">Released</div>
-          <div class="track-desc">Landlord is paid; our fee is retained</div>
-        </div>
+        <p style="margin-top:12px">NaijaNest, operated by AyoTech Innovations Hub, is a technology platform that connects tenants and landlords and facilitates payment between them. We are working to structure our payment flows so that funds move as directly as possible between tenants and landlords, reducing how long and how much money passes through our business accounts.</p>
+      </section>
+
+      <section>
+        <h2>Your funds and your rights</h2>
+        <ul>
+          <li>You can request a copy of the transaction record for any payment made through NaijaNest at any time.</li>
+          <li>If you believe funds have been wrongly withheld or released, contact us at <a href="mailto:ayotechinnovation9@gmail.com">ayotechinnovation9@gmail.com</a> and we will respond within <strong>2 business days</strong>.</li>
+        </ul>
+      </section>
+
+      <div class="fine-print">
+        <p>This document is provided for transparency and does not constitute a legal or financial guarantee. NaijaNest and AyoTech Innovations Hub are continuing to formalize our compliance and fund-handling practices as the platform grows.</p>
       </div>
     </div>
 
-    <section>
-      <h2>What happens when a tenant pays</h2>
-      <p>When a tenant pays rent, agency fees, documentation fees, and a caution deposit through NaijaNest, here's exactly what happens to that money:</p>
-      <ol>
-        <li><strong>Payment is collected</strong> through our payment processor, Paystack.</li>
-        <li><strong>Funds are held</strong> by AyoTech Innovations Hub (the company that operates NaijaNest) in a business account, not a personal account.</li>
-        <li><strong>Funds are released to the landlord</strong> once one of the following happens: the tenant confirms they have moved in and everything is as agreed, or <strong>7 days</strong> pass from the payment date without a dispute being raised — whichever comes first.</li>
-        <li><strong>Our fee</strong> (the agency/documentation fee, plus NaijaNest's platform fee) is retained by AyoTech Innovations Hub as payment for the service. The rest (rent + deposit) is intended for the landlord.</li>
-      </ol>
-    </section>
-
-    <section>
-      <h2>How long we hold funds</h2>
-      <p>We release funds to the landlord as soon as the tenant confirms move-in, or automatically once the <strong>7-day confirmation window</strong> closes if no dispute has been raised — whichever happens first.</p>
-    </section>
-
-    <section>
-      <h2>What happens if there's a dispute</h2>
-      <p>If a tenant reports a problem (e.g. the property doesn't match the listing, or the landlord never provided access), or a landlord reports an issue with a tenant:</p>
-      <ul>
-        <li>Funds are held and are not released to either party until NaijaNest has reviewed the report.</li>
-        <li>We will ask both the tenant and landlord for their account of what happened, and any evidence they can provide.</li>
-        <li>Based on that review, the outcome may be: releasing the funds to the landlord as normal, refunding the tenant in full or in part, or another resolution appropriate to the situation. We aim to be fair to both sides and will explain our decision to both parties.</li>
-        <li>If either party disagrees with the outcome, they can request a further review by contacting us directly.</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2>What NaijaNest is — and isn't</h2>
-      <div class="callout">
-        <strong>NaijaNest is not a licensed escrow provider, bank, or financial institution.</strong>
-        We use Paystack, a licensed payment processor, to move money, but the decision of when to release funds to a landlord is made by AyoTech Innovations Hub based on the rules described above.
-      </div>
-      <p style="margin-top:12px">NaijaNest, operated by AyoTech Innovations Hub, is a technology platform that connects tenants and landlords and facilitates payment between them. We are working to structure our payment flows so that funds move as directly as possible between tenants and landlords, reducing how long and how much money passes through our business accounts.</p>
-    </section>
-
-    <section>
-      <h2>Your funds and your rights</h2>
-      <ul>
-        <li>You can request a copy of the transaction record for any payment made through NaijaNest at any time.</li>
-        <li>If you believe funds have been wrongly withheld or released, contact us at <a href="mailto:ayotechinnovation9@gmail.com">ayotechinnovation9@gmail.com</a> and we will respond within <strong>2 business days</strong>.</li>
-      </ul>
-    </section>
-
-    <div class="fine-print">
-      <p>This document is provided for transparency and does not constitute a legal or financial guarantee. NaijaNest and AyoTech Innovations Hub are continuing to formalize our compliance and fund-handling practices as the platform grows.</p>
-      <p class="updated">Last updated: 14/08/2026</p>
+    <div class="fine-print" style="border-top:none;margin-top:0;padding-top:0.5rem">
+      <p class="updated" id="lastUpdatedLine">Last updated: 14/08/2026</p>
     </div>
   </div>
+
+  <script>
+    // Loads admin-edited content live from Supabase, using the same
+    // NaijaAuth.client already set up by /auth.js and used identically for
+    // the public FAQ on index.html (NaijaAuth.client.from('faq_entries')...).
+    // If nothing has been saved yet via the admin dashboard's Payment Policy
+    // tab, or the fetch fails for any reason (network hiccup, auth.js not
+    // yet loaded, etc.), the hardcoded content above stays exactly as-is —
+    // this page is never blank or broken.
+    (async function loadPolicyContent(){
+      try {
+        if (!window.NaijaAuth || !NaijaAuth.client) return; // falls back to hardcoded content silently
+        const { data, error } = await NaijaAuth.client
+          .from('site_content')
+          .select('html,updated_at')
+          .eq('key', 'how_payments_works')
+          .maybeSingle();
+        if (error || !data || !data.html) return; // nothing saved yet, or fetch failed — keep hardcoded fallback
+
+        document.getElementById('editableContent').innerHTML = data.html;
+        if (data.updated_at) {
+          const d = new Date(data.updated_at);
+          const formatted = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+          document.getElementById('lastUpdatedLine').textContent = `Last updated: ${formatted}`;
+        }
+      } catch (e) {
+        console.error('how-payments-works: could not load live content, showing default:', e.message);
+      }
+    })();
+  </script>
 </body>
 </html>

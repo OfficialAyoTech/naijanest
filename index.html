@@ -6,8 +6,6 @@
 <title>NaijaNest — Find Your Home in Nigeria</title>
 <meta name="description" content="NaijaNest is Nigeria's AI-powered rental platform. Search verified apartments and houses, pay rent safely through escrow, and list your property for free — no agent fees, no fake listings."/>
 <meta name="keywords" content="rent apartment Nigeria, houses for rent Lagos, Nigeria rental platform, verified rentals Nigeria, escrow rent payment, list property for rent Nigeria, AI rental assistant"/>
-<!-- Paste the meta-tag verification code Google Search Console gives you here, e.g.: -->
-<!-- <meta name="google-site-verification" content="PASTE_CODE_HERE"/> -->
 <meta property="og:type" content="website"/>
 <meta property="og:title" content="NaijaNest — Find Your Home in Nigeria"/>
 <meta property="og:description" content="Search verified apartments and houses across Nigeria, pay rent safely through escrow, and list your property for free."/>
@@ -33,8 +31,6 @@
   --surface:#f9fafb;--white:#fff;--radius:10px;--shadow:0 2px 12px rgba(0,0,0,0.08);
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh}
-
-/* ---- LANDING PAGE ---- */
 #landingPage{min-height:100vh;display:flex;flex-direction:column}
 .nav{padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;background:var(--white);border-bottom:0.5px solid var(--border);flex-wrap:wrap;row-gap:10px}
 .logo{display:flex;align-items:center;gap:8px}
@@ -47,17 +43,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .nav-link:hover{border-color:var(--green);color:var(--green)}
 .nav-cta{background:var(--green);color:#fff;border-color:var(--green);font-weight:500}
 .nav-cta:hover{background:var(--green-dark);color:#fff}
-
-/* On narrow phones, five nav items no longer fit on one line even wrapped
-   nicely — this tightens spacing/padding so more fits per row before the
-   remainder wraps, rather than one item per line looking sparse. */
 @media (max-width: 480px) {
   .nav{padding:0.75rem 1rem}
   .nav-links{gap:6px}
   .nav-link{font-size:12px;padding:5px 10px}
   .logo-name{font-size:16px}
 }
-
 .hero{padding:3rem 1.5rem 2rem;text-align:center;background:var(--white)}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border-radius:20px;background:var(--green-light);color:var(--green);border:0.5px solid var(--green-mid);margin-bottom:1.25rem;font-weight:500}
 .hero-title{font-size:clamp(26px,5vw,38px);font-weight:700;line-height:1.2;letter-spacing:-0.5px;margin-bottom:0.75rem}
@@ -68,12 +59,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hero-cta-sec{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;background:transparent;color:var(--green);border:1.5px solid var(--green);border-radius:var(--radius);font-size:15px;font-weight:500;cursor:pointer;margin-left:10px;transition:all .15s;text-decoration:none}
 .hero-cta-sec:hover{background:var(--green-light)}
 .hero-btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:2rem}
-
 .stats-row{display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;padding:1.5rem;background:var(--green);color:#fff}
 .stat-item{text-align:center}
 .stat-num{font-size:22px;font-weight:700}
 .stat-label{font-size:12px;opacity:.85;margin-top:2px}
-
 .trust-section{padding:2rem 1.5rem;background:var(--surface);text-align:center}
 .section-title{font-size:18px;font-weight:700;margin-bottom:0.5rem}
 .section-sub{font-size:13.5px;color:var(--text-sec);margin-bottom:1.5rem}
@@ -82,7 +71,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .trust-icon{font-size:22px;margin-bottom:6px}
 .trust-title{font-size:13px;font-weight:600;margin-bottom:3px}
 .trust-desc{font-size:12px;color:var(--text-sec);line-height:1.5}
-
 .demo-section{padding:2rem 1.5rem;background:var(--white)}
 .demo-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
 .demo-chip{font-size:12.5px;padding:6px 14px;border-radius:20px;border:0.5px solid var(--border);background:var(--surface);color:var(--text-sec);cursor:pointer;transition:all .15s}
@@ -104,7 +92,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .prop-meta{font-size:11.5px;color:var(--text-sec);display:flex;gap:8px}
 .prop-location{font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:3px;margin-top:3px}
 .prop-fresh{font-size:10.5px;color:var(--green);margin-top:6px;display:flex;align-items:center;gap:3px;font-weight:500}
-
 .waitlist-section{padding:2.5rem 1.5rem;background:var(--green);color:#fff;text-align:center}
 .waitlist-title{font-size:20px;font-weight:700;margin-bottom:6px}
 .waitlist-sub{font-size:13.5px;opacity:.9;margin-bottom:1.5rem}
@@ -117,11 +104,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .wl-btn:hover{background:var(--green-light)}
 .wl-success{background:rgba(255,255,255,0.2);border-radius:12px;padding:1.25rem;text-align:center;display:none}
 .wl-success-icon{font-size:32px;margin-bottom:8px}
-
 .footer{padding:1.5rem;background:var(--text);color:#aaa;text-align:center;font-size:12.5px}
 .footer a{color:var(--green-mid);text-decoration:none}
-
-/* ---- APP PAGE ---- */
 #appPage{display:none;min-height:100vh;flex-direction:column}
 #app{width:100%;max-width:500px;margin:0 auto;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;height:calc(100vh - 2rem);margin-top:1rem;position:relative}
 .app-header{padding:1rem 1.25rem 0.75rem;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
@@ -172,8 +156,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .send-btn i{color:#fff;font-size:17px}
 .send-btn:disabled{background:var(--surface);cursor:not-allowed}
 .send-btn:disabled i{color:var(--text-muted)}
-
-/* overlays */
 .overlay{position:absolute;inset:0;background:var(--white);z-index:10;display:flex;flex-direction:column;overflow:hidden}
 .overlay-header{padding:0.9rem 1rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
 .back-btn{width:30px;height:30px;border-radius:var(--radius);border:0.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-sec)}
@@ -227,7 +209,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script src="/auth.js"></script>
 <body>
 
-<!-- ========== LANDING PAGE ========== -->
 <div id="landingPage">
   <nav class="nav">
     <div class="logo">
@@ -371,7 +352,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </footer>
 </div>
 
-<!-- ========== APP PAGE ========== -->
 <div id="appPage" style="display:none;padding:0 1rem 1rem">
   <div id="app">
     <div class="app-header">
@@ -447,8 +427,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <script>
-// PROPS is populated entirely from real, approved Supabase listings —
-// see loadRealProperties(). No demo/placeholder data ships in production.
 let PROPS = [];
 let propertiesLoaded = false;
 
@@ -639,21 +617,11 @@ You can follow the journey on Instagram **@OfficialAyoTech** 😊
 
 Want to know more about how we verify listings, or would you rather jump into a search?"
 
-EXAMPLE 10 - Who is the founder:
-User: "Who built NaijaNest? Who's the founder?"
-Response: "NaijaNest was built by **Salami David Ayodeji**, founder of **AyoTech Innovation** — a tech company focused on building digital solutions for real problems across Africa 🌍
-
-The goal was simple: make house-hunting safer, smarter, and stress-free for every Nigerian — whether you're in Lagos, Abuja, Jos, Kwara, Kebbi, or anywhere else in Nigeria, especially with so many scam listings out there.
-
-You can follow the journey on Instagram **@OfficialAyoTech** 😊
-
-Want to know more about how we verify listings, or would you rather jump into a search?"
-
 ---END OF EXAMPLES---`; }
 
 let history=[], selectedProp=null, schedState={};
 function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
-function fmtFull(n){ return '₦' + Number(n).toLocaleString(); } // full precision, no "/yr" — for escrow amounts
+function fmtFull(n){ return '₦' + Number(n).toLocaleString(); }
 function escHtml(str){
   if(str===null||str===undefined) return '';
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -671,6 +639,18 @@ function showApp(){
 function showLanding(){
   document.getElementById('appPage').style.display='none';
   document.getElementById('landingPage').style.display='block';
+  return false;
+}
+
+// Opens a property's detail overlay directly from the landing page grid,
+// bypassing the AI chat entirely. openDetail()'s overlay lives inside
+// #app/#appPage and needs that container visible to position correctly
+// (same constraint as openFAQ/openChatHistory below), so this still calls
+// showApp() first — but unlike clicking "Chat with AI to search", the user
+// lands straight on the property they clicked, not an empty chat.
+function openPropertyFromLanding(id){
+  showApp();
+  openDetail(id);
   return false;
 }
 
@@ -757,12 +737,6 @@ function openDetail(id){
   const photos = p.photos || [p.img];
   const thumbsHtml = photos.map((ph,i)=>`<img class="photo-thumb${i===0?' active':''}" src="${ph}" loading="lazy" decoding="async" onclick="switchPhoto('${ph}',this)" onerror="this.style.display='none'"/>`).join('');
 
-  // Full cost breakdown — agency/legal fees are conventionally a % of annual rent
-  // in Nigeria, caution fee is a flat refundable deposit. Only shown if the
-  // landlord actually provided figures; we never guess or estimate on their behalf.
-  // NaijaNest's guaranteed 5% commission — always present, not landlord-set,
-  // so the breakdown is always real even for a listing with no agency/legal/
-  // caution fee entered at all.
   const PLATFORM_FEE_PERCENT = 5;
   const platformFeeAmt = p.price ? Math.round(p.price * PLATFORM_FEE_PERCENT / 100) : 0;
 
@@ -833,8 +807,7 @@ function openDetail(id){
   renderRentPaySection(p);
 }
 
-// ---- Rent escrow: pay, and track status of a payment already made ----
-let MY_ESCROW = null; // cached per session; refreshed after any action that changes it
+let MY_ESCROW = null;
 
 async function loadMyEscrow(force){
   if(!NaijaAuth.isLoggedIn()) { MY_ESCROW = []; return MY_ESCROW; }
@@ -880,8 +853,6 @@ async function renderRentPaySection(p){
   }
   el.innerHTML = `<div style="font-size:12px;color:var(--text-sec);margin-bottom:14px">Checking payment status...</div>`;
   const rows = await loadMyEscrow();
-  // my_escrow already scopes results to rows where the caller is either the
-  // renter or landlord, so just take the most recent row for this property.
   const row = rows.filter(r => r.property_id === p.id).sort((a,b)=> new Date(b.created_at)-new Date(a.created_at))[0];
 
   if(!row || row.status === 'payment_failed'){
@@ -899,11 +870,6 @@ async function renderRentPaySection(p){
     return;
   }
 
-  // released / refunded — a real payment happened, so show the receipt.
-  // Still gate any "pay again" behind the same consent checkbox as a fresh
-  // payment: payRent() always sends fund_handling_consent:true, so every
-  // button that can trigger it needs the same disabled-until-checked gate,
-  // not just the first one.
   if(['released','refunded'].includes(row.status)){
     const {text, color} = escrowStatusLabel(row);
     el.innerHTML = `
@@ -941,9 +907,6 @@ async function renderRentPaySection(p){
     </div>`;
 }
 
-// ---- Payment receipt: proof of an on-platform payment, unavailable for
-// anything paid directly to a landlord off-app — this is the visible perk
-// that gives tenants a real reason to keep paying through NaijaNest. ----
 function openReceipt(escrowId){
   const row = (MY_ESCROW||[]).find(r => String(r.id) === String(escrowId));
   if(!row){ alert('Could not find this payment record.'); return; }
@@ -993,8 +956,6 @@ async function payRent(propertyId){
   try{
     const access_token = await NaijaAuth.getAccessToken();
 
-    // Renters have no phone number anywhere else in the system — ask once,
-    // reused on every future payment via the profiles table.
     let whatsapp_number = null;
     try{
       const {data} = await NaijaAuth.client.from('profiles').select('whatsapp_number').eq('id', NaijaAuth.currentUser.id).maybeSingle();
@@ -1002,15 +963,12 @@ async function payRent(propertyId){
         const entered = prompt('What WhatsApp number should we send payment updates to? (e.g. when your payment is confirmed, or released to the landlord)');
         if(entered && entered.trim()) whatsapp_number = entered.trim();
       }
-    }catch(e){ /* non-fatal — payment can proceed without it */ }
+    }catch(e){ }
 
     const resp = await fetch('/api/paystack-initialize', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         property_id: propertyId, access_token, purpose: 'rent_escrow', whatsapp_number,
-        // Consent to the fund-handling disclosure, captured at the moment of payment.
-        // See TODO in api/paystack-initialize.js — this needs to be saved server-side
-        // (e.g. on the escrow row) along with fund_handling_doc_version below.
         fund_handling_consent: true,
         fund_handling_doc_version: '2026-08-14'
       })
@@ -1058,7 +1016,7 @@ async function raiseDisputeFlow(escrowId){
 
 async function reportListing(propertyId){
   const reason = prompt('What seems off about this listing? (e.g. price too good to be true, photos look fake, landlord asking for money before a viewing)');
-  if(reason === null) return; // cancelled — reason itself can be blank, that's fine
+  if(reason === null) return;
   try{
     const resp = await fetch('/api/submit-property', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1073,10 +1031,6 @@ async function reportListing(propertyId){
 }
 
 function contactWhatsApp(phone, propName){
-  // One-time reminder, not on every click — shown before they leave the app
-  // to chat, not stuffed into the outbound message itself (which is the
-  // landlord's first impression of the tenant, not the place for a platform
-  // notice). Doesn't block the action either way, just informs once.
   if(!localStorage.getItem('naSeenPaymentProtectionTip')){
     localStorage.setItem('naSeenPaymentProtectionTip','1');
     alert("Quick tip: chat and inspect freely on WhatsApp, but only pay through NaijaNest's 🔒 Pay Rent Securely button. Payments sent directly to a landlord outside the app aren't protected — if something goes wrong, we can't help you get that money back.");
@@ -1090,11 +1044,6 @@ function contactWhatsApp(phone, propName){
 function closeDetail(){document.getElementById('detailOverlay').style.display='none';}
 let FAQ_CACHE = null;
 async function openFAQ(){
-  // #faqOverlay lives inside #appPage (its position:absolute relies on #app
-  // as the positioning context), so it can't render correctly while the
-  // landing page is showing and #appPage is still display:none. Ensure
-  // we're in the app view first, THEN show the overlay — otherwise clicking
-  // FAQ from the landing page silently does nothing.
   if(document.getElementById('landingPage').style.display !== 'none') showApp();
   document.getElementById('faqOverlay').style.display='flex';
   await renderFAQContent();
@@ -1171,7 +1120,7 @@ async function confirmInspect(){
 
   try{
     let access_token = null;
-    try{ access_token = await NaijaAuth.getAccessToken(); }catch(e){ /* not logged in — booking still allowed */ }
+    try{ access_token = await NaijaAuth.getAccessToken(); }catch(e){ }
 
     const resp = await fetch('/api/book-inspection', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1185,7 +1134,7 @@ async function confirmInspect(){
   }catch(e){
     if(btn){ btn.disabled = false; btn.textContent = 'Confirm Inspection'; }
     alert('Could not book your inspection (' + e.message + '). Please try again, or contact the agent directly on WhatsApp.');
-    return; // don't show a fake success screen if the booking didn't actually save
+    return;
   }
 
   const d=new Date(schedState.date);
@@ -1202,8 +1151,6 @@ async function confirmInspect(){
     </div>`;
 }
 
-
-// ---- LANDING GRID (real listings only) ----
 function renderDemoGrid(filter='all'){
   const filtered = filter==='all' ? PROPS : PROPS.filter(p=>p.city===filter);
   const grid = document.getElementById('demoGrid');
@@ -1218,7 +1165,7 @@ function renderDemoGrid(filter='all'){
     return;
   }
   grid.innerHTML = filtered.map(p=>`
-    <div class="prop-card" onclick="showApp()">
+    <div class="prop-card" onclick="openPropertyFromLanding(${p.id})">
       <div class="prop-img-wrap">
         <img class="prop-img" src="${p.img}" alt="${p.name}" loading="lazy" decoding="async" onerror="this.style.background='#e5e7eb'"/>
         <div class="prop-badges-top">
@@ -1238,8 +1185,6 @@ function renderDemoGrid(filter='all'){
     </div>`).join('');
 }
 
-// Short, human freshness label for a listing — a small trust/activity signal
-// showing this is a live, recently-reviewed property, not static demo content.
 function timeAgo(isoDate){
   if (!isoDate) return '';
   const diffMs = Date.now() - new Date(isoDate).getTime();
@@ -1257,7 +1202,6 @@ function filterDemo(city, el){
   renderDemoGrid(city);
 }
 
-// ---- WAITLIST ----
 async function joinWaitlist(){
   const name=document.getElementById('wlName').value.trim();
   const whatsapp=document.getElementById('wlWa').value.trim();
@@ -1277,7 +1221,6 @@ async function joinWaitlist(){
   }
 }
 
-// Load real, approved properties from Supabase — this is now the ONLY data source.
 async function loadRealProperties(){
   try{
     const resp=await fetch('/api/get-properties');
@@ -1319,12 +1262,6 @@ async function loadRealProperties(){
   renderChatChips();
 }
 
-// Chat suggestion chips, generated from whatever's actually live right now —
-// not hardcoded to any particular state. As inventory grows into new states,
-// these update automatically on the next page load, no manual edits needed.
-// Spreads across distinct states first (so five chips aren't all the same
-// city if inventory happens to be concentrated), then fills any remaining
-// slots from whatever's left.
 function renderChatChips(){
   const el = document.getElementById('chips');
   if(!el) return;
@@ -1370,9 +1307,6 @@ function renderChatChips(){
   }).join('');
 }
 
-// Keeps the homepage stats honest — driven entirely by whatever's actually
-// approved right now, so a newly-added Sokoto listing shows up here automatically
-// and a removed/rented-out listing disappears from the count just as automatically.
 function updateCoverageStats(){
   const statListings = document.getElementById('statListings');
   const statStates = document.getElementById('statStates');
@@ -1401,8 +1335,6 @@ function updateCoverageStats(){
   }
 }
 
-// Waitlist counter — goes through a public, PII-free count endpoint
-// (the anon key can no longer read the waitlist table directly since RLS locked it down)
 let waitlistCount = 0;
 async function fetchWaitlistCount() {
   try {
@@ -1416,7 +1348,6 @@ async function fetchWaitlistCount() {
   if(el) el.textContent = waitlistCount === 0 ? '🔥 Be among the first to sign up!' : `🔥 ${waitlistCount} ${waitlistCount === 1 ? 'person has' : 'people have'} already signed up`;
 }
 
-// ---- FAVORITES ----
 let favoriteIds = new Set();
 
 async function loadFavorites(){
@@ -1471,12 +1402,10 @@ window.naOpenFavorites = async function(){
 };
 function closeFavorites(){ document.getElementById('favOverlay').style.display='none'; }
 
-// ---- MY LISTINGS (landlord dashboard) ----
 window.naOpenMyListings = function(){
   window.location.href = 'my-listings.html';
 };
 
-// ---- CHAT HISTORY (auto-save transcript for signed-in users) ----
 let currentChatSessionId = null;
 async function saveChatHistory(){
   if(!NaijaAuth.isLoggedIn() || history.length===0) return;
@@ -1492,11 +1421,9 @@ async function saveChatHistory(){
   }catch(e){ console.log('Could not save chat history'); }
 }
 
-// Lists past conversations, saved via saveChatHistory() above — this data
-// was already being written every message; there was just no UI to browse it.
 async function openChatHistory(){
   if(!NaijaAuth.isLoggedIn()){ NaijaAuth.openLoginModal(); return; }
-  if(document.getElementById('landingPage').style.display !== 'none') showApp(); // same reason as openFAQ — overlay needs #appPage visible to position correctly
+  if(document.getElementById('landingPage').style.display !== 'none') showApp();
   const body = document.getElementById('historyBody');
   body.innerHTML = '<div style="text-align:center;padding:2rem;color:#666;font-size:13.5px">Loading...</div>';
   document.getElementById('historyOverlay').style.display='flex';
@@ -1521,9 +1448,6 @@ async function openChatHistory(){
 }
 function closeChatHistory(){ document.getElementById('historyOverlay').style.display='none'; }
 
-// Reopens a past conversation into the live chat window, and points
-// currentChatSessionId at it so continuing the chat updates this same row
-// instead of quietly starting a second one.
 async function loadChatSession(sessionId){
   try{
     const {data, error} = await NaijaAuth.client.from('chat_sessions').select('*').eq('id', sessionId).maybeSingle();
@@ -1547,7 +1471,6 @@ async function loadChatSession(sessionId){
   }
 }
 
-// ---- INIT ACCOUNT UI ----
 function initAccountUI(){
   const landingEl = document.getElementById('acctBtnLanding');
   const appEl = document.getElementById('acctBtnApp');
@@ -1559,7 +1482,6 @@ function initAccountUI(){
 document.addEventListener('DOMContentLoaded', initAccountUI);
 if(document.readyState !== 'loading') initAccountUI();
 
-// ---- PWA: service worker + install prompt ----
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -1588,7 +1510,7 @@ async function triggerInstall(){
 }
 
 window.addEventListener('load',()=>{
-  renderDemoGrid(); // shows "Loading listings…" until real data arrives
+  renderDemoGrid();
   loadRealProperties();
   fetchWaitlistCount();
 });
