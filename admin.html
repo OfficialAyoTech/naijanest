@@ -139,6 +139,7 @@
       <button class="main-tab" onclick="showView('reports',this)">⚠️ Reports<span id="reportBadge"></span></button>
       <button class="main-tab" onclick="showView('support',this)">📩 Support<span id="supportBadge"></span></button>
       <button class="main-tab" onclick="showView('faq',this)">❓ FAQ</button>
+      <button class="main-tab" onclick="showView('policy',this)">📄 Payment Policy</button>
       <button class="main-tab" onclick="showView('payments',this)">💳 Payments<span id="paymentsBadge"></span></button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
@@ -252,6 +253,23 @@
       <div id="faqContent"></div>
     </div>
 
+    <!-- PAYMENT POLICY (public-facing "How Payments Work" page — reads live
+         directly from Supabase, same pattern as FAQ above) -->
+    <div class="view" id="view-policy">
+      <div class="city-breakdown" style="margin-bottom:1rem">
+        <h3>How Payments Work — editable content</h3>
+        <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
+          This is the raw HTML shown on the public "How Payments Work" page (everything between the money-flow tracker and the fine print). Changes go live immediately on save — no separate publish step. If you're not comfortable editing HTML directly, keep changes small and check the live page after saving.
+        </p>
+        <textarea id="policyHtml" style="width:100%;min-height:400px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;white-space:pre" spellcheck="false"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+          <span id="policyLastUpdated" style="font-size:11px;color:var(--text-sec)"></span>
+          <button class="approve-btn" style="flex:none;padding:8px 18px" onclick="savePolicyContent()">Save</button>
+        </div>
+        <div id="policyResult" style="font-size:12.5px;margin-top:8px"></div>
+      </div>
+    </div>
+
     <!-- PAYMENTS (all escrow, regardless of status) -->
     <div class="view" id="view-payments">
       <div class="tabs">
@@ -339,6 +357,7 @@ let allEscrow = [];
 let allReports = [];
 let allSupportMessages = [];
 let allFaq = [];
+let allSiteContent = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
 
@@ -536,6 +555,7 @@ async function loadData() {
     allReports = data.reports || [];
     allFaq = data.faq || [];
     allSupportMessages = data.support || [];
+    allSiteContent = data.siteContent || [];
 
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
@@ -552,6 +572,7 @@ async function loadData() {
     renderReports();
     renderSupport();
     renderFaq();
+    renderPolicyEditor();
     updateSubmissionsBadge();
     updateWaitlistBadge();
     updatePaymentsBadge();
@@ -1061,6 +1082,46 @@ async function deleteFaqEntry(faqId){
     await loadData();
   } catch(e) {
     alert('Error: ' + e.message);
+  }
+}
+
+// "How Payments Work" editor — a single site_content row keyed
+// 'how_payments_works'. If no row exists yet (first time this feature is
+// used), the textarea starts empty rather than guessing at content — the
+// public page (how-payments-works.html) has its own hardcoded fallback it
+// shows until the first save happens here, so an empty admin textarea
+// doesn't mean a blank public page.
+function renderPolicyEditor(){
+  const textarea = document.getElementById('policyHtml');
+  if (!textarea) return;
+  const entry = allSiteContent.find(c => c.key === 'how_payments_works');
+  textarea.value = entry ? entry.html : '';
+  const lastUpdatedEl = document.getElementById('policyLastUpdated');
+  if (lastUpdatedEl) {
+    lastUpdatedEl.textContent = entry
+      ? `Last saved: ${new Date(entry.updated_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}`
+      : 'Not yet customized — public page is showing its built-in default content';
+  }
+}
+
+async function savePolicyContent(){
+  const html = document.getElementById('policyHtml').value;
+  const resultEl = document.getElementById('policyResult');
+  resultEl.textContent = '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'update_site_content', key: 'how_payments_works', html })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not save');
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✅ Saved — live on the public page now.';
+    await loadData();
+  } catch(e) {
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Error: ' + e.message;
   }
 }
 
