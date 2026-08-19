@@ -648,7 +648,12 @@ function showLanding(){
 // (same constraint as openFAQ/openChatHistory below), so this still calls
 // showApp() first — but unlike clicking "Chat with AI to search", the user
 // lands straight on the property they clicked, not an empty chat.
+// detailOpenedFromLanding remembers this so closeDetail() (the overlay's
+// back arrow) can return the user to the landing page they actually came
+// from, instead of dropping them into the chat screen underneath.
+let detailOpenedFromLanding = false;
 function openPropertyFromLanding(id){
+  detailOpenedFromLanding = true;
   showApp();
   openDetail(id);
   return false;
@@ -1041,7 +1046,13 @@ function contactWhatsApp(phone, propName){
   window.open(`https://wa.me/${intl}?text=${msg}`,'_blank');
 }
 
-function closeDetail(){document.getElementById('detailOverlay').style.display='none';}
+function closeDetail(){
+  document.getElementById('detailOverlay').style.display='none';
+  if(detailOpenedFromLanding){
+    detailOpenedFromLanding = false;
+    showLanding();
+  }
+}
 let FAQ_CACHE = null;
 async function openFAQ(){
   if(document.getElementById('landingPage').style.display !== 'none') showApp();

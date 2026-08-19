@@ -1085,22 +1085,105 @@ async function deleteFaqEntry(faqId){
   }
 }
 
+// The same content how-payments-works.html falls back to when nothing's
+// been saved yet in site_content — used here too, so the admin textarea
+// starts pre-filled with what's actually live right now instead of an
+// empty box. Editing from a real starting point (rather than writing HTML
+// from scratch) is the whole point of this tab.
+const DEFAULT_POLICY_HTML = `      <div class="tracker">
+        <div class="tracker-label">The journey of a payment</div>
+        <div class="track">
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Paid</div>
+            <div class="track-desc">Tenant pays rent, fees &amp; deposit via Paystack</div>
+          </div>
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Held</div>
+            <div class="track-desc">Funds sit with AyoTech Innovations Hub</div>
+          </div>
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Confirmed or 7 days</div>
+            <div class="track-desc">Tenant confirms move-in, or window closes</div>
+          </div>
+          <div class="track-step">
+            <div class="track-line"></div>
+            <div class="track-dot"></div>
+            <div class="track-title">Released</div>
+            <div class="track-desc">Landlord is paid; our fee is retained</div>
+          </div>
+        </div>
+      </div>
+
+      <section>
+        <h2>What happens when a tenant pays</h2>
+        <p>When a tenant pays rent, agency fees, documentation fees, and a caution deposit through NaijaNest, here's exactly what happens to that money:</p>
+        <ol>
+          <li><strong>Payment is collected</strong> through our payment processor, Paystack.</li>
+          <li><strong>Funds are held</strong> by AyoTech Innovations Hub (the company that operates NaijaNest) in a business account, not a personal account.</li>
+          <li><strong>Funds are released to the landlord</strong> once one of the following happens: the tenant confirms they have moved in and everything is as agreed, or <strong>7 days</strong> pass from the payment date without a dispute being raised — whichever comes first.</li>
+          <li><strong>Our fee</strong> (the agency/documentation fee, plus NaijaNest's platform fee) is retained by AyoTech Innovations Hub as payment for the service. The rest (rent + deposit) is intended for the landlord.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>How long we hold funds</h2>
+        <p>We release funds to the landlord as soon as the tenant confirms move-in, or automatically once the <strong>7-day confirmation window</strong> closes if no dispute has been raised — whichever happens first.</p>
+      </section>
+
+      <section>
+        <h2>What happens if there's a dispute</h2>
+        <p>If a tenant reports a problem (e.g. the property doesn't match the listing, or the landlord never provided access), or a landlord reports an issue with a tenant:</p>
+        <ul>
+          <li>Funds are held and are not released to either party until NaijaNest has reviewed the report.</li>
+          <li>We will ask both the tenant and landlord for their account of what happened, and any evidence they can provide.</li>
+          <li>Based on that review, the outcome may be: releasing the funds to the landlord as normal, refunding the tenant in full or in part, or another resolution appropriate to the situation. We aim to be fair to both sides and will explain our decision to both parties.</li>
+          <li>If either party disagrees with the outcome, they can request a further review by contacting us directly.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What NaijaNest is — and isn't</h2>
+        <div class="callout">
+          <strong>NaijaNest is not a licensed escrow provider, bank, or financial institution.</strong>
+          We use Paystack, a licensed payment processor, to move money, but the decision of when to release funds to a landlord is made by AyoTech Innovations Hub based on the rules described above.
+        </div>
+        <p style="margin-top:12px">NaijaNest, operated by AyoTech Innovations Hub, is a technology platform that connects tenants and landlords and facilitates payment between them. We are working to structure our payment flows so that funds move as directly as possible between tenants and landlords, reducing how long and how much money passes through our business accounts.</p>
+      </section>
+
+      <section>
+        <h2>Your funds and your rights</h2>
+        <ul>
+          <li>You can request a copy of the transaction record for any payment made through NaijaNest at any time.</li>
+          <li>If you believe funds have been wrongly withheld or released, contact us at <a href="mailto:ayotechinnovation9@gmail.com">ayotechinnovation9@gmail.com</a> and we will respond within <strong>2 business days</strong>.</li>
+        </ul>
+      </section>
+
+      <div class="fine-print">
+        <p>This document is provided for transparency and does not constitute a legal or financial guarantee. NaijaNest and AyoTech Innovations Hub are continuing to formalize our compliance and fund-handling practices as the platform grows.</p>
+      </div>`;
+
 // "How Payments Work" editor — a single site_content row keyed
 // 'how_payments_works'. If no row exists yet (first time this feature is
-// used), the textarea starts empty rather than guessing at content — the
-// public page (how-payments-works.html) has its own hardcoded fallback it
-// shows until the first save happens here, so an empty admin textarea
-// doesn't mean a blank public page.
+// used), the textarea starts pre-filled with DEFAULT_POLICY_HTML above —
+// the exact content currently live on the public page — so editing means
+// tweaking real text, not writing HTML from a blank box. Saving once
+// creates the row; after that, whatever's in the row is what loads here.
 function renderPolicyEditor(){
   const textarea = document.getElementById('policyHtml');
   if (!textarea) return;
   const entry = allSiteContent.find(c => c.key === 'how_payments_works');
-  textarea.value = entry ? entry.html : '';
+  textarea.value = entry ? entry.html : DEFAULT_POLICY_HTML;
   const lastUpdatedEl = document.getElementById('policyLastUpdated');
   if (lastUpdatedEl) {
     lastUpdatedEl.textContent = entry
       ? `Last saved: ${new Date(entry.updated_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}`
-      : 'Not yet customized — public page is showing its built-in default content';
+      : 'Not yet customized — showing current live content. Edit and hit Save to take control of it.';
   }
 }
 
