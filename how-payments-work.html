@@ -80,41 +80,45 @@ a{color:var(--green)}
     <h1 class="page-title">How NaijaNest Handles Your Money</h1>
     <p class="page-sub">A plain-language explanation for tenants and landlords using NaijaNest.</p>
 
-    <!-- Everything inside #editableContent is what the admin dashboard's
-         Payment Policy tab can overwrite. What's hardcoded here is the
-         fallback shown until the first save happens there (or if the fetch
-         below fails for any reason) — the page is never blank. -->
-    <div id="editableContent">
-      <div class="tracker">
-        <div class="tracker-label">The journey of a payment</div>
-        <div class="track">
-          <div class="track-step">
-            <div class="track-line"></div>
-            <div class="track-dot"></div>
-            <div class="track-title">Paid</div>
-            <div class="track-desc">Tenant pays rent, fees &amp; deposit via Paystack</div>
-          </div>
-          <div class="track-step">
-            <div class="track-line"></div>
-            <div class="track-dot"></div>
-            <div class="track-title">Held</div>
-            <div class="track-desc">Funds sit with AyoTech Innovations Hub</div>
-          </div>
-          <div class="track-step">
-            <div class="track-line"></div>
-            <div class="track-dot"></div>
-            <div class="track-title">Confirmed or 7 days</div>
-            <div class="track-desc">Tenant confirms move-in, or window closes</div>
-          </div>
-          <div class="track-step">
-            <div class="track-line"></div>
-            <div class="track-dot"></div>
-            <div class="track-title">Released</div>
-            <div class="track-desc">Landlord is paid; our fee is retained</div>
-          </div>
+    <!-- The tracker is a fixed visual element, not editable from the admin
+         dashboard — only the text sections below it are. -->
+    <div class="tracker">
+      <div class="tracker-label">The journey of a payment</div>
+      <div class="track">
+        <div class="track-step">
+          <div class="track-line"></div>
+          <div class="track-dot"></div>
+          <div class="track-title">Paid</div>
+          <div class="track-desc">Tenant pays rent, fees &amp; deposit via Paystack</div>
+        </div>
+        <div class="track-step">
+          <div class="track-line"></div>
+          <div class="track-dot"></div>
+          <div class="track-title">Held</div>
+          <div class="track-desc">Funds sit with AyoTech Innovations Hub</div>
+        </div>
+        <div class="track-step">
+          <div class="track-line"></div>
+          <div class="track-dot"></div>
+          <div class="track-title">Confirmed or 7 days</div>
+          <div class="track-desc">Tenant confirms move-in, or window closes</div>
+        </div>
+        <div class="track-step">
+          <div class="track-line"></div>
+          <div class="track-dot"></div>
+          <div class="track-title">Released</div>
+          <div class="track-desc">Landlord is paid; our fee is retained</div>
         </div>
       </div>
+    </div>
 
+    <!-- Everything inside #editableContent is generated from plain text the
+         admin writes in the dashboard's Payment Policy tab (simple markup:
+         ## headings, - bullets, 1. numbered lists, **bold**, [text](url)
+         links, > callout box — see renderPolicyMarkdown() below). What's
+         hardcoded here is the fallback shown until the first save happens
+         there, or if the fetch fails — the page is never blank. -->
+    <div id="editableContent">
       <section>
         <h2>What happens when a tenant pays</h2>
         <p>When a tenant pays rent, agency fees, documentation fees, and a caution deposit through NaijaNest, here's exactly what happens to that money:</p>
@@ -170,24 +174,88 @@ a{color:var(--green)}
   </div>
 
   <script>
-    // Loads admin-edited content live from Supabase, using the same
+    // Converts the admin's plain text into the same HTML structure this page
+    // already uses, so editing means writing sentences, not markup. Supports
+    // just enough syntax to cover everything on this page:
+    //   ## Heading              -> <h2>
+    //   - item                  -> bullet list (consecutive lines)
+    //   1. item                 -> numbered list (consecutive lines)
+    //   > text                  -> highlighted callout box (consecutive lines)
+    //   **bold**                -> <strong>
+    //   [text](url)             -> <a href="url">
+    //   blank line               -> new paragraph
+    // Anything typed that isn't one of these patterns is escaped as plain
+    // text first, so the admin can't accidentally (or a compromised admin
+    // session can't maliciously) inject arbitrary HTML/script — only the
+    // specific tags this parser itself produces ever reach the page.
+    function escHtmlPolicy(s){
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function inlinePolicy(s){
+      return escHtmlPolicy(s)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    }
+    function renderPolicyMarkdown(text){
+      const lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+      let html = '';
+      let i = 0;
+      let para = [];
+      function flush(){
+        if(para.length){ html += '<p>' + inlinePolicy(para.join(' ')) + '</p>'; para = []; }
+      }
+      while(i < lines.length){
+        const trimmed = lines[i].trim();
+        if(!trimmed){ flush(); i++; continue; }
+        if(trimmed.startsWith('## ')){
+          flush(); html += '<h2>' + inlinePolicy(trimmed.slice(3)) + '</h2>'; i++; continue;
+        }
+        if(trimmed.startsWith('> ')){
+          flush();
+          const block = [];
+          while(i < lines.length && lines[i].trim().startsWith('> ')){ block.push(lines[i].trim().slice(2)); i++; }
+          html += '<div class="callout">' + inlinePolicy(block.join(' ')) + '</div>';
+          continue;
+        }
+        if(trimmed.startsWith('- ')){
+          flush();
+          const items = [];
+          while(i < lines.length && lines[i].trim().startsWith('- ')){ items.push(lines[i].trim().slice(2)); i++; }
+          html += '<ul>' + items.map(it => '<li>' + inlinePolicy(it) + '</li>').join('') + '</ul>';
+          continue;
+        }
+        if(/^\d+\.\s/.test(trimmed)){
+          flush();
+          const items = [];
+          while(i < lines.length && /^\d+\.\s/.test(lines[i].trim())){ items.push(lines[i].trim().replace(/^\d+\.\s/, '')); i++; }
+          html += '<ol>' + items.map(it => '<li>' + inlinePolicy(it) + '</li>').join('') + '</ol>';
+          continue;
+        }
+        para.push(trimmed);
+        i++;
+      }
+      flush();
+      return html;
+    }
+
+    // Loads admin-edited plain text live from Supabase, using the same
     // NaijaAuth.client already set up by /auth.js and used identically for
-    // the public FAQ on index.html (NaijaAuth.client.from('faq_entries')...).
-    // If nothing has been saved yet via the admin dashboard's Payment Policy
-    // tab, or the fetch fails for any reason (network hiccup, auth.js not
-    // yet loaded, etc.), the hardcoded content above stays exactly as-is —
-    // this page is never blank or broken.
+    // the public FAQ on index.html. If nothing has been saved yet via the
+    // admin dashboard's Payment Policy tab, or the fetch fails for any
+    // reason, the hardcoded content above stays exactly as-is — this page
+    // is never blank or broken. Only #editableContent (the text sections)
+    // is replaced — the tracker above it is fixed and untouched.
     (async function loadPolicyContent(){
       try {
-        if (!window.NaijaAuth || !NaijaAuth.client) return; // falls back to hardcoded content silently
+        if (!window.NaijaAuth || !NaijaAuth.client) return;
         const { data, error } = await NaijaAuth.client
           .from('site_content')
           .select('html,updated_at')
           .eq('key', 'how_payments_works')
           .maybeSingle();
-        if (error || !data || !data.html) return; // nothing saved yet, or fetch failed — keep hardcoded fallback
+        if (error || !data || !data.html) return;
 
-        document.getElementById('editableContent').innerHTML = data.html;
+        document.getElementById('editableContent').innerHTML = renderPolicyMarkdown(data.html);
         if (data.updated_at) {
           const d = new Date(data.updated_at);
           const formatted = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
