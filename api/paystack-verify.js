@@ -1,10 +1,15 @@
-import { logError, notifyAdminWhatsApp, notifyRentFunded, notifyRentReleased, notifyConfirmReminder } from '../lib/notify.js';
+import { logError, notifyAdminWhatsApp, notifyRentFunded, notifyRentReleased } from '../lib/notify.js';
 import { authenticateUser } from '../lib/auth.js';
 import { releaseEscrow } from '../lib/escrow.js';
 import { namesLikelyMatch } from '../lib/name-match.js';
 
 const FEATURED_DAYS = 30;
-const CONFIRM_WINDOW_DAYS = 7; // keep in sync with paystack-initialize.js / paystack-webhook.js
+// Short technical buffer only — NOT a tenant-facing "confirm move-in or wait"
+// hold period. Funds auto-release this long after payment regardless of
+// whether the tenant does anything, giving just enough time to catch a
+// failed/reversed Paystack payment before payout. Keep in sync with the same
+// constant in paystack-webhook.js / paystack-initialize.js.
+const CONFIRM_WINDOW_HOURS = 2;
 
 // escrow_transactions.status values:
 //   pending_payment -> funded -> confirmed | disputed -> released | refunded
@@ -21,13 +26,22 @@ export default async function handler(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-// ---- GET: verify-on-redirect (both purposes) + daily cron auto-release -----
+// ---- GET: verify-on-redirect (both purposes) + auto-release sweep -----
 async function handleGet(req, res) {
   try {
-    // Vercel Cron sends Authorization: Bearer $CRON_SECRET automatically once
-    // CRON_SECRET is set as an env var — see vercel.json note in the handoff.
+    // Two ways to authenticate as the sweep job, since it's no longer just
+    // Vercel Cron: (1) Vercel Cron sends Authorization: Bearer $CRON_SECRET
+    // automatically once CRON_SECRET is set as an env var, or (2) an
+    // external cron service (e.g. cron-job.org) hits this URL with
+    // ?cron_secret=... appended — most free external cron tools can't set
+    // custom headers, but all of them can hit a URL with a query string.
+    // With a 2-hour release buffer instead of 7 days, this needs to run
+    // every 15–30 min, not once/day, which is why an external cron entered
+    // the picture at all.
     const authHeader = req.headers['authorization'] || '';
-    const isCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const headerMatch = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const queryMatch = !!process.env.CRON_SECRET && req.query.cron_secret === process.env.CRON_SECRET;
+    const isCron = headerMatch || queryMatch;
     if (isCron && !req.query.reference) {
       return await runAutoReleaseSweep(res);
     }
@@ -127,7 +141,7 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
 
   if (tx.status === 'success') {
     if (escrow.status === 'pending_payment') {
-      const confirmDeadline = new Date(Date.now() + CONFIRM_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const confirmDeadline = new Date(Date.now() + CONFIRM_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
       await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?reference=eq.${encodeURIComponent(reference)}`, {
         method: 'PATCH', headers,
         body: JSON.stringify({ status: 'funded', funded_at: new Date().toISOString(), confirm_deadline: confirmDeadline }),
@@ -145,50 +159,32 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
   }
 }
 
-// Runs once/day via Vercel Cron (see vercel.json). Two passes: releases
-// overdue/stuck rows (above), then nudges renters approaching their deadline
-// who haven't been reminded yet — one-shot per row via reminder_sent_at, so
-// this doesn't re-fire every day of the reminder window.
-async function runReminderPass(headers) {
-  const in2Days = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-  const now = new Date().toISOString();
-
-  const dueResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?status=eq.funded` +
-    `&reminder_sent_at=is.null&confirm_deadline=lt.${in2Days}&confirm_deadline=gt.${now}&select=*`,
-    { headers }
-  );
-  if (!dueResp.ok) return { reminded: 0 };
-  const due = await dueResp.json();
-
-  for (const escrow of due) {
-    try {
-      await notifyConfirmReminder(escrow, headers);
-      await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow.id}`, {
-        method: 'PATCH', headers,
-        body: JSON.stringify({ reminder_sent_at: new Date().toISOString() }),
-      });
-    } catch (e) {
-      console.error(`reminder failed for escrow ${escrow.id}:`, e.message);
-      await logError('escrow-reminder', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
-    }
-  }
-  return { reminded: due.length };
-}
-
-// Releases two kinds of row:
-//  1. still 'funded' past its confirm_deadline — renter never actively
-//     confirmed or disputed, so it auto-releases.
-//  2. stuck at 'confirmed' — a renter DID confirm move-in, but the release
-//     that's supposed to fire immediately on confirm failed (e.g. a
-//     transient Paystack error). Without this, a failed release had no
-//     retry path at all and would sit stuck forever — 'confirmed' rows
-//     don't carry a confirm_deadline to become overdue on, so they'd never
-//     match the first condition.
+// Runs every 15–30 min via an external cron hitting this URL with
+// ?cron_secret=... (see handleGet above) — was previously once/day via
+// Vercel Cron, back when the confirm window was 7 days and a daily sweep
+// was frequent enough. With a 2-hour window, a day-old sweep would leave
+// funds sitting released-but-unpaid for up to ~24h, defeating the point of
+// a short buffer.
+//
+// Note: the old "remind renter 2 days before their deadline" pass has been
+// removed entirely. That made sense against a 7-day window; against a
+// 2-hour window there's no meaningful lead time left to warn anyone about —
+// it would just fire immediately for every funded transaction. Renters no
+// longer need to actively do anything for funds to release, so there's
+// nothing to remind them to do.
 async function runAutoReleaseSweep(res) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
+  // Releases two kinds of row:
+  //  1. still 'funded' past its confirm_deadline — the short buffer has
+  //     elapsed with no dispute raised, so it auto-releases.
+  //  2. stuck at 'confirmed' — a renter DID confirm move-in, but the release
+  //     that's supposed to fire immediately on confirm failed (e.g. a
+  //     transient Paystack error). Without this, a failed release had no
+  //     retry path at all and would sit stuck forever — 'confirmed' rows
+  //     don't carry a confirm_deadline to become overdue on, so they'd never
+  //     match the first condition.
   const dueResp = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions` +
     `?or=(and(status.eq.funded,confirm_deadline.lt.${new Date().toISOString()}),status.eq.confirmed)` +
@@ -210,9 +206,7 @@ async function runAutoReleaseSweep(res) {
     }
   }
 
-  const reminderResult = await runReminderPass(headers);
-
-  return res.status(200).json({ swept: due.length, results, ...reminderResult });
+  return res.status(200).json({ swept: due.length, results });
 }
 
 // ---- POST: renter/landlord actions -----------------------------------------
@@ -339,6 +333,10 @@ async function reflagExistingListings(userId, bankAccountName, serviceKey) {
 
 // Renter confirms they've received the keys / moved in. Releases funds to
 // the landlord immediately rather than waiting for the confirm_deadline.
+// Now mostly a courtesy/early-release option rather than something renters
+// need to do — the 2-hour buffer will auto-release regardless — but kept
+// as-is since a renter actively confirming is still a useful signal and
+// lets funds move to the landlord slightly faster than the buffer alone.
 async function confirmMoveIn(req, res) {
   const { escrow_id, access_token } = req.body || {};
   if (!escrow_id || !access_token) {

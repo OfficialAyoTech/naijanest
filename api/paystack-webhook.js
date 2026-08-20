@@ -1,12 +1,14 @@
 import crypto from 'crypto';
 import { logError, notifyRentFunded } from '../lib/notify.js';
-
 // Vercel must not pre-parse the body — we need the exact raw bytes to verify the signature.
 export const config = { api: { bodyParser: false } };
-
 const FEATURED_DAYS = 30;
-const CONFIRM_WINDOW_DAYS = 7; // keep in sync with paystack-initialize.js / paystack-verify.js
-
+// Short technical buffer only — NOT a tenant-facing "confirm move-in or wait"
+// hold period. Funds auto-release this long after payment regardless of
+// whether the tenant does anything, giving just enough time to catch a
+// failed/reversed Paystack payment before payout. Keep in sync with the same
+// constant in paystack-verify.js / paystack-initialize.js.
+const CONFIRM_WINDOW_HOURS = 2;
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -15,10 +17,8 @@ function getRawBody(req) {
     req.on('error', reject);
   });
 }
-
 async function fundEscrow(tx, headers) {
   const reference = tx.reference;
-
   const escrowResp = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?reference=eq.${encodeURIComponent(reference)}&select=id,status,property_id,renter_id,total_amount`,
     { headers }
@@ -26,23 +26,18 @@ async function fundEscrow(tx, headers) {
   const rows = await escrowResp.json();
   const escrow = rows[0];
   if (!escrow) return; // not one of ours, or verify-on-redirect will catch it
-
   if (escrow.status !== 'pending_payment') return; // already funded — idempotent
-
-  const confirmDeadline = new Date(Date.now() + CONFIRM_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const confirmDeadline = new Date(Date.now() + CONFIRM_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?reference=eq.${encodeURIComponent(reference)}`, {
     method: 'PATCH', headers,
     body: JSON.stringify({
       status: 'funded', funded_at: new Date().toISOString(), confirm_deadline: confirmDeadline,
     }),
   });
-
   await notifyRentFunded(escrow, headers);
 }
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-
   try {
     const rawBody = await getRawBody(req);
     const signature = req.headers['x-paystack-signature'];
@@ -50,13 +45,10 @@ export default async function handler(req, res) {
       .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
       .update(rawBody)
       .digest('hex');
-
     if (!signature || signature !== expected) {
       return res.status(401).send('Invalid signature');
     }
-
     const event = JSON.parse(rawBody);
-
     if (event.event === 'charge.success') {
       const tx = event.data;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -65,13 +57,11 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${serviceKey}`,
         'Content-Type': 'application/json',
       };
-
       if (tx.metadata?.purpose === 'rent_escrow') {
         await fundEscrow(tx, headers);
       } else {
         const propertyId = tx.metadata?.property_id;
         const reference = tx.reference;
-
         // Idempotent — skip if verify-on-redirect already handled this reference
         const payResp = await fetch(
           `${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}&select=status`,
@@ -79,7 +69,6 @@ export default async function handler(req, res) {
         );
         const payRows = await payResp.json();
         const alreadyProcessed = payRows[0] && payRows[0].status === 'success';
-
         if (!alreadyProcessed && propertyId) {
           const featuredUntil = new Date(Date.now() + FEATURED_DAYS * 24 * 60 * 60 * 1000).toISOString();
           await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}`, {
@@ -93,7 +82,6 @@ export default async function handler(req, res) {
         }
       }
     }
-
     return res.status(200).send('ok');
   } catch (error) {
     console.error('paystack-webhook error:', error.message);
