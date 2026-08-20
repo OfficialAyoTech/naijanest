@@ -339,6 +339,7 @@
         <h4>Photos (minimum 3)</h4>
         <input type="file" id="qa_photos" accept="image/*" multiple onchange="qaHandlePhotos(event)"/>
         <div id="qa_photo_status" style="font-size:12px;color:var(--text-sec);margin-top:6px"></div>
+        <div id="qa_photo_previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
 
         <button onclick="qaSubmit()" id="qa_submit_btn" style="margin-top:1.25rem;width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:999px;font-weight:600;font-size:14px;cursor:pointer">Publish Listing</button>
         <div id="qa_result" style="margin-top:10px;font-size:13px"></div>
@@ -412,11 +413,35 @@ function qaCompressImage(file) {
   });
 }
 
+function qaRenderPhotoPreviews(){
+  const el = document.getElementById('qa_photo_previews');
+  if (!el) return;
+  el.innerHTML = qaPhotoUrls.map((url, i) => `
+    <div style="position:relative;width:72px;height:72px;flex-shrink:0">
+      <img src="${url}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)"/>
+      <button type="button" onclick="qaRemovePhoto(${i})" title="Remove"
+        style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
+    </div>`).join('');
+}
+
+function qaRemovePhoto(index){
+  qaPhotoUrls.splice(index, 1);
+  qaRenderPhotoPreviews();
+  const statusEl = document.getElementById('qa_photo_status');
+  if (statusEl) statusEl.textContent = `${qaPhotoUrls.length} photo(s) ready`;
+}
+
+// Accumulates across multiple "Choose Files" selections instead of
+// replacing — browsers always overwrite the file input's own selection on
+// each pick, so accumulation has to happen here, in qaPhotoUrls, not in the
+// input itself. The input is cleared after each batch (see event.target.value
+// reset below) so re-opening the picker never re-shows/re-uploads files
+// already added.
 async function qaHandlePhotos(event){
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
   const statusEl = document.getElementById('qa_photo_status');
-  qaPhotoUrls = [];
+  const startCount = qaPhotoUrls.length;
   for (let i = 0; i < files.length; i++) {
     statusEl.textContent = `Uploading photo ${i+1} of ${files.length}...`;
     try {
@@ -429,16 +454,20 @@ async function qaHandlePhotos(event){
       const data = await resp.json();
       if (data.success) {
         qaPhotoUrls.push(data.url);
+        qaRenderPhotoPreviews();
       } else {
         statusEl.textContent = `Error uploading photo ${i+1}: ${data.error}`;
+        event.target.value = '';
         return;
       }
     } catch (e) {
       statusEl.textContent = `Error uploading photo ${i+1}: ${e.message}`;
+      event.target.value = '';
       return;
     }
   }
-  statusEl.textContent = `✅ ${qaPhotoUrls.length} photo(s) uploaded`;
+  statusEl.textContent = `✅ ${qaPhotoUrls.length} photo(s) ready (${qaPhotoUrls.length - startCount} just added)`;
+  event.target.value = ''; // allow picking more without the old selection lingering
 }
 
 async function qaSubmit(){
@@ -491,6 +520,7 @@ async function qaSubmit(){
       document.getElementById('qa_photos').value = '';
       document.getElementById('qa_photo_status').textContent = '';
       qaPhotoUrls = [];
+      qaRenderPhotoPreviews();
       await loadData();
     } else {
       resultEl.style.color = '#dc2626';
