@@ -5,13 +5,15 @@ import { authenticateUser } from '../lib/auth.js';
 // Paystack directly — everything (amount, ownership check) is decided server-side.
 const FEATURED_PRICE_KOBO = 500000; // ₦5,000 — change this one constant to adjust pricing
 const FEATURED_DAYS = 30;
-// Short technical buffer only — NOT a tenant-facing "confirm move-in or wait"
-// hold period. Funds auto-release this long after payment regardless of
-// whether the tenant does anything, giving just enough time to catch a
-// failed/reversed Paystack payment before payout. Keep in sync with the same
-// constant in paystack-webhook.js / paystack-verify.js. If this value is
-// surfaced anywhere in checkout/consent UI text, update that copy too.
-const CONFIRM_WINDOW_HOURS = 2;
+// Automatic release buffer — NOT a discretionary "we decide when to release"
+// hold. Funds auto-release this long after payment regardless of whether the
+// tenant does anything; it exists to give tenants a realistic window to move
+// in and report a problem, and to line up with typical Paystack settlement
+// timing so funds are actually transferable by the time release fires. Keep
+// in sync with the same constant in paystack-webhook.js / paystack-verify.js.
+// If this value is surfaced anywhere in checkout/consent UI text, update
+// that copy too.
+const CONFIRM_WINDOW_HOURS = 24;
 const FUND_HANDLING_DOC_VERSION = '2026-08-14'; // must match "Last updated" on how-payments-work.html
 
 export default async function handler(req, res) {

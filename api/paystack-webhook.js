@@ -3,12 +3,13 @@ import { logError, notifyRentFunded } from '../lib/notify.js';
 // Vercel must not pre-parse the body — we need the exact raw bytes to verify the signature.
 export const config = { api: { bodyParser: false } };
 const FEATURED_DAYS = 30;
-// Short technical buffer only — NOT a tenant-facing "confirm move-in or wait"
-// hold period. Funds auto-release this long after payment regardless of
-// whether the tenant does anything, giving just enough time to catch a
-// failed/reversed Paystack payment before payout. Keep in sync with the same
-// constant in paystack-verify.js / paystack-initialize.js.
-const CONFIRM_WINDOW_HOURS = 2;
+// Automatic release buffer — NOT a discretionary "we decide when to release"
+// hold. Funds auto-release this long after payment regardless of whether the
+// tenant does anything; it exists to give tenants a realistic window to move
+// in and report a problem, and to line up with typical Paystack settlement
+// timing so funds are actually transferable by the time release fires. Keep
+// in sync with the same constant in paystack-verify.js / paystack-initialize.js.
+const CONFIRM_WINDOW_HOURS = 24;
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';

@@ -4,12 +4,13 @@ import { releaseEscrow } from '../lib/escrow.js';
 import { namesLikelyMatch } from '../lib/name-match.js';
 
 const FEATURED_DAYS = 30;
-// Short technical buffer only — NOT a tenant-facing "confirm move-in or wait"
-// hold period. Funds auto-release this long after payment regardless of
-// whether the tenant does anything, giving just enough time to catch a
-// failed/reversed Paystack payment before payout. Keep in sync with the same
-// constant in paystack-webhook.js / paystack-initialize.js.
-const CONFIRM_WINDOW_HOURS = 2;
+// Automatic release buffer — NOT a discretionary "we decide when to release"
+// hold. Funds auto-release this long after payment regardless of whether the
+// tenant does anything; it exists to give tenants a realistic window to move
+// in and report a problem, and to line up with typical Paystack settlement
+// timing so funds are actually transferable by the time release fires. Keep
+// in sync with the same constant in paystack-webhook.js / paystack-initialize.js.
+const CONFIRM_WINDOW_HOURS = 24;
 
 // escrow_transactions.status values:
 //   pending_payment -> funded -> confirmed | disputed -> released | refunded
@@ -162,9 +163,10 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
 // Runs every 15–30 min via an external cron hitting this URL with
 // ?cron_secret=... (see handleGet above) — was previously once/day via
 // Vercel Cron, back when the confirm window was 7 days and a daily sweep
-// was frequent enough. With a 2-hour window, a day-old sweep would leave
-// funds sitting released-but-unpaid for up to ~24h, defeating the point of
-// a short buffer.
+// was frequent enough. Even with the window now at 24 hours, a frequent
+// sweep still matters: it means a release that missed its exact deadline
+// (e.g. Paystack settlement wasn't ready yet) gets retried promptly rather
+// than sitting stuck until the next once-a-day check.
 //
 // Note: the old "remind renter 2 days before their deadline" pass has been
 // removed entirely. That made sense against a 7-day window; against a
