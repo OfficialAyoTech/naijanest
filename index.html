@@ -830,10 +830,10 @@ async function loadMyEscrow(force){
 }
 
 // Formats how long is left until confirm_deadline, in hours/minutes — the
-// release buffer is now short (a couple of hours for basic fraud/payment
-// checks), not the old multi-day window, so a "days left" countdown would
-// misleadingly show 0 for almost the entire wait. Renters don't need to do
-// anything for this to release; this is purely informational.
+// release buffer is now a single day (24h), not the old 7-day window, so a
+// coarser "days left" countdown would be far less useful over such a short
+// span. Renters don't need to do anything for this to release; this is
+// purely informational.
 function timeUntilRelease(deadlineIso){
   if(!deadlineIso) return null;
   const msLeft = new Date(deadlineIso) - new Date();
@@ -849,7 +849,7 @@ function escrowStatusLabel(row){
   const timeLeft = timeUntilRelease(row.confirm_deadline);
   switch(row.status){
     case 'pending_payment': return {text:'⏳ Payment pending — refresh in a moment', color:'#d97706'};
-    case 'funded': return {text:`✅ Payment held — releases to the landlord automatically${timeLeft?` in ${timeLeft}`:' shortly'} (or right away if you confirm move-in)`, color:'#1a6b3a'};
+    case 'funded': return {text:`✅ Payment held — releases to the landlord automatically${timeLeft?` in ${timeLeft}`:' shortly'} unless you report an issue (or right away if you confirm move-in)`, color:'#1a6b3a'};
     case 'confirmed': return {text:'✅ Move-in confirmed — payout to landlord processing', color:'#1a6b3a'};
     case 'disputed': return {text:'🚩 Dispute under review by NaijaNest support', color:'#dc2626'};
     case 'released': return {text:'✅ Payment released to landlord', color:'#1a6b3a'};
@@ -880,7 +880,7 @@ async function renderRentPaySection(p){
     el.innerHTML = `
       <div style="background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:11px 13px;margin-bottom:10px;font-size:12px;color:#155730;line-height:1.5">
         <i class="ti ti-lock" style="font-size:13px;vertical-align:-1px"></i>
-        Your payment is held securely and released to the landlord automatically a short while after payment (to allow for basic fraud and payment checks), or right away if you confirm move-in yourself.
+        Your payment is held securely and released to the landlord automatically within 24 hours of payment (giving you time to move in and check everything is as agreed), or right away if you confirm move-in yourself.
         <a href="how-payments-work.html" target="_blank" style="color:var(--green);font-weight:600;text-decoration:underline">Learn more →</a>
       </div>
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-sec);margin-bottom:10px;cursor:pointer;line-height:1.5">
@@ -900,7 +900,7 @@ async function renderRentPaySection(p){
       </div>
       <div style="background:var(--green-light);border:0.5px solid var(--green-mid);border-radius:12px;padding:11px 13px;margin-bottom:10px;font-size:12px;color:#155730;line-height:1.5">
         <i class="ti ti-lock" style="font-size:13px;vertical-align:-1px"></i>
-        Your payment is held securely and released to the landlord automatically a short while after payment (to allow for basic fraud and payment checks), or right away if you confirm move-in yourself.
+        Your payment is held securely and released to the landlord automatically within 24 hours of payment (giving you time to move in and check everything is as agreed), or right away if you confirm move-in yourself.
         <a href="how-payments-work.html" target="_blank" style="color:var(--green);font-weight:600;text-decoration:underline">Learn more →</a>
       </div>
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-sec);margin-bottom:10px;cursor:pointer;line-height:1.5">
