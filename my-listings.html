@@ -210,7 +210,7 @@ async function checkPaymentReturn(){
     const isRentEscrow = !!data.escrow_id; // present only on the rent_escrow branch of verify
     if(data.success){
       const msg = isRentEscrow
-        ? '✅ Payment successful — held securely until you confirm move-in.'
+        ? '✅ Payment successful — held securely and released to the landlord automatically within a couple of hours (or right away if you confirm move-in).'
         : '✅ Payment successful — your listing is now featured!';
       if(banner) banner.innerHTML = `<div style="background:#dcfce7;color:#16a34a;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">${msg}</div>`;
     } else {
@@ -301,11 +301,28 @@ async function saveBankDetails(){
 }
 
 // ---- Rent payments (both sides: paid as renter, received as landlord) ----
+
+// Formats how long is left until confirm_deadline, in hours/minutes — the
+// release buffer is now short (a couple of hours for basic fraud/payment
+// checks), not the old multi-day window, so a "days left" countdown would
+// misleadingly show 0 for almost the entire wait. No one needs to do
+// anything for this to release; this is purely informational.
+function timeUntilRelease(deadlineIso){
+  if(!deadlineIso) return null;
+  const msLeft = new Date(deadlineIso) - new Date();
+  if(msLeft <= 0) return 'any moment now';
+  const totalMins = Math.ceil(msLeft / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if(hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
+
 function escrowStatusLabel(row){
-  const days = row.confirm_deadline ? Math.max(0, Math.ceil((new Date(row.confirm_deadline) - new Date()) / (24*60*60*1000))) : null;
+  const timeLeft = timeUntilRelease(row.confirm_deadline);
   switch(row.status){
     case 'pending_payment': return {text:'⏳ Payment pending', color:'#d97706'};
-    case 'funded': return {text:`✅ Held in escrow${days!=null?` — auto-releases in ${days}d`:''}`, color:'#1a6b3a'};
+    case 'funded': return {text:`✅ Held in escrow${timeLeft?` — auto-releases in ${timeLeft}`:''}`, color:'#1a6b3a'};
     case 'confirmed': return {text:'✅ Confirmed — payout processing', color:'#1a6b3a'};
     case 'disputed': return {text:'🚩 Disputed — under review', color:'#dc2626'};
     case 'released': return {text:'✅ Released to landlord', color:'#1a6b3a'};
