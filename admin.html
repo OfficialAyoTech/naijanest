@@ -274,6 +274,18 @@
 
     <!-- PAYMENTS (all escrow, regardless of status) -->
     <div class="view" id="view-payments">
+<div class="city-breakdown" style="margin-bottom:1rem">
+  <h3>⭐ Featured listing pricing</h3>
+  <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
+    Controls the price and duration shown on "Feature this listing" across the app. Changes apply to new purchases immediately.
+  </p>
+  <div class="qa-row">
+    <div class="qa-field"><label>Price (₦)</label><input type="number" id="featPriceInput" min="1"/></div>
+    <div class="qa-field"><label>Duration (days)</label><input type="number" id="featDaysInput" min="1"/></div>
+  </div>
+  <button class="approve-btn" style="max-width:200px" onclick="saveFeaturedPricing()">Save</button>
+  <div id="featPricingResult" style="font-size:12.5px;margin-top:8px"></div>
+</div>
       <div class="tabs">
         <button class="tab active" onclick="filterEscrow('all',this)">All</button>
         <button class="tab" onclick="filterEscrow('funded',this)">In escrow</button>
@@ -605,6 +617,7 @@ async function loadData() {
     renderSupport();
     renderFaq();
     renderPolicyEditor();
+    renderFeaturedPricingEditor();
     updateSubmissionsBadge();
     updateWaitlistBadge();
     updatePaymentsBadge();
@@ -1170,6 +1183,49 @@ function renderPolicyEditor(){
     lastUpdatedEl.textContent = entry
       ? `Last saved: ${new Date(entry.updated_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}`
       : 'Not yet customized — showing current live content. Edit and hit Save to take control of it.';
+  }
+}
+
+function renderFeaturedPricingEditor(){
+  const priceEl = document.getElementById('featPriceInput');
+  const daysEl = document.getElementById('featDaysInput');
+  if (!priceEl || !daysEl) return;
+  const entry = allSiteContent.find(c => c.key === 'featured_listing_pricing');
+  let pricing = { price: 5000, days: 30 };
+  if (entry) {
+    try { pricing = JSON.parse(entry.html); } catch(e) {}
+  }
+  priceEl.value = pricing.price;
+  daysEl.value = pricing.days;
+}
+
+async function saveFeaturedPricing(){
+  const price = Number(document.getElementById('featPriceInput').value);
+  const days = Number(document.getElementById('featDaysInput').value);
+  const resultEl = document.getElementById('featPricingResult');
+  resultEl.textContent = '';
+  if (!price || price <= 0 || !days || days <= 0){
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Enter a valid price and duration.';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        admin_password: adminPassword, action: 'update_site_content',
+        key: 'featured_listing_pricing', html: JSON.stringify({ price, days }),
+      })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not save');
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✅ Saved — new price applies immediately.';
+    await loadData();
+  } catch(e) {
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Error: ' + e.message;
   }
 }
 
