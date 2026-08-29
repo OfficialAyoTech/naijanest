@@ -3,6 +3,7 @@ import { authenticateUser } from '../lib/auth.js';
 import { releaseEscrow } from '../lib/escrow.js';
 import { namesLikelyMatch } from '../lib/name-match.js';
 
+const FEATURED_DAYS = 30;
 // Automatic release buffer — NOT a discretionary "we decide when to release"
 // hold. Funds auto-release this long after payment regardless of whether the
 // tenant does anything; it exists to give tenants a realistic window to move
@@ -29,15 +30,6 @@ export default async function handler(req, res) {
 // ---- GET: verify-on-redirect (both purposes) + auto-release sweep -----
 async function handleGet(req, res) {
   try {
-    // Two ways to authenticate as the sweep job, since it's no longer just
-    // Vercel Cron: (1) Vercel Cron sends Authorization: Bearer $CRON_SECRET
-    // automatically once CRON_SECRET is set as an env var, or (2) an
-    // external cron service (e.g. cron-job.org) hits this URL with
-    // ?cron_secret=... appended — most free external cron tools can't set
-    // custom headers, but all of them can hit a URL with a query string.
-    // With a 2-hour release buffer instead of 7 days, this needs to run
-    // every 15–30 min, not once/day, which is why an external cron entered
-    // the picture at all.
     const authHeader = req.headers['authorization'] || '';
     const headerMatch = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
     const queryMatch = !!process.env.CRON_SECRET && req.query.cron_secret === process.env.CRON_SECRET;
@@ -46,9 +38,6 @@ async function handleGet(req, res) {
       return await runAutoReleaseSweep(res);
     }
 
-    // Bank dropdown data for the "save bank details" form. Proxied live from
-    // Paystack rather than hardcoded — bank codes do change, and a wrong one
-    // silently breaks a real transfer later.
     if (req.query.list_banks) {
       return await listBanks(res);
     }
@@ -98,36 +87,10 @@ async function listBanks(res) {
   }
 }
 
-// Reads admin-configurable pricing for "feature this listing" from
-// site_content (key: featured_listing_pricing, html: JSON string like
-// '{"price":2000,"days":30}'). Falls back to sane defaults if the row is
-// missing, unset, or malformed — a bad admin edit should never break checkout.
-async function getFeaturedPricing(serviceKey) {
-  const DEFAULT = { price: 5000, days: 30 };
-  try {
-    const resp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/site_content?key=eq.featured_listing_pricing&select=html`,
-      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
-    );
-    const rows = await resp.json();
-    if (!rows[0]) return DEFAULT;
-    const parsed = JSON.parse(rows[0].html);
-    const price = Number(parsed.price);
-    const days = Number(parsed.days);
-    if (!price || price <= 0 || !days || days <= 0) return DEFAULT;
-    return { price, days };
-  } catch (e) {
-    return DEFAULT;
-  }
-}
-
 async function verifyFeaturedListing({ tx, reference, headers, res }) {
   if (tx.status === 'success') {
     const propertyId = tx.metadata?.property_id;
-    // Prefer the days locked in at checkout (tx.metadata.featured_days); fall
-    // back to current settings only for older transactions that predate this.
-    const days = Number(tx.metadata?.featured_days) || (await getFeaturedPricing(process.env.SUPABASE_SERVICE_ROLE_KEY)).days;
-    const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const featuredUntil = new Date(Date.now() + FEATURED_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     const payResp = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}&select=status`,
@@ -186,32 +149,11 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
 }
 
 // Runs every 15–30 min via an external cron hitting this URL with
-// ?cron_secret=... (see handleGet above) — was previously once/day via
-// Vercel Cron, back when the confirm window was 7 days and a daily sweep
-// was frequent enough. Even with the window now at 24 hours, a frequent
-// sweep still matters: it means a release that missed its exact deadline
-// (e.g. Paystack settlement wasn't ready yet) gets retried promptly rather
-// than sitting stuck until the next once-a-day check.
-//
-// Note: the old "remind renter 2 days before their deadline" pass has been
-// removed entirely. That made sense against a 7-day window; against a
-// 2-hour window there's no meaningful lead time left to warn anyone about —
-// it would just fire immediately for every funded transaction. Renters no
-// longer need to actively do anything for funds to release, so there's
-// nothing to remind them to do.
+// ?cron_secret=... (see handleGet above).
 async function runAutoReleaseSweep(res) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
-  // Releases two kinds of row:
-  //  1. still 'funded' past its confirm_deadline — the short buffer has
-  //     elapsed with no dispute raised, so it auto-releases.
-  //  2. stuck at 'confirmed' — a renter DID confirm move-in, but the release
-  //     that's supposed to fire immediately on confirm failed (e.g. a
-  //     transient Paystack error). Without this, a failed release had no
-  //     retry path at all and would sit stuck forever — 'confirmed' rows
-  //     don't carry a confirm_deadline to become overdue on, so they'd never
-  //     match the first condition.
   const dueResp = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions` +
     `?or=(and(status.eq.funded,confirm_deadline.lt.${new Date().toISOString()}),status.eq.confirmed)` +
@@ -227,6 +169,15 @@ async function runAutoReleaseSweep(res) {
       await releaseEscrow({ escrow, headers });
       results.push({ id: escrow.id, ok: true });
     } catch (e) {
+      if (e.insufficientBalance) {
+        // Expected/self-resolving — Paystack hasn't released these funds
+        // into available balance yet. Not logged as an error and no admin
+        // alert: this will keep quietly retrying every sweep cycle until
+        // the hold clears, same as any other 'confirmed'/overdue row.
+        console.log(`auto-release deferred for escrow ${escrow.id} — Paystack balance not yet available, will retry`);
+        results.push({ id: escrow.id, ok: false, deferred: true });
+        continue;
+      }
       console.error(`auto-release failed for escrow ${escrow.id}:`, e.message);
       await logError('escrow-auto-release', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
       results.push({ id: escrow.id, ok: false, error: e.message });
@@ -251,9 +202,6 @@ async function handlePost(req, res) {
   }
 }
 
-// escrow_transactions has RLS locked to service-role-only (see migration) —
-// no one can query it straight from the browser. This is how a renter sees
-// payments they've made, and a landlord sees payments they've received.
 async function myEscrow(req, res) {
   const { access_token } = req.body || {};
   if (!access_token) return res.status(400).json({ error: 'Missing access_token' });
@@ -276,10 +224,6 @@ async function myEscrow(req, res) {
   return res.status(200).json({ escrow: rows, user_id: user.id });
 }
 
-// Landlord sets/updates payout bank details. The account number + bank code
-// are verified against Paystack's own records (bank/resolve) so we always
-// store the REAL account name, never whatever the landlord typed — this is
-// what catches a mistyped digit before it costs someone a failed payout.
 async function saveBankDetails(req, res) {
   const { access_token, bank_code, bank_name, account_number } = req.body || {};
   if (!access_token || !bank_code || !account_number) {
@@ -308,17 +252,10 @@ async function saveBankDetails(req, res) {
     body: JSON.stringify({
       bank_code, bank_name: bank_name || null,
       bank_account_number: digits, bank_account_name: resolveData.data.account_name,
-      // Reset — any stale recipient was tied to the old bank details, and
-      // releaseEscrow() will lazily create a fresh one with the new details.
       paystack_recipient_code: null,
     }),
   });
 
-  // Bank details are usually added here, on "My Listings", after a listing
-  // already exists — so the submit-time cross-check in submit-property.js
-  // often has nothing to compare against yet. Re-run it now against this
-  // user's existing listings so a mismatch still gets caught once there's
-  // actually a bank name to check it against.
   try {
     await reflagExistingListings(user.id, resolveData.data.account_name, serviceKey);
   } catch (e) {
@@ -340,7 +277,7 @@ async function reflagExistingListings(userId, bankAccountName, serviceKey) {
   const newlyFlagged = [];
   for (const listing of listings) {
     const mismatch = !namesLikelyMatch(listing.landlord_name, bankAccountName);
-    if (mismatch === listing.bank_name_mismatch) continue; // unchanged, skip the write
+    if (mismatch === listing.bank_name_mismatch) continue;
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${listing.id}`, {
       method: 'PATCH', headers: { ...headers, Prefer: 'return=minimal' },
       body: JSON.stringify({ bank_name_mismatch: mismatch, bank_account_name_snapshot: bankAccountName }),
@@ -358,12 +295,13 @@ async function reflagExistingListings(userId, bankAccountName, serviceKey) {
   }
 }
 
-// Renter confirms they've received the keys / moved in. Releases funds to
-// the landlord immediately rather than waiting for the confirm_deadline.
-// Now mostly a courtesy/early-release option rather than something renters
-// need to do — the buffer will auto-release regardless — but kept
-// as-is since a renter actively confirming is still a useful signal and
-// lets funds move to the landlord slightly faster than the buffer alone.
+// Renter confirms they've received the keys / moved in. Attempts to release
+// funds to the landlord immediately rather than waiting for the
+// confirm_deadline. Now mostly a courtesy/early-release option rather than
+// something renters need to do — the buffer will auto-release regardless —
+// but kept as-is since a renter actively confirming is still a useful
+// signal and lets funds move to the landlord slightly faster than the
+// buffer alone, once Paystack's own balance hold allows it.
 async function confirmMoveIn(req, res) {
   const { escrow_id, access_token } = req.body || {};
   if (!escrow_id || !access_token) {
@@ -394,6 +332,17 @@ async function confirmMoveIn(req, res) {
   try {
     await releaseEscrow({ escrow: { ...escrow, status: 'confirmed' }, headers });
   } catch (e) {
+    if (e.insufficientBalance) {
+      // Expected/self-resolving — see the note in releaseEscrow. The row
+      // stays 'confirmed' and the next cron sweep retries it quietly; no
+      // error log, no admin alert, since this isn't something Dave needs
+      // to act on.
+      console.log(`release deferred for escrow ${escrow_id} — Paystack balance not yet available, will retry via cron`);
+      return res.status(200).json({
+        success: true, released: false,
+        note: 'Move-in confirmed. Payout to the landlord is processing.',
+      });
+    }
     console.error(`release after confirm failed for escrow ${escrow_id}:`, e.message);
     await logError('escrow-release', new Error(`Escrow ${escrow_id} (${escrow.reference}) confirmed but release failed: ${e.message}`));
     // Move-in is still confirmed — the row stays 'confirmed' and the next
