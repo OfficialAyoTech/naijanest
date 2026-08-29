@@ -101,6 +101,30 @@ function fmt(n){ return '₦' + Number(n).toLocaleString(); }
 let MY_PROPERTIES = [];
 let currentListingsTab = 'all';
 
+let FEATURED_PRICING = { price: 5000, days: 30 }; // overwritten on load
+
+async function loadFeaturedPricing(){
+  try{
+    const {data} = await NaijaAuth.client.from('site_content').select('html').eq('key','featured_listing_pricing').maybeSingle();
+    if(data && data.html){
+      const parsed = JSON.parse(data.html);
+      if(parsed.price > 0 && parsed.days > 0) FEATURED_PRICING = parsed;
+    }
+  }catch(e){ /* keep defaults */ }
+}
+
+function featuredButtonLabel(){
+  return `⭐ Feature this listing — ${fmt(FEATURED_PRICING.price)}/${FEATURED_PRICING.days} days`;
+}
+
+function init(){
+  NaijaAuth.renderAccountButton(document.getElementById('acctBtn'));
+  NaijaAuth.onChange(()=>{ render(); renderPayoutSection(); renderEscrowSection(); });
+  loadFeaturedPricing().then(render); // load pricing first so the button text is correct on first paint
+  renderPayoutSection();
+  renderEscrowSection().then(checkPaymentReturn);
+}
+
 async function render(){
   const content = document.getElementById('content');
   if(!NaijaAuth.isLoggedIn()){
@@ -166,7 +190,7 @@ function renderListingsList(){
             <div class="listing-name">${escapeHtml(p.name)} ${isFeatured ? '<span style="font-size:11px;color:#d97706">⭐ Featured</span>' : ''}</div>
             <div class="listing-meta">${escapeHtml(p.area)}${p.lga?', '+escapeHtml(p.lga):''}, ${escapeHtml(p.city)} · ${fmt(p.price)}/yr</div>
             <span class="status-badge status-${p.status}">${p.status === 'approved' ? '✅ Live' : p.status === 'rejected' ? '❌ Rejected' : '⏳ Pending review'}</span>
-            ${p.status==='approved' && !isFeatured ? `<div style="margin-top:8px"><button class="feature-btn" data-id="${p.id}" onclick="featureListing(${p.id})">⭐ Feature this listing — ₦5,000/30 days</button></div>` : ''}
+            ${p.status==='approved' && !isFeatured ? `<div style="margin-top:8px"><button class="feature-btn" data-id="${p.id}" onclick="featureListing(${p.id})">${featuredButtonLabel()}</button></div>` : ''}
             ${isFeatured ? `<div style="font-size:11px;color:#666;margin-top:4px">Featured until ${new Date(p.featured_until).toLocaleDateString()}</div>` : ''}
           </div>
         </div>`;
@@ -193,7 +217,7 @@ async function featureListing(propertyId){
     window.location.href = data.authorization_url;
   }catch(e){
     alert('Could not start payment: ' + e.message);
-    if(btn){ btn.disabled = false; btn.textContent = '⭐ Feature this listing — ₦5,000/30 days'; }
+    if(btn){ btn.disabled = false; btn.textContent = featuredButtonLabel(); }
   }
 }
 
