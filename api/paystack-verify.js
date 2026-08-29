@@ -3,7 +3,6 @@ import { authenticateUser } from '../lib/auth.js';
 import { releaseEscrow } from '../lib/escrow.js';
 import { namesLikelyMatch } from '../lib/name-match.js';
 
-const FEATURED_DAYS = 30;
 // Automatic release buffer — NOT a discretionary "we decide when to release"
 // hold. Funds auto-release this long after payment regardless of whether the
 // tenant does anything; it exists to give tenants a realistic window to move
@@ -330,6 +329,41 @@ async function reflagExistingListings(userId, bankAccountName, serviceKey) {
       `Listing(s) with a different landlord name: ${newlyFlagged.join(', ')}\n` +
       `Worth a closer look.`
     );
+  }
+}
+
+async function verifyFeaturedListing({ tx, reference, headers, res }) {
+  if (tx.status === 'success') {
+    const propertyId = tx.metadata?.property_id;
+    // Prefer the days locked in at checkout (tx.metadata.featured_days); fall
+    // back to current settings only for older transactions that predate this.
+    const days = Number(tx.metadata?.featured_days) || (await getFeaturedPricing(process.env.SUPABASE_SERVICE_ROLE_KEY)).days;
+    const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    const payResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}&select=status`,
+      { headers }
+    );
+    const payRows = await payResp.json();
+    const alreadyProcessed = payRows[0] && payRows[0].status === 'success';
+
+    if (!alreadyProcessed && propertyId) {
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ status: 'success', updated_at: new Date().toISOString() }),
+      });
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${propertyId}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ featured: true, featured_until: featuredUntil }),
+      });
+    }
+    return res.status(200).json({ success: true, featured_until: featuredUntil });
+  } else {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ status: 'failed', updated_at: new Date().toISOString() }),
+    });
+    return res.status(200).json({ success: false, error: 'Payment was not successful' });
   }
 }
 
