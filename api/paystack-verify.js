@@ -98,10 +98,36 @@ async function listBanks(res) {
   }
 }
 
+// Reads admin-configurable pricing for "feature this listing" from
+// site_content (key: featured_listing_pricing, html: JSON string like
+// '{"price":2000,"days":30}'). Falls back to sane defaults if the row is
+// missing, unset, or malformed — a bad admin edit should never break checkout.
+async function getFeaturedPricing(serviceKey) {
+  const DEFAULT = { price: 5000, days: 30 };
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/site_content?key=eq.featured_listing_pricing&select=html`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    );
+    const rows = await resp.json();
+    if (!rows[0]) return DEFAULT;
+    const parsed = JSON.parse(rows[0].html);
+    const price = Number(parsed.price);
+    const days = Number(parsed.days);
+    if (!price || price <= 0 || !days || days <= 0) return DEFAULT;
+    return { price, days };
+  } catch (e) {
+    return DEFAULT;
+  }
+}
+
 async function verifyFeaturedListing({ tx, reference, headers, res }) {
   if (tx.status === 'success') {
     const propertyId = tx.metadata?.property_id;
-    const featuredUntil = new Date(Date.now() + FEATURED_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // Prefer the days locked in at checkout (tx.metadata.featured_days); fall
+    // back to current settings only for older transactions that predate this.
+    const days = Number(tx.metadata?.featured_days) || (await getFeaturedPricing(process.env.SUPABASE_SERVICE_ROLE_KEY)).days;
+    const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
     const payResp = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}&select=status`,
@@ -332,68 +358,10 @@ async function reflagExistingListings(userId, bankAccountName, serviceKey) {
   }
 }
 
-async function verifyFeaturedListing({ tx, reference, headers, res }) {
-  if (tx.status === 'success') {
-    const propertyId = tx.metadata?.property_id;
-    // Prefer the days locked in at checkout (tx.metadata.featured_days); fall
-    // back to current settings only for older transactions that predate this.
-    const days = Number(tx.metadata?.featured_days) || (await getFeaturedPricing(process.env.SUPABASE_SERVICE_ROLE_KEY)).days;
-    const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-
-    const payResp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}&select=status`,
-      { headers }
-    );
-    const payRows = await payResp.json();
-    const alreadyProcessed = payRows[0] && payRows[0].status === 'success';
-
-    if (!alreadyProcessed && propertyId) {
-      await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}`, {
-        method: 'PATCH', headers,
-        body: JSON.stringify({ status: 'success', updated_at: new Date().toISOString() }),
-      });
-      await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${propertyId}`, {
-        method: 'PATCH', headers,
-        body: JSON.stringify({ featured: true, featured_until: featuredUntil }),
-      });
-    }
-    return res.status(200).json({ success: true, featured_until: featuredUntil });
-  } else {
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?reference=eq.${encodeURIComponent(reference)}`, {
-      method: 'PATCH', headers,
-      body: JSON.stringify({ status: 'failed', updated_at: new Date().toISOString() }),
-    });
-    return res.status(200).json({ success: false, error: 'Payment was not successful' });
-  }
-}
-
-// Reads admin-configurable pricing for "feature this listing" from
-// site_content (key: featured_listing_pricing, html: JSON string like
-// '{"price":2000,"days":30}'). Falls back to sane defaults if the row is
-// missing, unset, or malformed — a bad admin edit should never break checkout.
-async function getFeaturedPricing(serviceKey) {
-  const DEFAULT = { price: 5000, days: 30 };
-  try {
-    const resp = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/site_content?key=eq.featured_listing_pricing&select=html`,
-      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
-    );
-    const rows = await resp.json();
-    if (!rows[0]) return DEFAULT;
-    const parsed = JSON.parse(rows[0].html);
-    const price = Number(parsed.price);
-    const days = Number(parsed.days);
-    if (!price || price <= 0 || !days || days <= 0) return DEFAULT;
-    return { price, days };
-  } catch (e) {
-    return DEFAULT;
-  }
-}
-
 // Renter confirms they've received the keys / moved in. Releases funds to
 // the landlord immediately rather than waiting for the confirm_deadline.
 // Now mostly a courtesy/early-release option rather than something renters
-// need to do — the 2-hour buffer will auto-release regardless — but kept
+// need to do — the buffer will auto-release regardless — but kept
 // as-is since a renter actively confirming is still a useful signal and
 // lets funds move to the landlord slightly faster than the buffer alone.
 async function confirmMoveIn(req, res) {
