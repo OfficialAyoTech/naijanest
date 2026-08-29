@@ -3,8 +3,6 @@ import { authenticateUser } from '../lib/auth.js';
 // Starts a Paystack payment — either to feature a listing, or to fund the
 // rent/agency/legal/caution escrow for a tenancy. The client never talks to
 // Paystack directly — everything (amount, ownership check) is decided server-side.
-const FEATURED_PRICE_KOBO = 500000; // ₦5,000 — change this one constant to adjust pricing
-const FEATURED_DAYS = 30;
 // Automatic release buffer — NOT a discretionary "we decide when to release"
 // hold. Funds auto-release this long after payment regardless of whether the
 // tenant does anything; it exists to give tenants a realistic window to move
@@ -228,6 +226,65 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
       fund_handling_consent_at: new Date().toISOString(),
     }),
   });
+
+async function initializeFeaturedListing({ req, res, user, property_id, serviceKey }) {
+  const propResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}&select=id,user_id,status,name`,
+    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+  );
+  const props = await propResp.json();
+  const property = props[0];
+  if (!property || property.user_id !== user.id) {
+    return res.status(403).json({ error: 'You can only feature your own listings' });
+  }
+  if (property.status !== 'approved') {
+    return res.status(400).json({ error: 'Only live listings can be featured' });
+  }
+
+  const { price, days } = await getFeaturedPricing(serviceKey);
+  const featuredPriceKobo = Math.round(price * 100);
+
+  const reference = `naijanest_${property_id}_${Date.now()}`;
+  const origin = req.headers.origin || `https://${req.headers.host}`;
+
+  const initResp = await fetch('https://api.paystack.co/transaction/initialize', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email: user.email || `${user.id}@naijanest.user`,
+      amount: featuredPriceKobo,
+      reference,
+      callback_url: `${origin}/my-listings.html`,
+      metadata: { property_id, user_id: user.id, purpose: 'featured_listing', featured_days: days },
+    }),
+  });
+  const initData = await initResp.json();
+  if (!initData.status) {
+    return res.status(400).json({ error: initData.message || 'Could not start payment' });
+  }
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      property_id, user_id: user.id, reference,
+      amount: featuredPriceKobo, status: 'pending',
+    }),
+  });
+
+  return res.status(200).json({
+    authorization_url: initData.data.authorization_url,
+    reference,
+  });
+}
 
 // Reads admin-configurable pricing for "feature this listing" from
 // site_content (key: featured_listing_pricing, html: JSON string like
