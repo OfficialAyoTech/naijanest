@@ -229,6 +229,29 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
     }),
   });
 
+// Reads admin-configurable pricing for "feature this listing" from
+// site_content (key: featured_listing_pricing, html: JSON string like
+// '{"price":2000,"days":30}'). Falls back to sane defaults if the row is
+// missing, unset, or malformed — a bad admin edit should never break checkout.
+async function getFeaturedPricing(serviceKey) {
+  const DEFAULT = { price: 5000, days: 30 };
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/site_content?key=eq.featured_listing_pricing&select=html`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    );
+    const rows = await resp.json();
+    if (!rows[0]) return DEFAULT;
+    const parsed = JSON.parse(rows[0].html);
+    const price = Number(parsed.price);
+    const days = Number(parsed.days);
+    if (!price || price <= 0 || !days || days <= 0) return DEFAULT;
+    return { price, days };
+  } catch (e) {
+    return DEFAULT;
+  }
+}
+
   return res.status(200).json({
     authorization_url: initData.data.authorization_url,
     reference,
