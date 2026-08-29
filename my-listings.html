@@ -101,7 +101,11 @@ function fmt(n){ return '₦' + Number(n).toLocaleString(); }
 let MY_PROPERTIES = [];
 let currentListingsTab = 'all';
 
-let FEATURED_PRICING = { price: 5000, days: 30 }; // overwritten on load
+// Admin-editable featured-listing price/duration, read from site_content
+// (key: featured_listing_pricing). Defaults here match the server-side
+// fallback in paystack-initialize.js / paystack-verify.js so the button
+// text is never wrong even before loadFeaturedPricing() resolves.
+let FEATURED_PRICING = { price: 5000, days: 30 };
 
 async function loadFeaturedPricing(){
   try{
@@ -115,14 +119,6 @@ async function loadFeaturedPricing(){
 
 function featuredButtonLabel(){
   return `⭐ Feature this listing — ${fmt(FEATURED_PRICING.price)}/${FEATURED_PRICING.days} days`;
-}
-
-function init(){
-  NaijaAuth.renderAccountButton(document.getElementById('acctBtn'));
-  NaijaAuth.onChange(()=>{ render(); renderPayoutSection(); renderEscrowSection(); });
-  loadFeaturedPricing().then(render); // load pricing first so the button text is correct on first paint
-  renderPayoutSection();
-  renderEscrowSection().then(checkPaymentReturn);
 }
 
 async function render(){
@@ -452,7 +448,7 @@ async function openMlReceipt(escrowId){
   const breakdown = [
     ['Rent', row.rent_amount],
     ['Agency fee', row.agency_fee_amount],
-    ['Legal fee', row.legal_fee_amount],
+    ['Documentation fee', row.legal_fee_amount],
     ['Caution fee (refundable)', row.caution_fee_amount],
     ['NaijaNest platform fee', row.platform_fee_amount],
   ].filter(([,amt]) => amt != null && amt > 0);
@@ -511,10 +507,13 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// Single init() — loads pricing FIRST so the "Feature this listing" button
+// shows the correct admin-set price the very first time it renders, then
+// kicks off the payout/escrow sections and the payment-return check.
 function init(){
   NaijaAuth.renderAccountButton(document.getElementById('acctBtn'));
   NaijaAuth.onChange(()=>{ render(); renderPayoutSection(); renderEscrowSection(); });
-  render();
+  loadFeaturedPricing().then(render);
   renderPayoutSection();
   renderEscrowSection().then(checkPaymentReturn);
 }
