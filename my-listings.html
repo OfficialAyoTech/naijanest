@@ -82,15 +82,20 @@
   <div class="page-title">My Listings</div>
   <div class="page-sub">Track the review status of properties you've submitted.</div>
 
+  <!-- Moved above the listings list per Dave's request: payout details and
+       rent payment status matter as much as (arguably more than, once a
+       tenant has actually paid) the listing review status, so they now sit
+       at the same "top level" prominence instead of requiring a scroll past
+       every listing card to find them. -->
+  <div id="payoutSection"></div>
+  <div id="escrowSection"></div>
+
   <div id="content">
     <div class="login-gate">
       <div>Sign in to see your listings.</div>
       <button onclick="NaijaAuth.openLoginModal()">Sign in</button>
     </div>
   </div>
-
-  <div id="payoutSection"></div>
-  <div id="escrowSection"></div>
 
   <div style="text-align:center;font-size:12px;color:var(--text-sec,#555);margin-top:1.5rem">Need help? <a href="contact.html" style="color:var(--green,#1a6b3a);font-weight:600;text-decoration:none">Contact support</a></div>
 </div>
@@ -101,10 +106,6 @@ function fmt(n){ return '₦' + Number(n).toLocaleString(); }
 let MY_PROPERTIES = [];
 let currentListingsTab = 'all';
 
-// Admin-editable featured-listing price/duration, read from site_content
-// (key: featured_listing_pricing). Defaults here match the server-side
-// fallback in paystack-initialize.js / paystack-verify.js so the button
-// text is never wrong even before loadFeaturedPricing() resolves.
 let FEATURED_PRICING = { price: 5000, days: 30 };
 
 async function loadFeaturedPricing(){
@@ -147,8 +148,6 @@ function selectListingsTab(tab){
   renderListingsList();
 }
 
-// Renders from the already-fetched MY_PROPERTIES — switching tabs just
-// re-filters in memory, no extra network round-trip per click.
 function renderListingsList(){
   const content = document.getElementById('content');
   if(!MY_PROPERTIES.length){
@@ -227,7 +226,7 @@ async function checkPaymentReturn(){
   try{
     const resp = await fetch(`/api/paystack-verify?reference=${encodeURIComponent(reference)}`);
     const data = await resp.json();
-    const isRentEscrow = !!data.escrow_id; // present only on the rent_escrow branch of verify
+    const isRentEscrow = !!data.escrow_id;
     if(data.success){
       const msg = isRentEscrow
         ? '✅ Payment successful — held securely and released to the landlord automatically within 24 hours (or right away if you confirm move-in).'
@@ -243,7 +242,6 @@ async function checkPaymentReturn(){
   }
 }
 
-// ---- Payout details (landlord bank account for rent payouts) ----
 async function renderPayoutSection(){
   const el = document.getElementById('payoutSection');
   if(!el) return;
@@ -320,13 +318,6 @@ async function saveBankDetails(){
   }
 }
 
-// ---- Rent payments (both sides: paid as renter, received as landlord) ----
-
-// Formats how long is left until confirm_deadline, in hours/minutes — the
-// release buffer is now a single day (24h), not the old 7-day window, so a
-// coarser "days left" countdown would be far less useful over such a short
-// span. No one needs to do anything for this to release; this is purely
-// informational.
 function timeUntilRelease(deadlineIso){
   if(!deadlineIso) return null;
   const msLeft = new Date(deadlineIso) - new Date();
@@ -369,14 +360,12 @@ async function renderEscrowSection(){
     window.__myUserId = data.user_id;
   }catch(e){}
 
-  ESCROW_ROWS = rows; // cached so the receipt modal doesn't need a second fetch
+  ESCROW_ROWS = rows;
   if(!rows.length){ el.innerHTML = ''; return; }
 
   const paid = rows.filter(r => r.renter_id === window.__myUserId);
   const received = rows.filter(r => r.landlord_id === window.__myUserId);
 
-  // A receipt only makes sense once a payment actually succeeded — nothing
-  // to show for a row still stuck at pending_payment or that never went through.
   const hasReceipt = r => !['pending_payment','payment_failed'].includes(r.status);
 
   const rowHtml = (r, isRenter) => {
@@ -402,7 +391,6 @@ async function renderEscrowSection(){
   `;
 }
 
-// ---- Payment receipt modal (works for both sides: paid or received) ----
 let ESCROW_ROWS = [];
 
 function ensureReceiptModal(){
@@ -507,9 +495,6 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-// Single init() — loads pricing FIRST so the "Feature this listing" button
-// shows the correct admin-set price the very first time it renders, then
-// kicks off the payout/escrow sections and the payment-return check.
 function init(){
   NaijaAuth.renderAccountButton(document.getElementById('acctBtn'));
   NaijaAuth.onChange(()=>{ render(); renderPayoutSection(); renderEscrowSection(); });
@@ -520,7 +505,6 @@ function init(){
 document.addEventListener('DOMContentLoaded', init);
 if(document.readyState !== 'loading') init();
 
-// ---- PWA: service worker ----
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
