@@ -289,6 +289,7 @@
       <div class="tabs">
         <button class="tab active" onclick="filterEscrow('all',this)">All</button>
         <button class="tab" onclick="filterEscrow('funded',this)">In escrow</button>
+        <button class="tab" onclick="filterEscrow('confirmed',this)">Processing</button>
         <button class="tab" onclick="filterEscrow('released',this)">Released</button>
         <button class="tab" onclick="filterEscrow('disputed',this)">Disputed</button>
         <button class="tab" onclick="filterEscrow('refunded',this)">Refunded</button>
@@ -445,12 +446,6 @@ function qaRemovePhoto(index){
   if (statusEl) statusEl.textContent = `${qaPhotoUrls.length} photo(s) ready`;
 }
 
-// Accumulates across multiple "Choose Files" selections instead of
-// replacing — browsers always overwrite the file input's own selection on
-// each pick, so accumulation has to happen here, in qaPhotoUrls, not in the
-// input itself. The input is cleared after each batch (see event.target.value
-// reset below) so re-opening the picker never re-shows/re-uploads files
-// already added.
 async function qaHandlePhotos(event){
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
@@ -481,7 +476,7 @@ async function qaHandlePhotos(event){
     }
   }
   statusEl.textContent = `✅ ${qaPhotoUrls.length} photo(s) ready (${qaPhotoUrls.length - startCount} just added)`;
-  event.target.value = ''; // allow picking more without the old selection lingering
+  event.target.value = '';
 }
 
 async function qaSubmit(){
@@ -636,17 +631,6 @@ function updateStats() {
   document.getElementById('waitlistCount').textContent = allWaitlist.length;
 }
 
-// ---- Notification badges for Submissions / Waitlist / Payments ----
-// (Disputes/Reports/Support already had this — see renderDisputes/renderReports/renderSupport.)
-//
-// Submissions: a real "still needs action" count (pending review), same idea
-// as the other three.
-// Waitlist & Payments: neither has a resolved/dismissed status to count
-// against, so instead this tracks "new since I last opened that tab" —
-// same everyday pattern as an email/Slack unread badge. The timestamp lives
-// in localStorage (per browser/device you're logged into as admin), and
-// resets to "now" the first time ever so you don't get hit with a giant
-// backlog count on day one — only genuinely new arrivals after that count.
 function getOrInitLastSeen(key){
   const storageKey = 'naAdmin_' + key + '_lastSeen';
   const stored = localStorage.getItem(storageKey);
@@ -691,9 +675,6 @@ function trendLabel(thisWeek, priorWeek){
   return {cls:'flat', text:'Same as last week'};
 }
 
-// Computes and renders every metric from data already loaded via admin-data.js —
-// no separate API calls needed. rate_limit_events doubles as a full usage log
-// (see admin-data.js comment) since nothing ever deletes old rows from it.
 function renderMetrics(){
   const el = document.getElementById('metricsContent');
   if (!el) return;
@@ -809,9 +790,6 @@ function renderMetrics(){
   `;
 }
 
-// Escrow disputes needing manual admin review — see resolve_escrow_dispute
-// action in admin-data.js. Nothing automated touches a 'disputed' row; this
-// panel (release or refund) is the only way one moves forward.
 function renderDisputes(){
   const el = document.getElementById('disputesContent');
   if (!el) return;
@@ -861,10 +839,6 @@ async function resolveDispute(escrowId, resolution){
   }
 }
 
-// Public "Report suspicious listing" submissions. Was previously a fake
-// button that showed an alert() and went nowhere — this is where those
-// reports now actually land, findable regardless of whether the WhatsApp
-// alert itself managed to deliver.
 let reportsFilter = 'open';
 
 function filterReports(status, el){
@@ -895,9 +869,6 @@ function renderReports(){
     const sb = statusBadge[r.status] || {label: r.status, color:'#555'};
     const isOpen = r.status === 'open';
 
-    // Same wa.me deep-link pattern as the tenant-facing "Contact on WhatsApp"
-    // button — no backend call needed, just opens WhatsApp with the
-    // landlord's number and a pre-filled message about this specific report.
     let contactBtn = '';
     if (prop && prop.landlord_phone) {
       const digits = prop.landlord_phone.replace(/\D/g, '');
@@ -947,8 +918,6 @@ async function resolveReport(reportId, resolution){
   }
 }
 
-// "Contact us" submissions (contact.html → api/submit-property.js action=contact_support).
-// Same open/resolved/dismissed shape as Reports above.
 let supportFilter = 'open';
 
 function filterSupport(status, el){
@@ -1001,14 +970,6 @@ function renderSupport(){
   }).join('');
 }
 
-// contact is free text the user typed (email or phone) — no separate field
-// for it, so we sniff which it is to offer a one-click reply that doesn't
-// require saving the number or leaving the dashboard. For email this opens
-// Gmail's web compose view directly (pre-filled) rather than a mailto: link
-// — mailto: only works if the browser/OS has a default mail app registered,
-// which isn't a safe assumption, and silently opens a blank tab otherwise.
-// wa.me opens a WhatsApp chat with that number without needing it saved as
-// a contact first.
 function buildReplyLink(contact, originalMessage){
   const trimmed = (contact || '').trim();
   if (!trimmed) return null;
@@ -1042,9 +1003,6 @@ async function resolveSupportMessage(messageId, resolution){
   }
 }
 
-// Public FAQ — index.html reads this table directly (no backend call), so
-// anything saved here shows up live on the site immediately. No separate
-// "publish" step.
 function renderFaq(){
   const el = document.getElementById('faqContent');
   if (!el) return;
@@ -1130,13 +1088,6 @@ async function deleteFaqEntry(faqId){
   }
 }
 
-// The same content how-payments-works.html falls back to when nothing's
-// been saved yet — used here too, so the admin textarea starts pre-filled
-// with what's actually live right now instead of an empty box. This is
-// plain text with light formatting (## headings, - bullets, 1. numbered
-// lists, **bold**, [text](url) links, > for the highlighted callout box) —
-// the public page converts it to the same HTML it always used, via
-// renderPolicyMarkdown() in how-payments-works.html. No raw HTML tags here.
 const DEFAULT_POLICY_HTML = `## What happens when a tenant pays
 When a tenant pays rent, agency fees, documentation fees, and a caution deposit through NaijaNest, here's exactly what happens to that money:
 
@@ -1167,12 +1118,6 @@ NaijaNest, operated by AyoTech Innovations Hub, is a technology platform that co
 
 This document is provided for transparency and does not constitute a legal or financial guarantee. NaijaNest and AyoTech Innovations Hub are continuing to formalize our compliance and fund-handling practices as the platform grows.`;
 
-// "How Payments Work" editor — a single site_content row keyed
-// 'how_payments_works'. If no row exists yet (first time this feature is
-// used), the textarea starts pre-filled with DEFAULT_POLICY_HTML above —
-// the exact content currently live on the public page — so editing means
-// tweaking real text, not writing HTML from a blank box. Saving once
-// creates the row; after that, whatever's in the row is what loads here.
 function renderPolicyEditor(){
   const textarea = document.getElementById('policyHtml');
   if (!textarea) return;
@@ -1250,9 +1195,6 @@ async function savePolicyContent(){
   }
 }
 
-// Full audit view — every escrow row regardless of status, not just disputed
-// ones. This is where you'd check "did that release actually go through"
-// without digging into Supabase directly.
 let paymentsFilter = 'all';
 
 function filterEscrow(status, el) {
@@ -1275,9 +1217,6 @@ function escrowStatusBadge(status){
   return map[status] || {label: status, color:'#555'};
 }
 
-// Only 'released' payments with a real caution fee and nothing settled yet
-// get the action buttons — everything else (still in escrow, disputed,
-// already refunded whole) just shows the current status as text.
 function cautionFeeSection(e){
   if (!e.caution_fee_amount || e.caution_fee_amount <= 0) return '';
   const amt = `₦${Number(e.caution_fee_amount/100).toLocaleString()}`;
@@ -1360,9 +1299,6 @@ function showView(name, el) {
   el.classList.add('active');
   document.getElementById('view-' + name).classList.add('active');
 
-  // Opening these two counts as "having seen everything up to now" — the
-  // badge recalculates immediately after, so it visibly clears on click,
-  // same as opening an email inbox.
   if (name === 'waitlist') { markSeen('waitlist'); updateWaitlistBadge(); }
   if (name === 'payments') { markSeen('payments'); updatePaymentsBadge(); }
 }
@@ -1446,9 +1382,6 @@ function renderProps() {
     </div>`).join('');
 }
 
-// Bulk waitlist outreach — tracks which waitlist ids are checked across
-// re-renders (e.g. as the search box filters the list) so a selection isn't
-// lost just because the visible list changed.
 let selectedWaitlistIds = new Set();
 
 function toggleSelectAllWaitlist(checkbox){
@@ -1573,7 +1506,11 @@ async function deleteProp(id, name) {
     });
     const data = await resp.json();
     if (data.success) {
-      allProps = allProps.filter(p=>p.id!==id);
+      if (data.soft_deleted) {
+        allProps = allProps.map(p => p.id === id ? { ...p, status: 'deleted' } : p);
+      } else {
+        allProps = allProps.filter(p=>p.id!==id);
+      }
       updateStats();
       renderOverview();
       renderProps();
