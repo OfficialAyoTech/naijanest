@@ -69,12 +69,40 @@ export default async function handler(req, res) {
     if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
     const headers = { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
 
-    // action:'delete' permanently removes the property (and its photos). Kept in this
-    // same function, not a separate file, because Vercel's Hobby plan caps a deployment
-    // at 12 serverless functions — merging this in keeps us under that limit instead of
-    // adding a 13th route.
+    // action:'delete' removes the property (and its photos) — but only when
+    // it's safe to. If real money has moved through this property (an
+    // escrow_transactions row references it), a hard DELETE would violate
+    // the escrow_transactions_property_id_fkey constraint and — more
+    // importantly — would orphan a real financial record. So: check first,
+    // and soft-delete instead (flip status to 'deleted', keep the row and
+    // its photos) when there's payment history to protect. Only a property
+    // with zero escrow history is actually hard-deleted.
+    //
+    // Kept in this same function, not a separate file, because Vercel's
+    // Hobby plan caps a deployment at 12 serverless functions — merging
+    // this in keeps us under that limit instead of adding a 13th route.
     if (action === 'delete') {
       if (!id) return res.status(400).json({ error: 'Missing property id' });
+
+      const escrowCheckResp = await fetch(
+        `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?property_id=eq.${id}&select=id&limit=1`,
+        { headers }
+      );
+      const escrowRows = escrowCheckResp.ok ? await escrowCheckResp.json() : [];
+      const hasEscrowHistory = escrowRows.length > 0;
+
+      if (hasEscrowHistory) {
+        const softDeleteResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: { ...headers, Prefer: 'return=minimal' },
+          body: JSON.stringify({ status: 'deleted' }),
+        });
+        if (!softDeleteResp.ok) {
+          const err = await softDeleteResp.text();
+          return res.status(400).json({ error: err });
+        }
+        return res.status(200).json({ success: true, soft_deleted: true });
+      }
 
       const propResp = await fetch(
         `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}&select=photo_urls`,
@@ -89,6 +117,20 @@ export default async function handler(req, res) {
       });
       if (!deleteResp.ok) {
         const err = await deleteResp.text();
+        // Defensive fallback: if something still references this property
+        // despite the check above (a narrow race, or a future FK we didn't
+        // anticipate), don't leave the admin stuck on a raw Postgres error —
+        // fall back to the same soft-delete instead of failing outright.
+        if (/foreign key|violates|23503/i.test(err)) {
+          const softDeleteResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { ...headers, Prefer: 'return=minimal' },
+            body: JSON.stringify({ status: 'deleted' }),
+          });
+          if (softDeleteResp.ok) {
+            return res.status(200).json({ success: true, soft_deleted: true });
+          }
+        }
         return res.status(400).json({ error: err });
       }
 
