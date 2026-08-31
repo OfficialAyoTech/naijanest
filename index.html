@@ -620,7 +620,17 @@ Want to know more about how we verify listings, or would you rather jump into a 
 ---END OF EXAMPLES---`; }
 
 let history=[], selectedProp=null, schedState={};
-function fmt(p){return '₦'+(p/1000).toFixed(0)+'k/yr'}
+function fmt(p){
+  const n = Number(p) || 0;
+  // Amounts under ₦1,000 would round to "0k" under the k-abbreviation
+  // below (e.g. ₦300 / 1000 = 0.3 → "0"), which reads as a broken price
+  // rather than a real one. Real Nigerian rents are always well above this
+  // threshold, so this only matters for small test/edge values — but
+  // showing the exact figure instead of a wrong ₦0 costs nothing and
+  // removes the failure mode entirely.
+  if (n < 1000) return '₦' + Math.round(n).toLocaleString() + '/yr';
+  return '₦'+(n/1000).toFixed(0)+'k/yr';
+}
 function fmtFull(n){ return '₦' + Number(n).toLocaleString(); }
 function escHtml(str){
   if(str===null||str===undefined) return '';
@@ -642,15 +652,6 @@ function showLanding(){
   return false;
 }
 
-// Opens a property's detail overlay directly from the landing page grid,
-// bypassing the AI chat entirely. openDetail()'s overlay lives inside
-// #app/#appPage and needs that container visible to position correctly
-// (same constraint as openFAQ/openChatHistory below), so this still calls
-// showApp() first — but unlike clicking "Chat with AI to search", the user
-// lands straight on the property they clicked, not an empty chat.
-// detailOpenedFromLanding remembers this so closeDetail() (the overlay's
-// back arrow) can return the user to the landing page they actually came
-// from, instead of dropping them into the chat screen underneath.
 let detailOpenedFromLanding = false;
 function openPropertyFromLanding(id){
   detailOpenedFromLanding = true;
@@ -829,11 +830,6 @@ async function loadMyEscrow(force){
   return MY_ESCROW;
 }
 
-// Formats how long is left until confirm_deadline, in hours/minutes — the
-// release buffer is now a single day (24h), not the old 7-day window, so a
-// coarser "days left" countdown would be far less useful over such a short
-// span. Renters don't need to do anything for this to release; this is
-// purely informational.
 function timeUntilRelease(deadlineIso){
   if(!deadlineIso) return null;
   const msLeft = new Date(deadlineIso) - new Date();
