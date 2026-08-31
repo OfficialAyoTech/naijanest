@@ -82,13 +82,10 @@
   <div class="page-title">My Listings</div>
   <div class="page-sub">Track the review status of properties you've submitted.</div>
 
-  <!-- Moved above the listings list per Dave's request: payout details and
-       rent payment status matter as much as (arguably more than, once a
-       tenant has actually paid) the listing review status, so they now sit
-       at the same "top level" prominence instead of requiring a scroll past
-       every listing card to find them. -->
-  <div id="payoutSection"></div>
-  <div id="escrowSection"></div>
+  <!-- "Rent payments I've made" (as a renter) isn't tied to your own
+       listings, so it stays up here, separate from the landlord-side
+       management stuff below. -->
+  <div id="escrowMadeSection"></div>
 
   <div id="content">
     <div class="login-gate">
@@ -148,12 +145,20 @@ function selectListingsTab(tab){
   renderListingsList();
 }
 
+// Payout details and "Rent payments received" both live alongside the
+// "List another property" button here (per Dave's request), so every time
+// this rebuilds #content — including on tab switches — we recreate their
+// placeholder containers and repopulate them.
 function renderListingsList(){
   const content = document.getElementById('content');
   if(!MY_PROPERTIES.length){
     content.innerHTML = `
       <a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List a property</a>
+      <div id="payoutSection"></div>
+      <div id="escrowReceivedSection"></div>
       <div class="empty-state">You haven't submitted any listings yet.</div>`;
+    renderPayoutSection();
+    renderEscrowReceivedSection();
     return;
   }
 
@@ -192,9 +197,13 @@ function renderListingsList(){
       }).join('');
 
   content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List another property</a>
+    <div id="payoutSection"></div>
+    <div id="escrowReceivedSection"></div>
     <div id="paymentBanner"></div>
     ${tabsHtml}
     ${listHtml}`;
+  renderPayoutSection();
+  renderEscrowReceivedSection();
 }
 
 async function featureListing(propertyId){
@@ -236,7 +245,7 @@ async function checkPaymentReturn(){
       if(banner) banner.innerHTML = `<div style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">❌ ${escapeHtml(data.error||'Payment was not completed')}</div>`;
     }
     await render();
-    await renderEscrowSection();
+    await refreshEscrowSections();
   }catch(e){
     if(banner) banner.innerHTML = `<div style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px">Could not confirm payment — contact support if you were charged.</div>`;
   }
@@ -343,12 +352,31 @@ function escrowStatusLabel(row){
   }
 }
 
-async function renderEscrowSection(){
-  const el = document.getElementById('escrowSection');
-  if(!el) return;
-  if(!NaijaAuth.isLoggedIn()){ el.innerHTML = ''; return; }
+let ESCROW_ROWS = [];
 
-  let rows = [];
+function escrowRowHtml(r, isRenter){
+  const {text, color} = escrowStatusLabel(r);
+  const hasReceipt = !['pending_payment','payment_failed'].includes(r.status);
+  const actions = (isRenter && r.status === 'funded') ? `
+    <div class="escrow-actions">
+      <button class="btn-confirm" onclick="mlConfirmMoveIn('${r.id}')">✅ Confirm move-in</button>
+      <button class="btn-dispute" onclick="mlRaiseDispute('${r.id}')">🚩 Report a problem</button>
+    </div>` : '';
+  const receiptBtn = hasReceipt
+    ? `<button class="receipt-btn" onclick="openMlReceipt('${r.id}')">🧾 View Payment Receipt</button>` : '';
+  return `<div class="card">
+    <div class="escrow-status" style="color:${color}">${text}</div>
+    <div class="escrow-meta">${fmt(r.total_amount / 100)} total · ${new Date(r.created_at).toLocaleDateString()}</div>
+    ${actions}
+    ${receiptBtn}
+  </div>`;
+}
+
+// Fetches escrow rows for the signed-in user and caches them in ESCROW_ROWS.
+// Kept separate from rendering so tab switches (which rebuild #content and
+// therefore #escrowReceivedSection) can repaint from cache without refetching.
+async function fetchEscrowRows(){
+  if(!NaijaAuth.isLoggedIn()){ ESCROW_ROWS = []; window.__myUserId = null; return; }
   try{
     const access_token = await NaijaAuth.getAccessToken();
     const resp = await fetch('/api/paystack-verify', {
@@ -356,42 +384,42 @@ async function renderEscrowSection(){
       body: JSON.stringify({ action: 'my_escrow', access_token })
     });
     const data = await resp.json();
-    rows = data.escrow || [];
+    ESCROW_ROWS = data.escrow || [];
     window.__myUserId = data.user_id;
-  }catch(e){}
-
-  ESCROW_ROWS = rows;
-  if(!rows.length){ el.innerHTML = ''; return; }
-
-  const paid = rows.filter(r => r.renter_id === window.__myUserId);
-  const received = rows.filter(r => r.landlord_id === window.__myUserId);
-
-  const hasReceipt = r => !['pending_payment','payment_failed'].includes(r.status);
-
-  const rowHtml = (r, isRenter) => {
-    const {text, color} = escrowStatusLabel(r);
-    const actions = (isRenter && r.status === 'funded') ? `
-      <div class="escrow-actions">
-        <button class="btn-confirm" onclick="mlConfirmMoveIn('${r.id}')">✅ Confirm move-in</button>
-        <button class="btn-dispute" onclick="mlRaiseDispute('${r.id}')">🚩 Report a problem</button>
-      </div>` : '';
-    const receiptBtn = hasReceipt(r)
-      ? `<button class="receipt-btn" onclick="openMlReceipt('${r.id}')">🧾 View Payment Receipt</button>` : '';
-    return `<div class="card">
-      <div class="escrow-status" style="color:${color}">${text}</div>
-      <div class="escrow-meta">${fmt(r.total_amount / 100)} total · ${new Date(r.created_at).toLocaleDateString()}</div>
-      ${actions}
-      ${receiptBtn}
-    </div>`;
-  };
-
-  el.innerHTML = `
-    ${paid.length ? `<div class="section-title">Rent payments I've made</div>${paid.map(r=>rowHtml(r,true)).join('')}` : ''}
-    ${received.length ? `<div class="section-title">Rent payments received</div>${received.map(r=>rowHtml(r,false)).join('')}` : ''}
-  `;
+  }catch(e){
+    ESCROW_ROWS = [];
+  }
 }
 
-let ESCROW_ROWS = [];
+// "Rent payments I've made" — renter side, lives in the standalone
+// #escrowMadeSection near the top of the page.
+function renderEscrowMadeSection(){
+  const el = document.getElementById('escrowMadeSection');
+  if(!el) return;
+  const paid = ESCROW_ROWS.filter(r => r.renter_id === window.__myUserId);
+  el.innerHTML = paid.length
+    ? `<div class="section-title">Rent payments I've made</div>${paid.map(r=>escrowRowHtml(r,true)).join('')}`
+    : '';
+}
+
+// "Rent payments received" — landlord side, lives inside #content next to
+// the "List another property" button and payout details.
+function renderEscrowReceivedSection(){
+  const el = document.getElementById('escrowReceivedSection');
+  if(!el) return;
+  const received = ESCROW_ROWS.filter(r => r.landlord_id === window.__myUserId);
+  el.innerHTML = received.length
+    ? `<div class="section-title">Rent payments received</div>${received.map(r=>escrowRowHtml(r,false)).join('')}`
+    : '';
+}
+
+// Full refresh: refetch escrow rows, then repaint both sections wherever
+// their containers currently exist in the DOM.
+async function refreshEscrowSections(){
+  await fetchEscrowRows();
+  renderEscrowMadeSection();
+  renderEscrowReceivedSection();
+}
 
 function ensureReceiptModal(){
   if(document.getElementById('mlReceiptOverlay')) return;
@@ -470,7 +498,7 @@ async function mlConfirmMoveIn(escrowId){
     });
     const data = await resp.json();
     if(!data.success) throw new Error(data.error || 'Could not confirm');
-    await renderEscrowSection();
+    await refreshEscrowSections();
   }catch(e){ alert('Could not confirm move-in: ' + e.message); }
 }
 
@@ -485,7 +513,7 @@ async function mlRaiseDispute(escrowId){
     });
     const data = await resp.json();
     if(!data.success) throw new Error(data.error || 'Could not submit report');
-    await renderEscrowSection();
+    await refreshEscrowSections();
     alert('Reported. Our team will review and reach out.');
   }catch(e){ alert('Could not submit report: ' + e.message); }
 }
@@ -495,12 +523,16 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-function init(){
+async function init(){
   NaijaAuth.renderAccountButton(document.getElementById('acctBtn'));
-  NaijaAuth.onChange(()=>{ render(); renderPayoutSection(); renderEscrowSection(); });
-  loadFeaturedPricing().then(render);
-  renderPayoutSection();
-  renderEscrowSection().then(checkPaymentReturn);
+  NaijaAuth.onChange(async ()=>{
+    await refreshEscrowSections();
+    await render();
+  });
+  await loadFeaturedPricing();
+  await refreshEscrowSections();
+  await render();
+  checkPaymentReturn();
 }
 document.addEventListener('DOMContentLoaded', init);
 if(document.readyState !== 'loading') init();
