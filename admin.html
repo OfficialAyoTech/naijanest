@@ -142,6 +142,7 @@
       <button class="main-tab" onclick="showView('support',this)">📩 Support<span id="supportBadge"></span></button>
       <button class="main-tab" onclick="showView('faq',this)">❓ FAQ</button>
       <button class="main-tab" onclick="showView('policy',this)">📄 Payment Policy</button>
+      <button class="main-tab" onclick="showView('privacy',this)">🔒 Privacy Policy</button>
       <button class="main-tab" onclick="showView('payments',this)">💳 Payments<span id="paymentsBadge"></span></button>
       <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
     </div>
@@ -279,7 +280,22 @@
       </div>
     </div>
 
-    <!-- PAYMENTS (all escrow, regardless of status) -->
+    <!-- PRIVACY POLICY (public-facing — same admin-editable pattern as
+         Payment Policy above, its own site_content key) -->
+    <div class="view" id="view-privacy">
+      <div class="city-breakdown" style="margin-bottom:1rem">
+        <h3>Privacy Policy — editable content</h3>
+        <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
+          Same lightweight markup as Payment Policy: <code>## </code> for a heading, <code>- </code> for a bullet, <code>1. </code> for a numbered list, <code>&gt; </code> for a highlighted callout box, <code>**text**</code> for bold, and <code>[link text](https://...)</code> for a link. Blank line between paragraphs. Goes live immediately on save.
+        </p>
+        <textarea id="privacyHtml" style="width:100%;min-height:400px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:13.5px;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;resize:vertical;white-space:pre-wrap" spellcheck="true"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+          <span id="privacyLastUpdated" style="font-size:11px;color:var(--text-sec)"></span>
+          <button class="approve-btn" style="flex:none;padding:8px 18px" onclick="savePrivacyContent()">Save</button>
+        </div>
+        <div id="privacyResult" style="font-size:12.5px;margin-top:8px"></div>
+      </div>
+    </div>
     <div class="view" id="view-payments">
 <div class="city-breakdown" style="margin-bottom:1rem">
   <h3>⭐ Featured listing pricing</h3>
@@ -646,6 +662,7 @@ async function loadData() {
     renderSupport();
     renderFaq();
     renderPolicyEditor();
+    renderPrivacyEditor();
     renderFeaturedPricingEditor();
     updateSubmissionsBadge();
     updateWaitlistBadge();
@@ -1167,6 +1184,101 @@ function renderPolicyEditor(){
     lastUpdatedEl.textContent = entry
       ? `Last saved: ${new Date(entry.updated_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}`
       : 'Not yet customized — showing current live content. Edit and hit Save to take control of it.';
+  }
+}
+
+// Draft privacy policy content — NOT reviewed by a lawyer. Written to be
+// NDPA-2023-aware (Nigeria Data Protection Act, enforced by the NDPC) given
+// what NaijaNest actually collects (NIN, bank details, phone numbers, chat
+// messages), but Dave should have this reviewed before relying on it as an
+// actual legal document, same as the payment policy above.
+const DEFAULT_PRIVACY_HTML = `## Who we are
+NaijaNest is operated by AyoTech Innovations Hub ("NaijaNest", "we", "us"). This policy explains what personal data we collect, why we collect it, and how we protect it, in line with the Nigeria Data Protection Act 2023 (NDPA).
+
+## Information we collect
+- **Contact details** — your name, WhatsApp number, and email address (if provided).
+- **Identity information** — your National Identification Number (NIN), collected from landlords and agents to verify listings and reduce fraud. It is encrypted before storage and only decrypted for admin review.
+- **Financial information** — bank account details (account number, bank name, account holder name) used to pay rent out to landlords. These are verified and processed through Paystack, a licensed payment processor — we never see or store your card details.
+- **Listing information** — property details, location, photos, and pricing you submit.
+- **Communications** — messages you send through our AI chat assistant or WhatsApp.
+- **Usage information** — your IP address and basic device information, used to keep the platform secure and understand how it's used.
+
+## How we use your information
+- To connect tenants with landlords and verified listings.
+- To process rental payments securely and release funds according to our published payment policy.
+- To verify landlord identity and reduce fraudulent listings.
+- To send you updates about your listing, payment, or booking via WhatsApp.
+- To respond to support requests and investigate reported issues.
+- To improve NaijaNest's features and prevent abuse of the platform.
+
+## Legal basis for processing
+We process your personal data because it is necessary to provide the service you have asked for (finding or listing a rental property), to comply with our legal obligations, or because you have given us consent — for example, when you submit your NIN as part of listing a property.
+
+## Who we share your information with
+- **Paystack** — to process and verify payments and payouts.
+- **Meta / WhatsApp** — to deliver the notifications you receive about your listings and payments.
+- **Groq** — to power our AI chat assistant. Only the message you send is processed, not your account details.
+
+We do not sell your personal data to third parties.
+
+## How we protect your information
+- Your NIN is encrypted using AES-256-GCM before it is stored.
+- Bank details are handled through Paystack's secure infrastructure.
+- Access to personal data is limited to authorized NaijaNest staff.
+- We monitor our systems for errors and security issues on an ongoing basis.
+
+> In the unlikely event of a data breach that affects you, we will notify you and the Nigeria Data Protection Commission (NDPC) as required by law.
+
+## How long we keep your information
+We keep your information for as long as your account or listing is active, and for a reasonable period afterward to meet legal, tax, and dispute-resolution obligations.
+
+## Your rights
+Under the NDPA, you have the right to:
+- Know what personal data we hold about you.
+- Request a copy of your data.
+- Ask us to correct inaccurate data.
+- Ask us to delete your data, where we are not legally required to keep it.
+- Object to certain uses of your data.
+- Withdraw consent at any time, though this may affect features that depend on it — such as your NIN and listing verification.
+
+To exercise any of these rights, contact us at [ayotechinnovation9@gmail.com](mailto:ayotechinnovation9@gmail.com).
+
+## Changes to this policy
+We may update this policy as NaijaNest grows. We will update the date below whenever we do.
+
+> This policy is provided for transparency and is being developed alongside NaijaNest as we grow. It has not yet been reviewed by a lawyer, and NDPA compliance is an ongoing process for us, not a one-time checkbox. If you have concerns about how your data is handled, please contact us directly.`;
+
+function renderPrivacyEditor(){
+  const textarea = document.getElementById('privacyHtml');
+  if (!textarea) return;
+  const entry = allSiteContent.find(c => c.key === 'privacy_policy');
+  textarea.value = entry ? entry.html : DEFAULT_PRIVACY_HTML;
+  const lastUpdatedEl = document.getElementById('privacyLastUpdated');
+  if (lastUpdatedEl) {
+    lastUpdatedEl.textContent = entry
+      ? `Last saved: ${new Date(entry.updated_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}`
+      : 'Not yet customized — showing a starting draft. Edit and hit Save to publish it.';
+  }
+}
+
+async function savePrivacyContent(){
+  const html = document.getElementById('privacyHtml').value;
+  const resultEl = document.getElementById('privacyResult');
+  resultEl.textContent = '';
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'update_site_content', key: 'privacy_policy', html })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not save');
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✅ Saved — live on the public page now.';
+    await loadData();
+  } catch(e) {
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Error: ' + e.message;
   }
 }
 
