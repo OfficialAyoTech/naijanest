@@ -392,16 +392,10 @@ let qaPhotoUrls = [];
 // NEW tags before you've had a chance to see them.
 let waitlistSessionLastSeen = null;
 
-// Tracks which waitlist contacts have already been sent a bulk WhatsApp
-// message, and when — so Dave can tell who still needs a first message vs.
-// who's a candidate for a reminder. Stored client-side (per browser), keyed
-// by waitlist id: { [id]: { at: isoTimestamp, text: messagePreview } }
-let wlMessageLog = {};
-try { wlMessageLog = JSON.parse(localStorage.getItem('naAdmin_wlMessageLog') || '{}'); } catch(e) { wlMessageLog = {}; }
-
-function saveWlMessageLog(){
-  localStorage.setItem('naAdmin_wlMessageLog', JSON.stringify(wlMessageLog));
-}
+// "Messaged" status now comes straight from the waitlist table
+// (last_messaged_at / last_message_text, set by bulk_message_waitlist in
+// admin-data.js) instead of browser-local storage — so it's consistent no
+// matter which device or browser you're checking the dashboard from.
 
 function formatWlDate(iso){
   const d = new Date(iso);
@@ -1434,8 +1428,8 @@ function toggleSelectAllWaitlist(checkbox){
   const filtered = allWaitlist.filter(w => {
     const matchesSearch = !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q);
     if (!matchesSearch) return false;
-    if (msgFilter === 'unmessaged') return !wlMessageLog[w.id];
-    if (msgFilter === 'messaged') return !!wlMessageLog[w.id];
+    if (msgFilter === 'unmessaged') return !w.last_messaged_at;
+    if (msgFilter === 'messaged') return !!w.last_messaged_at;
     return true;
   });
   if (checkbox.checked) {
@@ -1481,16 +1475,20 @@ async function sendBulkWaitlistMessage(){
     resultEl.innerHTML = `✅ Sent to ${data.sent} of ${data.total}.` +
       (data.failed_count ? `<br>⚠️ ${data.failed_count} failed: ${data.failed.map(f=>escapeHtml(f.name||f.id)).join(', ')}` : '');
 
-    // Log a "messaged" mark for everyone who didn't fail, so the list can
-    // show who's already been contacted (and when) for reminder purposes.
+    // admin-data.js already persisted last_messaged_at/last_message_text
+    // server-side for everyone who succeeded — update our local copy too so
+    // the list reflects it immediately without a full reload.
     const failedIds = new Set((data.failed || []).map(f => String(f.id)));
     const sentAt = new Date().toISOString();
     ids.forEach(id => {
       if (!failedIds.has(String(id))) {
-        wlMessageLog[id] = { at: sentAt, text: message.slice(0, 120) };
+        const entry = allWaitlist.find(w => String(w.id) === String(id));
+        if (entry) {
+          entry.last_messaged_at = sentAt;
+          entry.last_message_text = message.slice(0, 500);
+        }
       }
     });
-    saveWlMessageLog();
 
     selectedWaitlistIds.clear();
     const selectAllBox = document.getElementById('wlSelectAll');
@@ -1511,8 +1509,8 @@ function renderWaitlist() {
   const filtered = allWaitlist.filter(w => {
     const matchesSearch = !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q);
     if (!matchesSearch) return false;
-    if (msgFilter === 'unmessaged') return !wlMessageLog[w.id];
-    if (msgFilter === 'messaged') return !!wlMessageLog[w.id];
+    if (msgFilter === 'unmessaged') return !w.last_messaged_at;
+    if (msgFilter === 'messaged') return !!w.last_messaged_at;
     return true;
   });
 
@@ -1526,9 +1524,8 @@ function renderWaitlist() {
   if (!filtered.length) { list.innerHTML = '<div class="empty">No waitlist entries found</div>'; return; }
   list.innerHTML = filtered.map(w => {
     const isNew = w.created_at && waitlistSessionLastSeen && new Date(w.created_at) > new Date(waitlistSessionLastSeen);
-    const msg = wlMessageLog[w.id];
-    const msgLine = msg
-      ? `<div class="wl-meta" style="color:var(--green)" title="${escapeHtml(msg.text||'')}">✉️ Messaged ${formatWlDate(msg.at)}</div>`
+    const msgLine = w.last_messaged_at
+      ? `<div class="wl-meta" style="color:var(--green)" title="${escapeHtml(w.last_message_text||'')}">✉️ Messaged ${formatWlDate(w.last_messaged_at)}</div>`
       : `<div class="wl-meta" style="color:#d97706">✉️ Not yet messaged</div>`;
     return `
     <div class="wl-card" style="align-items:flex-start">
