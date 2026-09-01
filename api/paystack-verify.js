@@ -178,6 +178,19 @@ async function runAutoReleaseSweep(res) {
         results.push({ id: escrow.id, ok: false, deferred: true });
         continue;
       }
+      if (e.noBankDetails) {
+        // Expected and actionable only by the landlord, not a code bug —
+        // and will fail identically every 15 minutes until they add bank
+        // details. Logged/alerted at most once per escrow per 24h instead
+        // of on every sweep; the retry above still runs every single cycle
+        // regardless, so the payout still completes automatically the
+        // moment they add their details — this only quiets the repeat
+        // logging/alerting, not the retry itself.
+        console.log(`auto-release deferred for escrow ${escrow.id} — landlord has no bank details on file, will retry`);
+        await logError(`escrow-auto-release:${escrow.id}`, e, { windowMinutes: 24 * 60, skipDuplicateLog: true });
+        results.push({ id: escrow.id, ok: false, deferred: true, reason: 'no_bank_details' });
+        continue;
+      }
       console.error(`auto-release failed for escrow ${escrow.id}:`, e.message);
       await logError('escrow-auto-release', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
       results.push({ id: escrow.id, ok: false, error: e.message });
