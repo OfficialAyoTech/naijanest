@@ -370,6 +370,11 @@ async function updateSiteContent(req, res, serviceKey) {
 // messaging many people back-to-back; a failed send for one person never
 // stops the rest.
 //
+// After sending, everyone who actually received the message gets
+// last_messaged_at / last_message_text stamped on their waitlist row, so
+// the admin dashboard can show who's already been contacted (and when) and
+// let Dave pick reminder targets without relying on browser-local state.
+//
 // NOTE: while WHATSAPP_PHONE_NUMBER_ID is still on Meta's test tier, this
 // will only actually deliver to numbers pre-approved as test recipients —
 // everything else gets rejected by the WhatsApp API (visible in the
@@ -408,6 +413,7 @@ async function bulkMessageWaitlist(req, res, serviceKey) {
 
   let sent = 0;
   const failed = [];
+  const succeededIds = [];
   for (const r of recipients) {
     if (!r.whatsapp) {
       failed.push({ id: r.id, name: r.name, reason: 'No WhatsApp number on file' });
@@ -416,11 +422,28 @@ async function bulkMessageWaitlist(req, res, serviceKey) {
     const ok = await notifyWhatsApp(r.whatsapp, r.name, trimmedMessage);
     if (ok) {
       sent++;
+      succeededIds.push(r.id);
     } else {
       failed.push({ id: r.id, name: r.name, reason: 'WhatsApp API rejected the message — see Metrics > Recent errors' });
     }
     // Stay well under WhatsApp Cloud API's send-rate limits.
     await new Promise(resolveDelay => setTimeout(resolveDelay, 300));
+  }
+
+  if (succeededIds.length) {
+    try {
+      await fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?id=in.(${succeededIds.join(',')})`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({
+          last_messaged_at: new Date().toISOString(),
+          last_message_text: trimmedMessage.slice(0, 500),
+        }),
+      });
+    } catch (e) {
+      console.error('bulkMessageWaitlist: failed to record last_messaged_at:', e.message);
+      // Non-fatal — the messages already went out; this just means the
+      // "messaged" status won't show until the next successful stamp.
+    }
   }
 
   return res.status(200).json({
