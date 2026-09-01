@@ -175,7 +175,14 @@
 
     <!-- WAITLIST -->
     <div class="view" id="view-waitlist">
-      <input type="text" class="search-input" id="wlSearch" placeholder="Search by name, WhatsApp, or city..." oninput="renderWaitlist()"/>
+      <div style="display:flex;gap:8px;margin-bottom:1rem">
+        <input type="text" class="search-input" id="wlSearch" placeholder="Search by name, WhatsApp, or city..." oninput="renderWaitlist()" style="margin-bottom:0;flex:1"/>
+        <select id="wlMsgFilter" onchange="renderWaitlist()" style="height:38px;border:0.5px solid var(--border);border-radius:var(--radius);padding:0 10px;font-size:13px;background:#fff;color:var(--text)">
+          <option value="all">All</option>
+          <option value="unmessaged">Not yet messaged</option>
+          <option value="messaged">Already messaged</option>
+        </select>
+      </div>
 
       <div class="city-breakdown" style="margin-bottom:1rem">
         <h3>📣 Bulk WhatsApp outreach</h3>
@@ -377,6 +384,34 @@ let allFaq = [];
 let allSiteContent = [];
 let currentFilter = 'pending';
 let qaPhotoUrls = [];
+
+// Captured once per loadData() (i.e. per login/refresh), from the *previous*
+// session's "last seen" marker — used to flag waitlist rows as 🆕 NEW for
+// the duration of this session. The marker itself only advances at the end
+// of loadData(), not on tab clicks, so switching tabs doesn't wipe the
+// NEW tags before you've had a chance to see them.
+let waitlistSessionLastSeen = null;
+
+// Tracks which waitlist contacts have already been sent a bulk WhatsApp
+// message, and when — so Dave can tell who still needs a first message vs.
+// who's a candidate for a reminder. Stored client-side (per browser), keyed
+// by waitlist id: { [id]: { at: isoTimestamp, text: messagePreview } }
+let wlMessageLog = {};
+try { wlMessageLog = JSON.parse(localStorage.getItem('naAdmin_wlMessageLog') || '{}'); } catch(e) { wlMessageLog = {}; }
+
+function saveWlMessageLog(){
+  localStorage.setItem('naAdmin_wlMessageLog', JSON.stringify(wlMessageLog));
+}
+
+function formatWlDate(iso){
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays <= 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
 
 
 // Nigeria's 36 states + FCT with their official LGAs — same source data as
@@ -597,6 +632,10 @@ async function loadData() {
     allSupportMessages = data.support || [];
     allSiteContent = data.siteContent || [];
 
+    // Snapshot the previous "last seen" marker BEFORE we touch it, so this
+    // session's renders can flag anything newer as 🆕 NEW.
+    waitlistSessionLastSeen = getOrInitLastSeen('waitlist');
+
     document.getElementById('loginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     document.getElementById('logoutBtn').style.display = 'inline-block';
@@ -617,6 +656,12 @@ async function loadData() {
     updateSubmissionsBadge();
     updateWaitlistBadge();
     updatePaymentsBadge();
+
+    // Now that this session has rendered everything using the old marker,
+    // advance it for next time. Deliberately done at refresh/login time —
+    // not on tab clicks — so NEW tags survive normal browsing this session.
+    markSeen('waitlist');
+
     return true;
   } catch (e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -654,8 +699,7 @@ function updateSubmissionsBadge(){
 function updateWaitlistBadge(){
   const badge = document.getElementById('waitlistBadge');
   if (!badge) return;
-  const lastSeen = getOrInitLastSeen('waitlist');
-  const count = allWaitlist.filter(w => w.created_at && new Date(w.created_at) > new Date(lastSeen)).length;
+  const count = allWaitlist.filter(w => w.created_at && new Date(w.created_at) > new Date(waitlistSessionLastSeen)).length;
   badge.textContent = count ? ` (${count})` : '';
 }
 
@@ -1300,7 +1344,6 @@ function showView(name, el) {
   el.classList.add('active');
   document.getElementById('view-' + name).classList.add('active');
 
-  if (name === 'waitlist') { markSeen('waitlist'); updateWaitlistBadge(); }
   if (name === 'payments') { markSeen('payments'); updatePaymentsBadge(); }
 }
 
@@ -1387,9 +1430,14 @@ let selectedWaitlistIds = new Set();
 
 function toggleSelectAllWaitlist(checkbox){
   const q = (document.getElementById('wlSearch').value || '').toLowerCase();
-  const filtered = allWaitlist.filter(w =>
-    !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q)
-  );
+  const msgFilter = document.getElementById('wlMsgFilter') ? document.getElementById('wlMsgFilter').value : 'all';
+  const filtered = allWaitlist.filter(w => {
+    const matchesSearch = !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+    if (msgFilter === 'unmessaged') return !wlMessageLog[w.id];
+    if (msgFilter === 'messaged') return !!wlMessageLog[w.id];
+    return true;
+  });
   if (checkbox.checked) {
     filtered.forEach(w => selectedWaitlistIds.add(w.id));
   } else {
@@ -1432,6 +1480,18 @@ async function sendBulkWaitlistMessage(){
     resultEl.style.color = data.failed_count ? '#d97706' : 'var(--green)';
     resultEl.innerHTML = `✅ Sent to ${data.sent} of ${data.total}.` +
       (data.failed_count ? `<br>⚠️ ${data.failed_count} failed: ${data.failed.map(f=>escapeHtml(f.name||f.id)).join(', ')}` : '');
+
+    // Log a "messaged" mark for everyone who didn't fail, so the list can
+    // show who's already been contacted (and when) for reminder purposes.
+    const failedIds = new Set((data.failed || []).map(f => String(f.id)));
+    const sentAt = new Date().toISOString();
+    ids.forEach(id => {
+      if (!failedIds.has(String(id))) {
+        wlMessageLog[id] = { at: sentAt, text: message.slice(0, 120) };
+      }
+    });
+    saveWlMessageLog();
+
     selectedWaitlistIds.clear();
     const selectAllBox = document.getElementById('wlSelectAll');
     if (selectAllBox) selectAllBox.checked = false;
@@ -1447,9 +1507,14 @@ async function sendBulkWaitlistMessage(){
 
 function renderWaitlist() {
   const q = (document.getElementById('wlSearch').value || '').toLowerCase();
-  const filtered = allWaitlist.filter(w =>
-    !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q)
-  );
+  const msgFilter = document.getElementById('wlMsgFilter') ? document.getElementById('wlMsgFilter').value : 'all';
+  const filtered = allWaitlist.filter(w => {
+    const matchesSearch = !q || (w.name||'').toLowerCase().includes(q) || (w.whatsapp||'').toLowerCase().includes(q) || (w.city||'').toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+    if (msgFilter === 'unmessaged') return !wlMessageLog[w.id];
+    if (msgFilter === 'messaged') return !!wlMessageLog[w.id];
+    return true;
+  });
 
   const countEl = document.getElementById('wlFilteredCount');
   if (countEl) countEl.textContent = filtered.length;
@@ -1459,17 +1524,25 @@ function renderWaitlist() {
 
   const list = document.getElementById('waitlistList');
   if (!filtered.length) { list.innerHTML = '<div class="empty">No waitlist entries found</div>'; return; }
-  list.innerHTML = filtered.map(w => `
-    <div class="wl-card">
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="checkbox" ${selectedWaitlistIds.has(w.id)?'checked':''} onchange="toggleWaitlistRecipient(${w.id}, this.checked)"/>
-        <div>
-          <div class="wl-name">${escapeHtml(w.name)}</div>
+  list.innerHTML = filtered.map(w => {
+    const isNew = w.created_at && waitlistSessionLastSeen && new Date(w.created_at) > new Date(waitlistSessionLastSeen);
+    const msg = wlMessageLog[w.id];
+    const msgLine = msg
+      ? `<div class="wl-meta" style="color:var(--green)" title="${escapeHtml(msg.text||'')}">✉️ Messaged ${formatWlDate(msg.at)}</div>`
+      : `<div class="wl-meta" style="color:#d97706">✉️ Not yet messaged</div>`;
+    return `
+    <div class="wl-card" style="align-items:flex-start">
+      <div style="display:flex;align-items:flex-start;gap:10px;min-width:0">
+        <input type="checkbox" style="margin-top:2px" ${selectedWaitlistIds.has(w.id)?'checked':''} onchange="toggleWaitlistRecipient(${w.id}, this.checked)"/>
+        <div style="min-width:0">
+          <div class="wl-name">${escapeHtml(w.name)} ${isNew ? '<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:#dcfce7;color:#16a34a;font-weight:600;margin-left:4px;vertical-align:middle">🆕 NEW</span>' : ''}</div>
           <div class="wl-meta">${escapeHtml(w.whatsapp)} · ${escapeHtml(w.city)}</div>
+          ${msgLine}
         </div>
       </div>
       <span class="wl-role">${escapeHtml(w.role)||'—'}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function updateProp(id, status) {
