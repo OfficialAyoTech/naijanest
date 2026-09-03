@@ -52,6 +52,7 @@
   .success-title{font-size:16px;font-weight:600;color:var(--green);margin-bottom:6px}
   .success-sub{font-size:13px;color:#2d7a4a}
   .note{font-size:12px;color:var(--text-sec);background:var(--surface);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;border-left:3px solid var(--green)}
+  .note a{color:var(--green);font-weight:600;text-decoration:underline}
   .verify-btn{padding:0 12px;height:32px;background:var(--white);color:var(--green);border:0.5px solid var(--green);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .verify-btn:disabled{opacity:0.5;cursor:default}
   .verify-ok{font-size:12px;color:var(--green);font-weight:600;display:flex;align-items:center;gap:5px}
@@ -247,6 +248,8 @@
 
     <div class="card-title" style="font-size:13px;margin:16px 0 12px"><i class="ti ti-user"></i> Your Details (Landlord / Agent)</div>
 
+    <div class="note">🔒 We only collect your NIN for identity verification, and your bank details (added later from "My Listings") only when you're ready to receive rent payouts. Neither is ever shown publicly. See our <a href="privacy.html" target="_blank">Privacy Policy</a> for exactly how this information is stored and used.</div>
+
     <div class="field">
       <label>Full name</label>
       <input type="text" id="landlord_name" placeholder="e.g. Chukwuemeka Obi"/>
@@ -267,7 +270,7 @@
       <input type="text" id="nin_number" placeholder="Your 11-digit NIN for verification"/>
     </div>
 
-    <div class="note">🔒 Your NIN is used only for verification. It will never be shown publicly.</div>
+    <div class="note">🔒 Your NIN is used only for verification. It will never be shown publicly. Full details in our <a href="privacy.html" target="_blank">Privacy Policy</a>.</div>
 
     <button class="submit-btn" id="submitBtn" onclick="submitProperty()">Submit Property for Review</button>
   </div>
@@ -279,7 +282,7 @@
     <a href="index.html" style="display:inline-block;margin-top:1rem;padding:10px 20px;background:var(--green);color:#fff;border-radius:var(--radius);text-decoration:none;font-size:13.5px">Back to NaijaNest</a>
   </div>
 
-  <div class="note" style="text-align:center;border-left:none;background:none">Need help? <a href="contact.html" style="color:var(--green);font-weight:600">Contact support</a></div>
+  <div class="note" style="text-align:center;border-left:none;background:none">Need help? <a href="contact.html" style="color:var(--green);font-weight:600">Contact support</a> · <a href="privacy.html" style="color:var(--green);font-weight:600">Privacy policy</a></div>
 </div>
 
 <script>
