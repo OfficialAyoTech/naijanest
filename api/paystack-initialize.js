@@ -72,6 +72,31 @@ async function getFeaturedPricing(serviceKey) {
   }
 }
 
+// Reads the admin-configurable NaijaNest platform fee (% of rent) from
+// site_content (key: platform_fee_percent, html: JSON string like
+// '{"percent":5}'), same pattern as getFeaturedPricing above — set from the
+// admin dashboard's Payments tab. Defaults to 0 (launch pricing — NaijaNest
+// charges no platform fee of its own) if the row is missing, unset, or
+// malformed; a bad admin edit should never break checkout or silently start
+// charging a fee nobody configured.
+async function getPlatformFeePercent(serviceKey) {
+  const DEFAULT_PERCENT = 0;
+  try {
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/site_content?key=eq.platform_fee_percent&select=html`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    );
+    const rows = await resp.json();
+    if (!rows[0]) return DEFAULT_PERCENT;
+    const parsed = JSON.parse(rows[0].html);
+    const percent = Number(parsed.percent);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 20) return DEFAULT_PERCENT;
+    return percent;
+  } catch (e) {
+    return DEFAULT_PERCENT;
+  }
+}
+
 // ---- Feature-listing flow: price/duration come from admin-set site_content -
 async function initializeFeaturedListing({ req, res, user, property_id, serviceKey }) {
   // Confirm this property actually belongs to this user (service role bypasses RLS —
@@ -192,20 +217,20 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
   const legalFeePercent = Number(property.legal_fee_percent) || 0;
   const cautionFee = Number(property.caution_fee) || 0;
 
-  // NaijaNest's own guaranteed commission — unlike agency_fee/legal_fee (which
-  // are landlord-set and landlord-editable, including down to 0), this is a
-  // fixed percentage with no field anywhere for anyone to change. It applies
-  // to every completed rental automatically, same non-transfer mechanism as
+  // NaijaNest's own platform fee — admin-configurable from the dashboard's
+  // Payments tab (site_content key: platform_fee_percent), unlike
+  // agency_fee/legal_fee which are landlord-set per listing. Defaults to 0%
+  // (launch pricing) until an admin sets it. Same non-transfer mechanism as
   // agency/legal fee below (never sent anywhere via Paystack Transfer, so it
   // simply stays in the platform's balance once rent releases).
-  const PLATFORM_FEE_PERCENT = 5;
+  const platformFeePercent = await getPlatformFeePercent(serviceKey);
 
   // All amounts in kobo (Paystack's base unit) from here on.
   const rentAmount = Math.round(price * 100);
   const agencyFeeAmount = Math.round(price * (agencyFeePercent / 100) * 100);
   const legalFeeAmount = Math.round(price * (legalFeePercent / 100) * 100);
   const cautionFeeAmount = Math.round(cautionFee * 100);
-  const platformFeeAmount = Math.round(price * (PLATFORM_FEE_PERCENT / 100) * 100);
+  const platformFeeAmount = Math.round(price * (platformFeePercent / 100) * 100);
   const totalAmount = rentAmount + agencyFeeAmount + legalFeeAmount + cautionFeeAmount + platformFeeAmount;
 
   if (totalAmount <= 0) {

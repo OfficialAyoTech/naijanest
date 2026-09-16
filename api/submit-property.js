@@ -66,6 +66,12 @@ const CITIES = Object.keys(LGA_DATA);
 const TYPES = ['self-con', 'mini-flat', 'flat', 'duplex', 'bungalow', 'terrace', 'mansion'];
 const FLOOD_RISKS = ['Low risk', 'Moderate risk', 'High risk'];
 
+// "Who can list?" — who is submitting this listing, relative to the
+// property. Required on every listing (see validateProperty below). When
+// lister_role is 'other', lister_role_other carries the free-text
+// explanation the submitter typed on list-property.html.
+const LISTER_ROLES = ['owner', 'agent', 'manager', 'representative', 'developer', 'other'];
+
 // Escapes HTML special characters. The frontend renders several of these fields
 // via innerHTML (property detail modal, cards, etc.) without escaping — so this
 // is the one place stopping a malicious listing from running a script in every
@@ -101,6 +107,14 @@ function encryptNin(plaintext) {
 // Validates and normalizes the submission. Returns { error: '...' } on the
 // first problem found, or { data: {...} } with clean, safe values ready to insert.
 function validateProperty(body) {
+  const listerRole = (body.lister_role || '').trim();
+  if (!LISTER_ROLES.includes(listerRole)) return { error: 'Please select who is listing this property' };
+  let listerRoleOther = null;
+  if (listerRole === 'other') {
+    listerRoleOther = truncate(escapeHtml((body.lister_role_other || '').trim()), 100);
+    if (!listerRoleOther) return { error: 'Please specify your role' };
+  }
+
   const name = truncate(escapeHtml((body.name || '').trim()), 100);
   if (!name) return { error: 'Property title is required' };
 
@@ -132,11 +146,13 @@ function validateProperty(body) {
     return { error: 'Invalid number of bathrooms' };
   }
 
-  // Fee breakdown — optional (not every landlord knows exact figures upfront),
-  // but validated if provided so we never store garbage. Agency/legal fees are
-  // conventionally a % of annual rent in Nigeria (typically ~10% each) — capped
-  // at 20% each here as a sanity guardrail against an accidental or predatory
-  // extreme value; nothing legitimate should need to exceed that individually.
+  // Fee breakdown — optional and NOT a default expectation. NaijaNest itself
+  // charges no listing fee; agency_fee_percent/legal_fee_percent only apply
+  // when a specific listing's agent actually charges one, or the landlord
+  // wants to charge a documentation fee themselves — left blank/0 otherwise.
+  // Still validated if provided so we never store garbage. Capped at 20%
+  // each as a sanity guardrail against an accidental or predatory extreme
+  // value; nothing legitimate should need to exceed that individually.
   let agencyFeePercent = null;
   if (body.agency_fee_percent !== undefined && body.agency_fee_percent !== null && body.agency_fee_percent !== '') {
     agencyFeePercent = parseFloat(body.agency_fee_percent);
@@ -219,6 +235,7 @@ function validateProperty(body) {
       electricity_info: electricityInfo, flood_risk: floodRisk,
       nearby_schools: nearbySchools, nearby_markets: nearbyMarkets, photo_urls: photoUrls,
       agency_fee_percent: agencyFeePercent, legal_fee_percent: legalFeePercent, caution_fee: cautionFee,
+      lister_role: listerRole, lister_role_other: listerRoleOther,
     },
   };
 }
@@ -407,6 +424,14 @@ export default async function handler(req, res) {
       const auth = await checkAdminAuth(req, body.admin_password, serviceKey);
       if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
       isAdminEntry = true;
+      // Admin quick-add has no "Who can list?" selector in its own form (the
+      // admin is personally vetting and typing in the data directly) — the
+      // field still exists on every property row, so default it here rather
+      // than making it optional and losing the distinction elsewhere.
+      if (!body.lister_role) {
+        body.lister_role = 'other';
+        body.lister_role_other = 'Admin-entered listing';
+      }
     } else {
       const accessToken = body.access_token;
       if (!accessToken) {
