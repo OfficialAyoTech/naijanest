@@ -298,6 +298,15 @@
     </div>
     <div class="view" id="view-payments">
 <div class="city-breakdown" style="margin-bottom:1rem">
+  <h3>⚙️ NaijaNest platform fee</h3>
+  <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
+    The percentage of rent NaijaNest keeps as its own fee on every completed rental payment, on top of whatever agency/documentation fees a listing has. Set to 0 to run fee-free (e.g. during launch). Applies to new payments immediately — payments already in progress keep the rate that was in effect when they started.
+  </p>
+  <div class="qa-field" style="max-width:220px"><label>Platform fee (% of rent)</label><input type="number" id="platformFeeInput" min="0" max="20" step="0.1"/></div>
+  <button class="approve-btn" style="max-width:200px" onclick="savePlatformFee()">Save</button>
+  <div id="platformFeeResult" style="font-size:12.5px;margin-top:8px"></div>
+</div>
+<div class="city-breakdown" style="margin-bottom:1rem">
   <h3>⭐ Featured listing pricing</h3>
   <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
     Controls the price and duration shown on "Feature this listing" across the app. Changes apply to new purchases immediately.
@@ -349,8 +358,8 @@
           <div class="qa-field"><label>Bathrooms</label><select id="qa_bathrooms"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
         </div>
         <div class="qa-row">
-          <div class="qa-field"><label>Agency fee (%)</label><input type="number" id="qa_agency_fee" placeholder="10" min="0" max="100"/></div>
-          <div class="qa-field"><label>Documentation fee (%)</label><input type="number" id="qa_legal_fee" placeholder="10" min="0" max="100"/></div>
+          <div class="qa-field"><label>Agency fee (%) <span style="font-weight:400;color:var(--text-muted)">— only if applicable</span></label><input type="number" id="qa_agency_fee" placeholder="0" min="0" max="100"/></div>
+          <div class="qa-field"><label>Documentation fee (%) <span style="font-weight:400;color:var(--text-muted)">— only if applicable</span></label><input type="number" id="qa_legal_fee" placeholder="0" min="0" max="100"/></div>
         </div>
         <div class="qa-field"><label>Caution fee / deposit (₦)</label><input type="number" id="qa_caution_fee" placeholder="e.g. 100000 (optional)"/></div>
 
@@ -664,6 +673,7 @@ async function loadData() {
     renderPolicyEditor();
     renderPrivacyEditor();
     renderFeaturedPricingEditor();
+    renderPlatformFeeEditor();
     updateSubmissionsBadge();
     updateWaitlistBadge();
     updatePaymentsBadge();
@@ -1325,6 +1335,54 @@ async function saveFeaturedPricing(){
   }
 }
 
+// NaijaNest's own platform fee (% of rent), stored the same way as featured
+// listing pricing: a site_content row (key: platform_fee_percent, html: JSON
+// string like '{"percent":5}'). Read live by paystack-initialize.js on every
+// new rent escrow checkout — see getPlatformFeePercent() there. Defaults to
+// 0 (launch pricing) if never set.
+function renderPlatformFeeEditor(){
+  const percentEl = document.getElementById('platformFeeInput');
+  if (!percentEl) return;
+  const entry = allSiteContent.find(c => c.key === 'platform_fee_percent');
+  let percent = 0;
+  if (entry) {
+    try {
+      const parsed = JSON.parse(entry.html);
+      if (Number.isFinite(Number(parsed.percent))) percent = Number(parsed.percent);
+    } catch(e) {}
+  }
+  percentEl.value = percent;
+}
+
+async function savePlatformFee(){
+  const percent = Number(document.getElementById('platformFeeInput').value);
+  const resultEl = document.getElementById('platformFeeResult');
+  resultEl.textContent = '';
+  if (!Number.isFinite(percent) || percent < 0 || percent > 20){
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Enter a valid percentage between 0 and 20.';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        admin_password: adminPassword, action: 'update_site_content',
+        key: 'platform_fee_percent', html: JSON.stringify({ percent }),
+      })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not save');
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✅ Saved — applies to new payments immediately.';
+    await loadData();
+  } catch(e) {
+    resultEl.style.color = '#dc2626';
+    resultEl.textContent = 'Error: ' + e.message;
+  }
+}
+
 async function savePolicyContent(){
   const html = document.getElementById('policyHtml').value;
   const resultEl = document.getElementById('policyResult');
@@ -1482,6 +1540,22 @@ function filterProps(status, el) {
   renderProps();
 }
 
+// Maps the "Who can list?" radio value chosen on list-property.html (and
+// the free-text follow-up for "Other") to a readable label for the admin
+// prop card. Admin quick-add entries default to lister_role='other' with
+// lister_role_other='Admin-entered listing' server-side (see submit-property.js).
+function listerRoleLabel(role, other){
+  const labels = {
+    owner: 'Property Owner / Landlord',
+    agent: 'Real Estate Agent',
+    manager: 'Property Manager / Caretaker',
+    representative: 'Authorized Representative',
+    developer: 'Property Developer / Company',
+    other: other ? `Other — ${other}` : 'Other',
+  };
+  return labels[role] || '—';
+}
+
 function renderProps() {
   const props = currentFilter === 'all' ? allProps : allProps.filter(p=>p.status===currentFilter);
   const list = document.getElementById('propsList');
@@ -1502,6 +1576,7 @@ function renderProps() {
       ${p.bank_name_mismatch ? `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ Bank name mismatch — landlord name on listing is "${escapeHtml(p.landlord_name)}" but Paystack has the payout account under "${escapeHtml(p.bank_account_name_snapshot||'')}". Verify before approving.</div>` : ''}
       ${p.landlord_phone_verified===true ? `<div style="font-size:11px;color:var(--green);margin-bottom:8px">✓ Landlord phone verified via WhatsApp OTP</div>` : (p.landlord_phone_verified===false ? `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ Landlord phone not verified</div>` : '')}
       <div class="prop-meta">
+        <strong>Listing as:</strong> ${escapeHtml(listerRoleLabel(p.lister_role, p.lister_role_other))}<br>
         <strong>Location:</strong> ${escapeHtml(p.area)}${p.lga?', '+escapeHtml(p.lga):''}, ${escapeHtml(p.city)}<br>
         <strong>Type:</strong> ${escapeHtml(p.type)} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>
         <strong>Landlord:</strong> ${escapeHtml(p.landlord_name)} · <strong>Phone:</strong> ${escapeHtml(p.landlord_phone)}<br>
