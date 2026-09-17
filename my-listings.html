@@ -30,6 +30,9 @@
   .logo-name span{color:var(--green)}
   .page-title{font-size:20px;font-weight:700;margin-bottom:4px}
   .page-sub{font-size:13px;color:var(--text-sec);margin-bottom:1.5rem}
+  .main-tabs{display:flex;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap}
+  .main-tab-btn{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px;color:var(--text-sec);cursor:pointer;font-weight:500;font-family:inherit}
+  .main-tab-btn.active{background:var(--text);color:#fff;border-color:var(--text)}
   .add-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;background:var(--green);color:#fff;border-radius:24px;font-size:13.5px;font-weight:500;text-decoration:none;margin-bottom:1.5rem}
   .listing-card{background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:12px;display:flex;gap:12px}
   .listing-thumb{width:80px;height:80px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#e5e7eb}
@@ -81,18 +84,33 @@
   </div>
 
   <div class="page-title">My Listings</div>
-  <div class="page-sub">Track the review status of properties you've submitted.</div>
+  <div class="page-sub">Manage your properties, payments, and payout details.</div>
 
-  <!-- "Rent payments I've made" (as a renter) isn't tied to your own
-       listings, so it stays up here, separate from the landlord-side
-       management stuff below. -->
-  <div id="escrowMadeSection"></div>
+  <div class="main-tabs">
+    <button class="main-tab-btn active" id="mainTab-listings" onclick="selectMainTab('listings')">📋 My Listings</button>
+    <button class="main-tab-btn" id="mainTab-payments" onclick="selectMainTab('payments')">💳 Payments</button>
+    <button class="main-tab-btn" id="mainTab-payout" onclick="selectMainTab('payout')">🏦 Payout Details</button>
+  </div>
 
-  <div id="content">
-    <div class="login-gate">
-      <div>Sign in to see your listings.</div>
-      <button onclick="NaijaAuth.openLoginModal()">Sign in</button>
+  <div class="main-tab-panel" id="panel-listings">
+    <div id="content">
+      <div class="login-gate">
+        <div>Sign in to see your listings.</div>
+        <button onclick="NaijaAuth.openLoginModal()">Sign in</button>
+      </div>
     </div>
+  </div>
+
+  <div class="main-tab-panel" id="panel-payments" style="display:none">
+    <!-- "Rent payments I've made" (as a renter) and "Rent payments received"
+         (as a landlord) both live here — a person can be both at once, so
+         this tab covers money moving either direction. -->
+    <div id="escrowMadeSection"></div>
+    <div id="escrowReceivedSection"></div>
+  </div>
+
+  <div class="main-tab-panel" id="panel-payout" style="display:none">
+    <div id="payoutSection"></div>
   </div>
 
   <div style="text-align:center;font-size:12px;color:var(--text-sec,#555);margin-top:1.5rem">Need help? <a href="contact.html" style="color:var(--green,#1a6b3a);font-weight:600;text-decoration:none">Contact support</a> · <a href="privacy-policy.html" style="color:var(--green,#1a6b3a);font-weight:600;text-decoration:none">Privacy policy</a></div>
@@ -175,25 +193,28 @@ async function render(){
   }
 }
 
+function selectMainTab(tab){
+  ['listings','payments','payout'].forEach(t => {
+    document.getElementById('mainTab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('panel-'+t).style.display = (t===tab) ? 'block' : 'none';
+  });
+}
+
 function selectListingsTab(tab){
   currentListingsTab = tab;
   renderListingsList();
 }
 
-// Payout details and "Rent payments received" both live alongside the
-// "List another property" button here (per Dave's request), so every time
-// this rebuilds #content — including on tab switches — we recreate their
-// placeholder containers and repopulate them.
+// "Rent payments received" and "Payout details" now live in their own top-
+// level tabs (see selectMainTab below) rather than being recreated inside
+// #content on every render — so this only needs to keep #content itself
+// (the add-listing button, status tabs, and listing cards) in sync.
 function renderListingsList(){
   const content = document.getElementById('content');
   if(!MY_PROPERTIES.length){
     content.innerHTML = `
       <a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List a Property for FREE</a>
-      <div id="payoutSection"></div>
-      <div id="escrowReceivedSection"></div>
       <div class="empty-state">You haven't submitted any listings yet.</div>`;
-    renderPayoutSection();
-    renderEscrowReceivedSection();
     return;
   }
 
@@ -235,13 +256,9 @@ function renderListingsList(){
       }).join('');
 
   content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List Another Property for FREE</a>
-    <div id="payoutSection"></div>
-    <div id="escrowReceivedSection"></div>
     <div id="paymentBanner"></div>
     ${tabsHtml}
     ${listHtml}`;
-  renderPayoutSection();
-  renderEscrowReceivedSection();
 }
 
 async function featureListing(propertyId){
@@ -566,10 +583,12 @@ async function init(){
   NaijaAuth.onChange(async ()=>{
     await refreshEscrowSections();
     await render();
+    await renderPayoutSection();
   });
   await loadFeaturedPricing();
   await refreshEscrowSections();
   await render();
+  await renderPayoutSection();
   checkPaymentReturn();
 }
 document.addEventListener('DOMContentLoaded', init);

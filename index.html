@@ -340,9 +340,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="wl-field">
         <select class="wl-select" id="wlRole">
           <option value="">I am a...</option>
-          <option value="tenant">Tenant looking to rent</option>
-          <option value="landlord">Landlord wanting to list</option>
-          <option value="agent">Agent / Property manager</option>
+          <option value="tenant">Tenant looking for a house</option>
+          <option value="owner">Property Owner / Landlord</option>
+          <option value="agent">Real Estate Agent</option>
+          <option value="manager">Property Manager / Caretaker</option>
+          <option value="representative">Authorized Representative</option>
+          <option value="developer">Property Developer / Company</option>
+          <option value="other">Other</option>
         </select>
       </div>
       <button class="wl-btn" onclick="joinWaitlist()">Join Waitlist — It's Free</button>
@@ -720,6 +724,7 @@ function showProps(ids){
         <div class="chat-prop-price">${fmt(p.price)}</div>
         <div class="chat-prop-name">${p.name}</div>
         <div class="chat-prop-meta"><span>📍 ${p.area}</span><span>🛏 ${p.bed}bd</span></div>
+        ${listerRoleLabel(p.lister_role,p.lister_role_other)?`<div style="font-size:10.5px;color:var(--text-sec);margin-top:3px">👤 ${listerRoleLabel(p.lister_role,p.lister_role_other)}</div>`:''}
       </div>
     </div>`;
   });
@@ -810,6 +815,7 @@ function openDetail(id){
       <div class="detail-title">${p.name} — ${p.area}${p.lga?', '+p.lga:''}, ${p.city}</div>
       <div class="trust-badges-row">
         ${p.verified?'<span class="tbadge tbadge-green"><i class="ti ti-shield-check"></i> Verified Agent</span>':'<span class="tbadge tbadge-orange"><i class="ti ti-clock"></i> Pending Verification</span>'}
+        ${listerRoleLabel(p.lister_role,p.lister_role_other)?`<span class="tbadge" style="background:var(--surface);color:var(--text-sec);border:0.5px solid var(--border)"><i class="ti ti-user"></i> Listed by ${listerRoleLabel(p.lister_role,p.lister_role_other)}</span>`:''}
         <span class="tbadge tbadge-blue"><i class="ti ti-calendar"></i> Inspection available</span>
         <span class="tbadge tbadge-green"><i class="ti ti-users"></i> ${p.rentals} successful rentals</span>
       </div>
@@ -1266,6 +1272,7 @@ function renderDemoGrid(filter='all'){
         <div class="prop-name">${p.name}</div>
         <div class="prop-meta"><span>🛏 ${p.bed} bed</span><span>🚿 ${p.bath} bath</span><span class="badge-inspect">📅 Inspect</span></div>
         <div class="prop-location"><i class="ti ti-map-pin" style="font-size:11px"></i> ${p.area}, ${p.city}</div>
+        ${listerRoleLabel(p.lister_role,p.lister_role_other)?`<div class="prop-location"><i class="ti ti-user" style="font-size:11px"></i> Listed by ${listerRoleLabel(p.lister_role,p.lister_role_other)}</div>`:''}
         ${timeAgo(p.created_at)?`<div class="prop-fresh"><i class="ti ti-clock" style="font-size:10px"></i> Listed ${timeAgo(p.created_at)}</div>`:''}
       </div>
     </div>`).join('');
@@ -1319,6 +1326,7 @@ async function loadRealProperties(){
         id:p.id,name:p.name,area:p.area,city:p.city,lga:p.lga,bed:p.bedrooms,bath:p.bathrooms,
         price:p.price,type:p.type,verified:true,inspections:0,rentals:0,
         agency_fee_percent:p.agency_fee_percent,legal_fee_percent:p.legal_fee_percent,caution_fee:p.caution_fee,
+        lister_role:p.lister_role,lister_role_other:p.lister_role_other,
         amenities:p.amenities||[],
         img:photos[0],
         photos:photos,
@@ -1468,6 +1476,22 @@ function buildPropertyUrl(id){
   return `${window.location.origin}${window.location.pathname}?property=${id}`;
 }
 
+// Maps a lister_role value (set on list-property.html's "Who can list?"
+// dropdown, same taxonomy used in admin.html) to a short, renter-facing
+// label. Properties submitted before this field existed have no role on
+// file, hence the fallback.
+function listerRoleLabel(role, other){
+  const labels = {
+    owner: 'Landlord',
+    agent: 'Real Estate Agent',
+    manager: 'Property Manager',
+    representative: 'Authorized Representative',
+    developer: 'Property Developer',
+    other: other || 'Lister',
+  };
+  return labels[role] || null;
+}
+
 // Uses the native share sheet where the browser supports it (lets the
 // person pick WhatsApp, Telegram, SMS, email, X, or anything else they have
 // installed) and falls back to copying the link to the clipboard — the
@@ -1540,6 +1564,7 @@ window.naOpenFavorites = async function(){
         <div class="chat-prop-price">${fmt(p.price)}</div>
         <div class="chat-prop-name">${p.name}</div>
         <div class="chat-prop-meta"><span>📍 ${p.area}</span><span>🛏 ${p.bed}bd</span></div>
+        ${listerRoleLabel(p.lister_role,p.lister_role_other)?`<div style="font-size:10.5px;color:var(--text-sec);margin-top:3px">👤 ${listerRoleLabel(p.lister_role,p.lister_role_other)}</div>`:''}
       </div>
     </div>`).join('');
 };
