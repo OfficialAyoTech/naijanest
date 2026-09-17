@@ -156,6 +156,7 @@ export default async function handler(req, res) {
     if (!ALLOWED_STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
+    if (!id) return res.status(400).json({ error: 'Missing property id' });
 
     // Fetch details first so we can notify the landlord after a successful update
     const propResp = await fetch(
@@ -165,12 +166,26 @@ export default async function handler(req, res) {
     const propRows = await propResp.json();
     const property = propRows[0];
 
+    // IMPORTANT: Prefer 'return=representation', not 'return=minimal'. With
+    // 'minimal', PostgREST returns 204 No Content and .ok is true even when
+    // the WHERE clause matched zero rows — a PATCH that silently updated
+    // nothing looks identical, from this endpoint's point of view, to one
+    // that worked. That false "success" is exactly what let admin.html's
+    // optimistic local update (setting prop.status = 'rejected' in its own
+    // in-memory copy) show a status that was never actually written to the
+    // database. Asking for the updated row back lets us tell the two apart
+    // and fail loudly instead of silently.
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${id}`, {
       method: 'PATCH',
-      headers: { ...headers, 'Prefer': 'return=minimal' },
+      headers: { ...headers, 'Prefer': 'return=representation' },
       body: JSON.stringify({ status })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
+
+    const updatedRows = await response.json();
+    if (!updatedRows.length) {
+      return res.status(404).json({ error: `No property found with id ${id} — status was not changed.` });
+    }
 
     // Best-effort WhatsApp notification — never let this fail the approve/reject action itself.
     // Awaited (not fire-and-forget) because Vercel can freeze the function shortly after
