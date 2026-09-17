@@ -18,6 +18,10 @@ export default async function handler(req, res) {
       'security_info', 'water_info', 'electricity_info', 'flood_risk',
       'nearby_schools', 'nearby_markets', 'landlord_phone', 'created_at',
       'agency_fee_percent', 'legal_fee_percent', 'caution_fee',
+      // Who listed it (owner/agent/manager/representative/developer/other) — shown
+      // to renters as a "Listed by ..." badge on the card and detail view. Safe to
+      // expose: it's a role label, never landlord identity or contact details.
+      'lister_role', 'lister_role_other',
     ].join(',');
 
     // Safety cap — harmless today with a handful of listings, but prevents every
