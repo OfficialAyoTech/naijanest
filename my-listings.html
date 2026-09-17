@@ -43,6 +43,7 @@
   .empty-state, .login-gate{text-align:center;padding:3rem 1rem;color:var(--text-sec);font-size:14px}
   .login-gate button{margin-top:1rem;padding:10px 22px;background:var(--green);color:#fff;border:none;border-radius:24px;font-size:13.5px;font-weight:500;cursor:pointer}
   .feature-btn{padding:6px 12px;background:#fff;border:1px solid #d97706;color:#d97706;border-radius:20px;font-size:11.5px;font-weight:500;cursor:pointer}
+  .share-link-btn{padding:6px 12px;background:#fff;border:1px solid var(--green);color:var(--green);border-radius:20px;font-size:11.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
   .section-title{font-size:15px;font-weight:700;margin:1.75rem 0 .5rem}
   .section-sub{font-size:12.5px;color:var(--text-sec);margin-bottom:.75rem}
   .card{background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:12px}
@@ -119,6 +120,40 @@ function featuredButtonLabel(){
   return `⭐ Feature this listing — ${fmt(FEATURED_PRICING.price)}/${FEATURED_PRICING.days} days`;
 }
 
+// Builds the same shareable deep link that index.html reads back via
+// maybeOpenSharedProperty() — opening this URL takes anyone straight to
+// this listing's detail view, wherever it's shared (WhatsApp, SMS, a
+// Facebook housing group, anywhere a link can be sent).
+function buildListingUrl(id){
+  return `${window.location.origin}/?property=${id}`;
+}
+
+// Native share sheet where supported (WhatsApp, Telegram, SMS, whatever's
+// installed), clipboard copy as the universal fallback for desktop.
+async function copyListingLink(id, btnEl){
+  const url = buildListingUrl(id);
+  const prop = MY_PROPERTIES.find(p => p.id === id);
+  const shareText = prop ? `${prop.name} — ${prop.area}, ${prop.city} on NaijaNest` : 'My listing on NaijaNest';
+
+  if(navigator.share){
+    try{
+      await navigator.share({ title: shareText, url });
+      return;
+    }catch(e){ /* user closed the share sheet — not an error */ }
+  }
+
+  try{
+    await navigator.clipboard.writeText(url);
+    if(btnEl){
+      const original = btnEl.innerHTML;
+      btnEl.innerHTML = '✅ Copied!';
+      setTimeout(()=>{ btnEl.innerHTML = original; }, 1800);
+    }
+  }catch(e){
+    prompt('Copy this link to share your listing:', url);
+  }
+}
+
 async function render(){
   const content = document.getElementById('content');
   if(!NaijaAuth.isLoggedIn()){
@@ -153,7 +188,7 @@ function renderListingsList(){
   const content = document.getElementById('content');
   if(!MY_PROPERTIES.length){
     content.innerHTML = `
-      <a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List a property</a>
+      <a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List a Property for FREE</a>
       <div id="payoutSection"></div>
       <div id="escrowReceivedSection"></div>
       <div class="empty-state">You haven't submitted any listings yet.</div>`;
@@ -190,13 +225,16 @@ function renderListingsList(){
             <div class="listing-name">${escapeHtml(p.name)} ${isFeatured ? '<span style="font-size:11px;color:#d97706">⭐ Featured</span>' : ''}</div>
             <div class="listing-meta">${escapeHtml(p.area)}${p.lga?', '+escapeHtml(p.lga):''}, ${escapeHtml(p.city)} · ${fmt(p.price)}/yr</div>
             <span class="status-badge status-${p.status}">${p.status === 'approved' ? '✅ Live' : p.status === 'rejected' ? '❌ Rejected' : '⏳ Pending review'}</span>
-            ${p.status==='approved' && !isFeatured ? `<div style="margin-top:8px"><button class="feature-btn" data-id="${p.id}" onclick="featureListing(${p.id})">${featuredButtonLabel()}</button></div>` : ''}
+            ${p.status==='approved' ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button class="share-link-btn" onclick="copyListingLink(${p.id},this)"><i class="ti ti-share-2" style="font-size:12px"></i> Share listing</button>
+              ${!isFeatured ? `<button class="feature-btn" data-id="${p.id}" onclick="featureListing(${p.id})">${featuredButtonLabel()}</button>` : ''}
+            </div>` : ''}
             ${isFeatured ? `<div style="font-size:11px;color:#666;margin-top:4px">Featured until ${new Date(p.featured_until).toLocaleDateString()}</div>` : ''}
           </div>
         </div>`;
       }).join('');
 
-  content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List another property</a>
+  content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List Another Property for FREE</a>
     <div id="payoutSection"></div>
     <div id="escrowReceivedSection"></div>
     <div id="paymentBanner"></div>

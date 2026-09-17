@@ -473,7 +473,7 @@ NEVER shorten this. NEVER paraphrase this. Use it EXACTLY as written above.
 
 4. BUDGET STRICT: Never show properties above budget. If nothing matches, show cheapest available.
 
-5. FULL COST QUESTIONS: If asked "how much will this actually cost", "total cost", or about agency/documentation/caution fees — check agency_fee_percent, legal_fee_percent, and caution_fee on that property. Compute agency fee = price × agency_fee_percent/100, documentation fee = price × legal_fee_percent/100, then ALWAYS also add a NaijaNest platform fee = price × 5/100 (this is a fixed 5% that applies to every property regardless of what the landlord set — it is never null and never skipped). Total = price + agency fee + documentation fee + caution_fee + platform fee (only skip agency/documentation/caution if that specific field is null — the platform fee is always included). Show the full breakdown clearly, don't just give one number. If agency_fee_percent, legal_fee_percent, or caution_fee is null, say plainly the landlord hasn't listed that specific fee yet and to ask them directly — never estimate or guess a fee percentage on the landlord's behalf. If asked why there's both an agency fee AND a platform fee, explain plainly: agency fee is the landlord's own choice (replaces what they'd pay a traditional agent, can be set to 0), while the platform fee is NaijaNest's fixed cost of running the service (verifying listings, holding payment securely in escrow) — it's not something anyone sets or removes, similar to a payment processor's fee.
+5. FULL COST QUESTIONS: If asked "how much will this actually cost", "total cost", or about agency/documentation/caution fees — check agency_fee_percent, legal_fee_percent, and caution_fee on that property. Compute agency fee = price × agency_fee_percent/100, documentation fee = price × legal_fee_percent/100, then ALWAYS also add a NaijaNest platform fee = price × ${PLATFORM_FEE_PERCENT}/100 (this is NaijaNest's own fee — currently set to ${PLATFORM_FEE_PERCENT}% — that applies to every property regardless of what the landlord set; it is never null and never skipped, even when it is 0%). Total = price + agency fee + documentation fee + caution_fee + platform fee (only skip agency/documentation/caution if that specific field is null — the platform fee is always included, even as ₦0). Show the full breakdown clearly, don't just give one number. If agency_fee_percent, legal_fee_percent, or caution_fee is null, say plainly the landlord hasn't listed that specific fee yet and to ask them directly — never estimate or guess a fee percentage on the landlord's behalf. If asked why there's both an agency fee AND a platform fee, explain plainly: agency fee is the landlord's own choice (replaces what they'd pay a traditional agent, can be set to 0), while the platform fee is NaijaNest's own fee for running the service (verifying listings, holding payment securely in escrow) — it's not something the landlord sets or removes, similar to a payment processor's fee.
 
 5. BEDROOM COUNT STRICT: Only show matching bedroom count.
 
@@ -628,6 +628,24 @@ Want to know more about how we verify listings, or would you rather jump into a 
 ---END OF EXAMPLES---`; }
 
 let history=[], selectedProp=null, schedState={};
+
+// NaijaNest's own platform fee (% of rent), admin-configurable from the
+// dashboard's Payments tab (site_content key: platform_fee_percent, same
+// pattern as featured_listing_pricing already used elsewhere). Defaults to
+// 0 until loadPlatformFeePercent() resolves, matching the server-side
+// default in paystack-initialize.js — so nobody sees a stale fee before the
+// real value loads. Read directly (no auth needed) via the public anon
+// Supabase client, same as my-listings.html's loadFeaturedPricing().
+let PLATFORM_FEE_PERCENT = 0;
+async function loadPlatformFeePercent(){
+  try{
+    const {data} = await NaijaAuth.client.from('site_content').select('html').eq('key','platform_fee_percent').maybeSingle();
+    if(data && data.html){
+      const parsed = JSON.parse(data.html);
+      if(Number.isFinite(Number(parsed.percent))) PLATFORM_FEE_PERCENT = Number(parsed.percent);
+    }
+  }catch(e){ /* keep default 0 */ }
+}
 function fmt(p){
   const n = Number(p) || 0;
   if (n < 1000) return '₦' + Math.round(n).toLocaleString() + '/yr';
@@ -750,7 +768,6 @@ function openDetail(id){
   const photos = p.photos || [p.img];
   const thumbsHtml = photos.map((ph,i)=>`<img class="photo-thumb${i===0?' active':''}" src="${ph}" loading="lazy" decoding="async" onclick="switchPhoto('${ph}',this,${i})" onerror="this.style.display='none'"/>`).join('');
 
-  const PLATFORM_FEE_PERCENT = 5;
   const platformFeeAmt = p.price ? Math.round(p.price * PLATFORM_FEE_PERCENT / 100) : 0;
 
   let feeBreakdownHtml = '';
@@ -766,7 +783,7 @@ function openDetail(id){
         ${agencyAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Agency fee (${p.agency_fee_percent}%)</span><span style="font-weight:600">${fmt(agencyAmt)}</span></div>`:''}
         ${legalAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Documentation fee (${p.legal_fee_percent}%)</span><span style="font-weight:600">${fmt(legalAmt)}</span></div>`:''}
         ${cautionAmt!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">Caution fee (refundable)</span><span style="font-weight:600">${fmt(cautionAmt)}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">NaijaNest platform fee (${PLATFORM_FEE_PERCENT}%)</span><span style="font-weight:600">${fmt(platformFeeAmt)}</span></div>
+        ${PLATFORM_FEE_PERCENT>0?`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text-sec)">NaijaNest platform fee (${PLATFORM_FEE_PERCENT}%)</span><span style="font-weight:600">${fmt(platformFeeAmt)}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid var(--border)"><span style="font-weight:700">Total upfront</span><span style="font-weight:700;color:var(--green)">${fmt(total)}</span></div>
       </div>`;
   } else {
@@ -785,7 +802,10 @@ function openDetail(id){
     <div class="detail-body">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="detail-price">${fmt(p.price)}${p.featured?' <span style="font-size:11px;color:#d97706;font-weight:500;vertical-align:middle">⭐ Featured</span>':''}</div>
-        <button id="favBtn" onclick="toggleFavorite(${p.id})" style="background:none;border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#1a1a1a">🤍 Save</button>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button id="shareBtn" onclick="shareProperty(${p.id},this)" style="background:none;border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#1a1a1a;display:flex;align-items:center;gap:4px"><i class="ti ti-share-2" style="font-size:13px"></i> Share</button>
+          <button id="favBtn" onclick="toggleFavorite(${p.id})" style="background:none;border:0.5px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#1a1a1a">🤍 Save</button>
+        </div>
       </div>
       <div class="detail-title">${p.name} — ${p.area}${p.lga?', '+p.lga:''}, ${p.city}</div>
       <div class="trust-badges-row">
@@ -818,6 +838,12 @@ function openDetail(id){
   document.getElementById('detailOverlay').style.display='flex';
   updateFavButton(p.id);
   renderRentPaySection(p);
+  // Keep the address bar in sync with whatever's open, so copying straight
+  // from the URL bar (not just the Share button) also gets a working link.
+  // NOTE: must call window.history explicitly — the top-level `history`
+  // variable in this file holds the chat message array and shadows the
+  // browser's real History object.
+  window.history.pushState({property:p.id}, '', buildPropertyUrl(p.id));
 }
 
 let MY_ESCROW = null;
@@ -1067,6 +1093,9 @@ function contactWhatsApp(phone, propName){
 
 function closeDetail(){
   document.getElementById('detailOverlay').style.display='none';
+  // Drop the ?property= param now that nothing is open — see the shadowing
+  // note in openDetail() for why this must be window.history, not history.
+  window.history.pushState(null, '', window.location.pathname);
   if(detailOpenedFromLanding){
     detailOpenedFromLanding = false;
     showLanding();
@@ -1317,6 +1346,20 @@ async function loadRealProperties(){
   updateCoverageStats();
   renderDemoGrid();
   renderChatChips();
+  maybeOpenSharedProperty();
+}
+
+// Deep-link support: if someone opens a shared NaijaNest link
+// (?property=123 — see buildPropertyUrl/shareProperty), jump straight to
+// that listing's detail view once PROPS has finished loading. Silently does
+// nothing if the id is missing or the listing is no longer live (e.g.
+// rented out or removed) — the person just lands on the normal homepage.
+function maybeOpenSharedProperty(){
+  const params = new URLSearchParams(window.location.search);
+  const id = parseInt(params.get('property'), 10);
+  if(!Number.isFinite(id)) return;
+  if(!PROPS.find(p => p.id === id)) return;
+  openPropertyFromLanding(id);
 }
 
 function renderChatChips(){
@@ -1414,6 +1457,49 @@ async function loadFavorites(){
     const {data} = await NaijaAuth.client.from('favorites').select('property_id').eq('user_id', NaijaAuth.currentUser.id);
     favoriteIds = new Set((data||[]).map(f=>f.property_id));
   }catch(e){ console.log('Could not load favorites'); }
+}
+
+// Builds the shareable deep link for a property — e.g.
+// https://naijanest.vercel.app/?property=123 — read back on page load by
+// maybeOpenSharedProperty() so opening this URL takes anyone straight to
+// that listing's detail view, on any platform (WhatsApp, SMS, email, X,
+// Telegram, copy-paste — anywhere a link can go, not just WhatsApp).
+function buildPropertyUrl(id){
+  return `${window.location.origin}${window.location.pathname}?property=${id}`;
+}
+
+// Uses the native share sheet where the browser supports it (lets the
+// person pick WhatsApp, Telegram, SMS, email, X, or anything else they have
+// installed) and falls back to copying the link to the clipboard — the
+// universal option for desktop browsers or anywhere Web Share isn't
+// available. Note: shared links currently unfurl with NaijaNest's generic
+// preview (not this property's own photo/price) since the site is a static
+// single-page app with fixed <meta> tags — a per-property preview would
+// need a small dynamic endpoint, which is a worthwhile follow-up but not
+// built here to stay within the Hobby plan's 12-function limit.
+async function shareProperty(id, btnEl){
+  const p = PROPS.find(pr => pr.id === id);
+  if(!p) return;
+  const shareUrl = buildPropertyUrl(id);
+  const shareText = `${p.name} — ${p.area}, ${p.city} · ${fmt(p.price)} on NaijaNest`;
+
+  if(navigator.share){
+    try{
+      await navigator.share({ title: p.name, text: shareText, url: shareUrl });
+    }catch(e){ /* user closed the share sheet — not an error */ }
+    return;
+  }
+
+  try{
+    await navigator.clipboard.writeText(shareUrl);
+    if(btnEl){
+      const original = btnEl.innerHTML;
+      btnEl.innerHTML = '<i class="ti ti-check" style="font-size:13px"></i> Copied!';
+      setTimeout(()=>{ btnEl.innerHTML = original; }, 1800);
+    }
+  }catch(e){
+    prompt('Copy this link to share:', shareUrl);
+  }
 }
 
 async function toggleFavorite(id){
@@ -1570,6 +1656,7 @@ window.addEventListener('load',()=>{
   renderDemoGrid();
   loadRealProperties();
   fetchWaitlistCount();
+  loadPlatformFeePercent();
 });
 </script>
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="if(event.target===this)closeLightbox()">
