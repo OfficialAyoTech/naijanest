@@ -107,6 +107,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .prop-meta{font-size:11.5px;color:var(--text-sec);display:flex;gap:8px}
 .prop-location{font-size:11.5px;color:var(--text-sec);display:flex;align-items:center;gap:3px;margin-top:3px}
 .prop-fresh{font-size:10.5px;color:var(--green);margin-top:6px;display:flex;align-items:center;gap:3px;font-weight:500}
+.skeleton-card{min-width:220px;background:var(--white);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;flex-shrink:0}
+.skeleton-img{width:100%;height:150px;background:linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%);background-size:200% 100%;animation:shimmer 1.4s infinite}
+.skeleton-line{height:10px;background:linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:4px;margin:8px 12px}
+.skeleton-line.short{width:60%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .waitlist-section{padding:2.5rem 1.5rem;background:var(--green);color:#fff;text-align:center}
 .waitlist-title{font-size:20px;font-weight:700;margin-bottom:6px}
 .waitlist-sub{font-size:13.5px;opacity:.9;margin-bottom:1.5rem}
@@ -122,7 +127,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .footer{padding:1.5rem;background:var(--text);color:#aaa;text-align:center;font-size:12.5px}
 .footer a{color:var(--green-mid);text-decoration:none}
 #appPage{display:none;min-height:100vh;flex-direction:column}
-#app{width:100%;max-width:500px;margin:0 auto;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;height:calc(100vh - 2rem);margin-top:1rem;position:relative}
+#app{width:100%;max-width:500px;margin:0 auto;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;height:calc(100dvh - 2rem);margin-top:1rem;position:relative}
 .app-header{padding:1rem 1.25rem 0.75rem;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .app-logo{display:flex;align-items:center;gap:7px}
 .app-logo-icon{width:28px;height:28px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
@@ -226,6 +231,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lightbox-prev{left:12px}
 .lightbox-next{right:12px}
 .lightbox-counter{margin-top:10px;color:#fff;font-size:12.5px;opacity:.8}
+@media (max-width: 360px) {
+  .trust-grid{grid-template-columns:1fr}
+  .nbhd-grid{grid-template-columns:1fr}
+  .date-grid{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -249,8 +259,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <div class="hero">
     <div class="hero-badge"><i class="ti ti-sparkles" style="font-size:13px"></i> Nigeria's first AI rental assistant</div>
-    <h1 class="hero-title">Find your next home in<br><span>Nigeria</span> — the smart way</h1>
-    <p class="hero-sub">Search rentals across Nigeria using plain English. Get neighborhood insights on water, electricity, security, and flooding — before you inspect.</p>
+    <h1 class="hero-title">Find verified apartments &amp; houses for rent in<br><span>Nigeria</span> — the smart way</h1>
+    <p class="hero-sub">Search verified apartments and houses for rent across Lagos, Abuja, and every state in Nigeria using plain English. Get neighborhood insights on water, electricity, security, and flooding — before you inspect.</p>
     <div class="hero-btns">
       <a href="#" class="hero-cta" onclick="showApp()"><i class="ti ti-search"></i> Find My House</a>
       <a href="#waitlist" class="hero-cta-sec"><i class="ti ti-bell"></i> Join Waitlist</a>
@@ -265,7 +275,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <div class="trust-section">
-    <div class="section-title">Why NaijaNest?</div>
+    <h2 class="section-title">Why NaijaNest?</h2>
     <div class="section-sub">We're solving the biggest problems with renting in Nigeria</div>
     <div class="trust-grid">
       <div class="trust-card">
@@ -276,7 +286,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="trust-card">
         <div class="trust-icon">🏠</div>
         <div class="trust-title">Verified properties</div>
-        <div class="trust-desc">We manually review every listing before it goes live. No ghost houses.</div>
+        <div class="trust-desc">Every apartment and house for rent is manually reviewed before it goes live. No ghost houses, no fake listings.</div>
       </div>
       <div class="trust-card">
         <div class="trust-icon">🤖</div>
@@ -292,7 +302,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <div class="demo-section">
-    <div class="section-title" style="margin-bottom:6px">Verified listings</div>
+    <h2 class="section-title" style="margin-bottom:6px">Verified Rental Listings in Nigeria</h2>
     <div class="section-sub" id="listingsSub">Loading real, landlord-listed properties…</div>
     <div class="demo-chips" id="demoChips">
       <span class="demo-chip active" onclick="filterDemo('all',this)">All</span>
@@ -1262,12 +1272,19 @@ function renderDemoGrid(filter='all'){
   const filtered = filter==='all' ? PROPS : PROPS.filter(p=>p.city===filter);
   const grid = document.getElementById('demoGrid');
   if (!filtered.length) {
+    if (!propertiesLoaded) {
+      grid.innerHTML = Array.from({length:4}).map(()=>`
+        <div class="skeleton-card">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-line" style="margin-top:12px"></div>
+          <div class="skeleton-line short"></div>
+        </div>`).join('');
+      return;
+    }
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:2rem 1rem;color:#666;font-size:13.5px">
-      ${propertiesLoaded
-        ? (filter==='all'
-            ? '🏡 We\'re onboarding our first verified listings right now — check back soon, or join the waitlist below to get notified!'
-            : `🏡 No verified listings in ${filter} yet — check back soon, or join the waitlist below to get notified!`)
-        : 'Loading listings…'}
+      ${filter==='all'
+          ? '🏡 We\'re onboarding our first verified listings right now — check back soon, or join the waitlist below to get notified!'
+          : `🏡 No verified listings in ${filter} yet — check back soon, or join the waitlist below to get notified!`}
     </div>`;
     return;
   }
