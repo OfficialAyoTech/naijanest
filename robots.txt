@@ -3,4 +3,4 @@ Disallow: /admin.html
 Disallow: /my-listings.html
 Disallow: /api/
 
-Sitemap: https://naijanest.vercel.app/sitemap.xml
+Sitemap: https://naijanestai.com.ng/sitemap.xml
