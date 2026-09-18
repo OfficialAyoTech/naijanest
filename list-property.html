@@ -524,7 +524,7 @@ function compressImage(file) {
     reader.onload = (e) => { img.src = e.target.result; };
     reader.onerror = reject;
     img.onload = () => {
-      const MAX_EDGE = 1280;
+      const MAX_EDGE = 960;
       let { width, height } = img;
       if (width > height && width > MAX_EDGE) { height = Math.round(height * MAX_EDGE / width); width = MAX_EDGE; }
       else if (height > MAX_EDGE) { width = Math.round(width * MAX_EDGE / height); height = MAX_EDGE; }
