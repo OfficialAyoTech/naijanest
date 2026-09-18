@@ -98,6 +98,18 @@ async function submitContact() {
   if (!contact) { alert('Please share an email or phone number so we can reach you back.'); return; }
   if (!message) { alert('Please tell us what is going on.'); return; }
 
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRe = /^(0|\+234)[0-9]{10}$/;
+  const cleanPhone = contact.replace(/[\s-]/g, '');
+  if (!emailRe.test(contact) && !phoneRe.test(cleanPhone)) {
+    alert('Please enter a valid email address or a Nigerian phone number (e.g. 08012345678).');
+    return;
+  }
+  if (message.length < 10) {
+    alert('Please give a few more details so our team can help.');
+    return;
+  }
+
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
