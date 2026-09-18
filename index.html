@@ -2,17 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NaijaNest — Find Your Home in Nigeria</title>
-<meta name="description" content="NaijaNest is Nigeria's AI-powered rental platform. Search verified apartments and houses, pay rent safely through escrow, and list your property for free — no agent fees, no fake listings."/>
+<title>NaijaNest — Verified Rental Apartments & Houses in Nigeria | AI Rental Assistant</title>
+<meta name="description" content="Search verified apartments and houses for rent across Nigeria with NaijaNest's AI assistant. Pay rent safely through escrow, get real neighborhood info, and list your property free — no fake agents, no ghost listings."/>
 <meta name="keywords" content="rent apartment Nigeria, houses for rent Lagos, Nigeria rental platform, verified rentals Nigeria, escrow rent payment, list property for rent Nigeria, AI rental assistant"/>
+<link rel="canonical" href="https://naijanestai.com.ng/"/>
+
 <meta property="og:type" content="website"/>
-<meta property="og:title" content="NaijaNest — Find Your Home in Nigeria"/>
+<meta property="og:site_name" content="NaijaNest"/>
+<meta property="og:title" content="NaijaNest — Verified Rental Apartments & Houses in Nigeria"/>
 <meta property="og:description" content="Search verified apartments and houses across Nigeria, pay rent safely through escrow, and list your property for free."/>
-<meta property="og:url" content="https://naijanest.vercel.app/"/>
-<meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="NaijaNest — Find Your Home in Nigeria"/>
+<meta property="og:url" content="https://naijanestai.com.ng/"/>
+<meta property="og:image" content="https://naijanestai.com.ng/og-image.jpg"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="NaijaNest — Verified Rental Apartments & Houses in Nigeria"/>
 <meta name="twitter:description" content="Search verified apartments and houses across Nigeria, pay rent safely through escrow, and list your property for free."/>
+<meta name="twitter:image" content="https://naijanestai.com.ng/og-image.jpg"/>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#1a6b3a"/>
 <link rel="icon" href="/icons/favicon-32.png"/>
@@ -293,10 +308,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="waitlist-sub">Be the first to know when we launch in your city with real listings</div>
     <div class="waitlist-counter" id="wlCounter">🔥 Loading signups...</div>
     <div class="waitlist-form" id="wlForm">
-      <div class="wl-field"><input class="wl-input" id="wlName" placeholder="Your full name"/></div>
-      <div class="wl-field"><input class="wl-input" id="wlWa" placeholder="WhatsApp number (e.g. 08012345678)"/></div>
+   <div class="wl-field"><input class="wl-input" id="wlName" placeholder="Your full name" aria-label="Your full name"/></div>
+   <div class="wl-field"><input class="wl-input" id="wlWa" placeholder="WhatsApp number (e.g. 08012345678)" aria-label="WhatsApp number"/></div>
       <div class="wl-field">
-        <select class="wl-select" id="wlCity">
+        <select class="wl-select" id="wlCity" aria-label="Which state are you in?">
           <option value="">Which state are you in?</option>
           <option value="Abia">Abia</option>
           <option value="Abuja">Abuja (FCT)</option>
@@ -338,7 +353,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </select>
       </div>
       <div class="wl-field">
-        <select class="wl-select" id="wlRole">
+        <select class="wl-select" id="wlRole" aria-label="I am a...">
           <option value="">I am a...</option>
           <option value="tenant">Tenant looking for a house</option>
           <option value="owner">Property Owner / Landlord</option>
@@ -386,8 +401,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span class="chip" onclick="sendChip(this)">Show me available rentals</span>
       </div>
       <div class="input-row">
-        <input type="text" id="userInput" placeholder="Describe what you're looking for..." onkeydown="if(event.key==='Enter')sendMsg()"/>
-        <button class="send-btn" id="sendBtn" onclick="sendMsg()"><i class="ti ti-send"></i></button>
+        <input type="text" id="userInput" placeholder="Describe what you're looking for..." aria-label="Describe the property you're looking for" onkeydown="if(event.key==='Enter')sendMsg()"/>
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()" aria-label="Send message"><i class="ti ti-send"></i></button>
       </div>
     </div>
     <div class="overlay" id="detailOverlay" style="display:none">
