@@ -64,10 +64,13 @@
 
     // Creates the account and sends a one-time confirmation link to the user's email.
     // The account can't sign in with a password until that link is clicked.
-    async signUpWithPassword(email, password) {
+    async signUpWithPassword(email, password, fullName) {
       const { data, error } = await sb.auth.signUp({
         email, password,
-        options: { emailRedirectTo: window.location.href.split('#')[0] }
+        options: {
+          emailRedirectTo: window.location.href.split('#')[0],
+          data: { full_name: fullName }
+        }
       });
       if (error) throw error;
       // If email confirmation is required, Supabase returns a user but no session yet.
@@ -166,7 +169,7 @@
 
         <div style="font-size:11px;color:#999;margin:10px 0;display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}">— or —</div>
 
-        <div id="naAuthForm" style="display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}">
+        <div id="naAuthForm" style="display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}"><input id="naSignupNameInput" type="text" placeholder="Full name" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box;display:none"/>
           <input id="naEmailInput" type="email" placeholder="you@example.com" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box"/>
           <input id="naPasswordInput" type="password" placeholder="Password (min 6 characters)" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box"/>
           <button id="naSubmitBtn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#1a6b3a;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;margin-bottom:10px">Log in</button>
@@ -218,7 +221,9 @@
     document.getElementById('naSubmitBtn').onclick = async () => {
       const email = document.getElementById('naEmailInput').value.trim();
       const password = document.getElementById('naPasswordInput').value;
+      const fullName = document.getElementById('naSignupNameInput').value.trim();
       if (!email || !email.includes('@')) return showAuthError('Enter a valid email address');
+      if (mode === 'signup' && !fullName) return showAuthError('Please enter your full name');
       const btn = document.getElementById('naSubmitBtn');
 
       if (mode === 'forgot') {
@@ -235,11 +240,10 @@
       }
 
       if (!password || password.length < 6) return showAuthError('Password must be at least 6 characters');
-
-      if (mode === 'signup') {
+     if (mode === 'signup') {
         btn.disabled = true; btn.textContent = 'Creating account...';
         try {
-          const { needsConfirmation } = await NaijaAuth.signUpWithPassword(email, password);
+          const { needsConfirmation } = await NaijaAuth.signUpWithPassword(email, password, fullName);
           if (needsConfirmation) {
             showCheckEmail('Confirm your email', `We sent a verification link to <strong>${email}</strong>. Click it to activate your account, then come back and log in.`);
           }
@@ -299,6 +303,8 @@
     document.getElementById('naAuthForm').style.display = EMAIL_AUTH_ENABLED ? 'block' : 'none';
     document.getElementById('naCheckEmail').style.display = 'none';
     hideAuthError();
+    const nameInput = document.getElementById('naSignupNameInput');
+    nameInput.style.display = mode === 'signup' ? 'block' : 'none';
     const pwInput = document.getElementById('naPasswordInput');
     const submitBtn = document.getElementById('naSubmitBtn');
     const switchPrompt = document.getElementById('naModeSwitchPrompt');
@@ -346,12 +352,12 @@
   }
   function hideAuthError() {
     document.getElementById('naAuthError').style.display = 'none';
-  }
-  function openLoginModal() {
+  }  function openLoginModal() {
     injectModal();
     mode = 'login';
     document.getElementById('naEmailInput').value = '';
     document.getElementById('naPasswordInput').value = '';
+    document.getElementById('naSignupNameInput').value = '';
     renderAuthFormMode();
     document.getElementById('naPhoneStep1').style.display = PHONE_AUTH_ENABLED ? 'block' : 'none';
     document.getElementById('naPhoneStep2').style.display = 'none';
