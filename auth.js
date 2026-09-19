@@ -11,7 +11,7 @@
   // Flip to true once custom SMTP (Resend/SendGrid + a verified domain) is set up in Supabase.
   // Until then, real users won't receive confirmation/reset emails at all — so this stays off
   // and Google is the only sign-in method shown.
-  const EMAIL_AUTH_ENABLED = false;
+  const EMAIL_AUTH_ENABLED = true;
   // Flip to true once a phone/SMS provider is configured in Supabase Auth → Providers → Phone
   const PHONE_AUTH_ENABLED = false;
 
