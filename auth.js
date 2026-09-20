@@ -28,10 +28,10 @@
 
     async init() {
       injectModal();
-      const { data: { session } } = await sb.auth.getSession();
-      this.currentUser = session ? session.user : null;
-      if (this.currentUser) await this._ensureProfile();
-      this._notify();
+      // Subscribe FIRST, before the getSession() await below — Supabase can
+      // fire PASSWORD_RECOVERY almost immediately on page load when someone
+      // arrives via a reset link. Subscribing after an await risks missing
+      // that event, which is why the modal wasn't showing before.
       sb.auth.onAuthStateChange(async (event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
           openResetPasswordModal();
@@ -43,6 +43,15 @@
         this._notify();
         closeModal();
       });
+      // Belt-and-suspenders: also check the URL directly, in case the event
+      // still fires before the subscription above is fully wired up.
+      if (window.location.hash.includes('type=recovery')) {
+        openResetPasswordModal();
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      this.currentUser = session ? session.user : null;
+      if (this.currentUser) await this._ensureProfile();
+      this._notify();
     },
 
     async _ensureProfile() {
