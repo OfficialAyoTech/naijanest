@@ -5,6 +5,13 @@
 //   <script src="/auth.js"></script>
 // ============================================================
 (function () {
+  // Detect a password-recovery link as the very first thing this script does —
+  // before createClient() below, which starts processing/stripping the URL
+  // asynchronously. Checking any later risks losing the race, which is why the
+  // modal wasn't showing reliably. Covers both the classic #hash format and
+  // the newer ?query format some Supabase configs use.
+  const cameFromRecoveryLink = /type=recovery/.test(window.location.hash) || /type=recovery/.test(window.location.search);
+
   const SUPABASE_URL = 'https://ymojmrqdnnomgdclmnlz.supabase.co';
   // Anon key — safe to ship in client code by design (RLS enforces real security server-side)
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inltb2ptcnFkbm5vbWdkY2xtbmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODA2MjMsImV4cCI6MjA5ODI1NjYyM30.HefdVc5JC-1lONGDs6pKq2o5Iz2-L9Y_mtNrLIciKCk';
@@ -28,10 +35,11 @@
 
     async init() {
       injectModal();
-      // Subscribe FIRST, before the getSession() await below — Supabase can
-      // fire PASSWORD_RECOVERY almost immediately on page load when someone
-      // arrives via a reset link. Subscribing after an await risks missing
-      // that event, which is why the modal wasn't showing before.
+      // Use the flag captured at the very top of the file — deterministic,
+      // no race with the SDK's own URL processing.
+      if (cameFromRecoveryLink) {
+        openResetPasswordModal();
+      }
       sb.auth.onAuthStateChange(async (event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
           openResetPasswordModal();
@@ -43,11 +51,6 @@
         this._notify();
         closeModal();
       });
-      // Belt-and-suspenders: also check the URL directly, in case the event
-      // still fires before the subscription above is fully wired up.
-      if (window.location.hash.includes('type=recovery')) {
-        openResetPasswordModal();
-      }
       const { data: { session } } = await sb.auth.getSession();
       this.currentUser = session ? session.user : null;
       if (this.currentUser) await this._ensureProfile();
@@ -180,7 +183,14 @@
 
         <div id="naAuthForm" style="display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}"><input id="naSignupNameInput" type="text" placeholder="Full name" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box;display:none"/>
           <input id="naEmailInput" type="email" placeholder="you@example.com" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box"/>
-          <input id="naPasswordInput" type="password" placeholder="Password (min 6 characters)" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box"/>
+          <div style="position:relative;margin-bottom:10px">
+            <input id="naPasswordInput" type="password" placeholder="Password (min 6 characters)" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 40px 0 12px;font-size:13.5px;outline:none;box-sizing:border-box"/>
+            <button type="button" id="naPasswordToggle" style="position:absolute;right:0;top:0;height:42px;width:40px;background:none;border:none;cursor:pointer;font-size:15px;color:#999">👁️</button>
+          </div>
+          <div id="naConfirmPasswordWrap" style="position:relative;margin-bottom:10px;display:none">
+            <input id="naConfirmPasswordInput" type="password" placeholder="Confirm password" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 40px 0 12px;font-size:13.5px;outline:none;box-sizing:border-box"/>
+            <button type="button" id="naConfirmPasswordToggle" style="position:absolute;right:0;top:0;height:42px;width:40px;background:none;border:none;cursor:pointer;font-size:15px;color:#999">👁️</button>
+          </div>
           <button id="naSubmitBtn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#1a6b3a;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;margin-bottom:10px">Log in</button>
           <div style="font-size:12px;color:#666">
             <span id="naModeSwitchPrompt">New here?</span>
@@ -226,6 +236,8 @@
       mode = 'forgot';
       renderAuthFormMode();
     };
+    document.getElementById('naPasswordToggle').onclick = () => togglePasswordVisibility('naPasswordInput', 'naPasswordToggle');
+    document.getElementById('naConfirmPasswordToggle').onclick = () => togglePasswordVisibility('naConfirmPasswordInput', 'naConfirmPasswordToggle');
 
     document.getElementById('naSubmitBtn').onclick = async () => {
       const email = document.getElementById('naEmailInput').value.trim();
@@ -249,7 +261,11 @@
       }
 
       if (!password || password.length < 6) return showAuthError('Password must be at least 6 characters');
-     if (mode === 'signup') {
+      if (mode === 'signup') {
+        const confirmPassword = document.getElementById('naConfirmPasswordInput').value;
+        if (password !== confirmPassword) return showAuthError('Passwords do not match');
+      }
+      if (mode === 'signup') {
         btn.disabled = true; btn.textContent = 'Creating account...';
         try {
           const { needsConfirmation } = await NaijaAuth.signUpWithPassword(email, password, fullName);
@@ -314,6 +330,7 @@
     hideAuthError();
     const nameInput = document.getElementById('naSignupNameInput');
     nameInput.style.display = mode === 'signup' ? 'block' : 'none';
+    document.getElementById('naConfirmPasswordWrap').style.display = mode === 'signup' ? 'block' : 'none';
     const pwInput = document.getElementById('naPasswordInput');
     const submitBtn = document.getElementById('naSubmitBtn');
     const switchPrompt = document.getElementById('naModeSwitchPrompt');
@@ -361,11 +378,23 @@
   }
   function hideAuthError() {
     document.getElementById('naAuthError').style.display = 'none';
-  }  function openLoginModal() {
+  }
+  function togglePasswordVisibility(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.textContent = showing ? '👁️' : '🙈';
+  }
+  function openLoginModal() {
     injectModal();
     mode = 'login';
-    document.getElementById('naEmailInput').value = '';
-    document.getElementById('naPasswordInput').value = '';
+    document.getElementById('naEmailInput').value = '';    document.getElementById('naPasswordInput').value = '';
+    document.getElementById('naPasswordInput').type = 'password';
+    document.getElementById('naPasswordToggle').textContent = '👁️';
+    document.getElementById('naConfirmPasswordInput').value = '';
+    document.getElementById('naConfirmPasswordInput').type = 'password';
+    document.getElementById('naConfirmPasswordToggle').textContent = '👁️';
     document.getElementById('naSignupNameInput').value = '';
     renderAuthFormMode();
     document.getElementById('naPhoneStep1').style.display = PHONE_AUTH_ENABLED ? 'block' : 'none';
