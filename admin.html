@@ -185,18 +185,20 @@
           <option value="messaged">Already messaged</option>
         </select>
       </div>
-
       <div class="city-breakdown" style="margin-bottom:1rem">
         <h3>📣 Bulk WhatsApp outreach</h3>
         <p style="font-size:11.5px;color:var(--text-sec);margin-bottom:10px">
-          Sends to everyone checked below, using your WhatsApp template. On Meta's test tier, only pre-approved test numbers will actually receive it.
+          Sends the approved <code>waitlist_launch_announcement</code> template to everyone checked below. The first name is filled in automatically. People who replied STOP are skipped.
         </p>
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;margin-bottom:10px;cursor:pointer">
           <input type="checkbox" id="wlSelectAll" onchange="toggleSelectAllWaitlist(this)"/>
           Select all (<span id="wlFilteredCount">0</span> shown below)
         </label>
-        <textarea id="wlBulkMessage" placeholder="Message to send..." maxlength="500"
-          style="width:100%;min-height:80px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:13.5px;font-family:inherit;resize:vertical" oninput="updateWlSendState()"></textarea>
+        <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12.5px;line-height:1.6;color:var(--text-sec);white-space:pre-wrap">Hi [first name], thanks for joining the NaijaNest waitlist! 🎉
+
+NaijaNest is now live at naijanestai.com.ng. Search verified apartments and houses for rent across Nigeria, chat with our AI assistant to find a place that fits your budget, or list a property for free if you're an owner or agent.
+
+Tap the button below to check it out.</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
           <span style="font-size:11px;color:var(--text-sec)"><span id="wlSelectedCount">0</span> selected</span>
           <button class="approve-btn" style="flex:none;padding:8px 18px" id="wlSendBtn" onclick="sendBulkWaitlistMessage()" disabled>Send</button>
@@ -1637,18 +1639,17 @@ function toggleWaitlistRecipient(id, checked){
 function updateWlSendState(){
   const countEl = document.getElementById('wlSelectedCount');
   if (countEl) countEl.textContent = selectedWaitlistIds.size;
-  const msg = (document.getElementById('wlBulkMessage').value || '').trim();
-  document.getElementById('wlSendBtn').disabled = !(selectedWaitlistIds.size > 0 && msg.length > 0);
+  const btn = document.getElementById('wlSendBtn');
+  if (btn) btn.disabled = selectedWaitlistIds.size === 0;
 }
 
 async function sendBulkWaitlistMessage(){
   const btn = document.getElementById('wlSendBtn');
   const resultEl = document.getElementById('wlSendResult');
-  const message = (document.getElementById('wlBulkMessage').value || '').trim();
   const ids = Array.from(selectedWaitlistIds);
-  if (!ids.length || !message) return;
+  if (!ids.length) return;
 
-  if (!confirm(`Send this message to ${ids.length} waitlist ${ids.length===1?'contact':'contacts'} on WhatsApp?`)) return;
+  if (!confirm(`Send the waitlist announcement to ${ids.length} waitlist ${ids.length===1?'contact':'contacts'} on WhatsApp?`)) return;
 
   btn.disabled = true; btn.textContent = 'Sending...';
   resultEl.textContent = '';
@@ -1656,17 +1657,19 @@ async function sendBulkWaitlistMessage(){
     const resp = await fetch('/api/admin-data', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ admin_password: adminPassword, action: 'bulk_message_waitlist', recipient_ids: ids, message })
+      body: JSON.stringify({ admin_password: adminPassword, action: 'bulk_message_waitlist', recipient_ids: ids })
     });
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Send failed');
     resultEl.style.color = data.failed_count ? '#d97706' : 'var(--green)';
     resultEl.innerHTML = `✅ Sent to ${data.sent} of ${data.total}.` +
-      (data.failed_count ? `<br>⚠️ ${data.failed_count} failed: ${data.failed.map(f=>escapeHtml(f.name||f.id)).join(', ')}` : '');
+      (data.failed_count
+        ? `<br>⚠️ ${data.failed_count} failed:` +
+          data.failed.map(f => `<br>• ${escapeHtml(f.name || f.id)} — ${escapeHtml(f.reason || 'unknown error')}`).join('')
+        : '');
 
-    // admin-data.js already persisted last_messaged_at/last_message_text
-    // server-side for everyone who succeeded — update our local copy too so
-    // the list reflects it immediately without a full reload.
+    // admin-data.js already stamped last_messaged_at server-side for everyone
+    // who succeeded — mirror that locally so the list updates without a reload.
     const failedIds = new Set((data.failed || []).map(f => String(f.id)));
     const sentAt = new Date().toISOString();
     ids.forEach(id => {
@@ -1674,21 +1677,19 @@ async function sendBulkWaitlistMessage(){
         const entry = allWaitlist.find(w => String(w.id) === String(id));
         if (entry) {
           entry.last_messaged_at = sentAt;
-          entry.last_message_text = message.slice(0, 500);
+          entry.last_message_text = 'Template: ' + (data.template || 'waitlist_launch_announcement');
         }
+        selectedWaitlistIds.delete(id);
       }
     });
-
-    selectedWaitlistIds.clear();
-    const selectAllBox = document.getElementById('wlSelectAll');
-    if (selectAllBox) selectAllBox.checked = false;
-    document.getElementById('wlBulkMessage').value = '';
+    // People whose send failed stay checked, so you can fix the cause and
+    // hit Send again without reselecting them.
     renderWaitlist();
   } catch(e) {
     resultEl.style.color = '#dc2626';
     resultEl.textContent = 'Error: ' + e.message;
   }
-  btn.disabled = false; btn.textContent = 'Send';
+  btn.textContent = 'Send';
   updateWlSendState();
 }
 
