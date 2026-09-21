@@ -272,7 +272,7 @@ ${JSON.stringify(propsForPrompt)}`;
     // Any error on one model (rate limit, retired model, outage) moves on to
     // the next instead of giving up.
     console.log('whatsapp webhook: calling Groq...');
-    const models = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant')
+    const models = (process.env.GROQ_MODELS || 'openai/gpt-oss-120b,openai/gpt-oss-20b')
       .split(',').map(m => m.trim()).filter(Boolean);
     const messages = [{ role: 'system', content: system }, ...history];
     let reply = "Hi! 👋 Our AI assistant is taking a short break right now. Please try again in a few minutes 🙏";
