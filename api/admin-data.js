@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { logError, notifyRentReleased, notifyRenter, notifyLandlordCustom, notifyWhatsApp } from '../lib/notify.js';
+import { logError, notifyRentReleased, notifyRenter, notifyLandlordCustom } from '../lib/notify.js';
+import { sendWaitlistTemplate, WAITLIST_TEMPLATE_NAME } from '../lib/waitlist-whatsapp.js';
 import { releaseEscrow } from '../lib/escrow.js';
 
 const MAX_ATTEMPTS = 5;
@@ -362,32 +363,30 @@ async function updateSiteContent(req, res, serviceKey) {
 }
 
 // Bulk WhatsApp outreach to selected waitlist signups, from the admin
-// dashboard's Waitlist tab. Reuses notifyWhatsApp (the same pre-approved
-// "escrow_notification" template used everywhere else) rather than requiring
-// a new Meta template — the {{1}} slot gets the person's name, {{2}} gets
-// the admin's freeform message. Sends are sequential with a short delay
-// between each to stay comfortably under WhatsApp API rate limits when
-// messaging many people back-to-back; a failed send for one person never
-// stops the rest.
+// dashboard's Waitlist tab.
+//
+// Sends the approved Marketing template (waitlist_launch_announcement — see
+// lib/waitlist-whatsapp.js) rather than the generic escrow_notification
+// Utility template, which is meant for transactional updates and would risk
+// Meta reclassifying it or flagging the account if used for promotion. The
+// message text is fixed by the template; only the first name is filled in.
+//
+// Sends are sequential with a short delay between each to stay comfortably
+// under WhatsApp API rate limits; a failed send for one person never stops
+// the rest. Each failure comes back with Meta's real error code and a
+// plain-English reason so the dashboard can show why, not just how many.
+//
+// People who replied STOP (waitlist.opted_out_at, set by whatsapp-webhook.js)
+// are skipped. If that column doesn't exist yet, the lookup falls back to
+// the old column list so sending still works.
 //
 // After sending, everyone who actually received the message gets
-// last_messaged_at / last_message_text stamped on their waitlist row, so
-// the admin dashboard can show who's already been contacted (and when) and
-// let Dave pick reminder targets without relying on browser-local state.
-//
-// NOTE: while WHATSAPP_PHONE_NUMBER_ID is still on Meta's test tier, this
-// will only actually deliver to numbers pre-approved as test recipients —
-// everything else gets rejected by the WhatsApp API (visible in the
-// per-recipient failure list this returns, and in Metrics > Recent errors).
+// last_messaged_at / last_message_text stamped on their waitlist row, so the
+// dashboard can show who's already been contacted.
 async function bulkMessageWaitlist(req, res, serviceKey) {
-  const { recipient_ids, message } = req.body || {};
+  const { recipient_ids } = req.body || {};
   if (!Array.isArray(recipient_ids) || recipient_ids.length === 0) {
     return res.status(400).json({ error: 'No recipients selected' });
-  }
-  const trimmedMessage = (message || '').trim();
-  if (!trimmedMessage) return res.status(400).json({ error: 'Message is empty' });
-  if (trimmedMessage.length > 500) {
-    return res.status(400).json({ error: 'Message is too long (max 500 characters)' });
   }
   // Cap batch size per request so one accidental "select all" on a huge
   // waitlist can't turn into a request that runs past Vercel's function
@@ -401,10 +400,17 @@ async function bulkMessageWaitlist(req, res, serviceKey) {
   const idList = recipient_ids.map(id => Number(id)).filter(n => Number.isFinite(n));
   if (!idList.length) return res.status(400).json({ error: 'Invalid recipient ids' });
 
-  const resp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/waitlist?id=in.(${idList.join(',')})&select=id,name,whatsapp`,
+  let resp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/waitlist?id=in.(${idList.join(',')})&select=id,name,whatsapp,opted_out_at`,
     { headers }
   );
+  if (!resp.ok) {
+    // Most likely the opted_out_at column hasn't been added yet.
+    resp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/waitlist?id=in.(${idList.join(',')})&select=id,name,whatsapp`,
+      { headers }
+    );
+  }
   if (!resp.ok) {
     const err = await resp.text();
     return res.status(400).json({ error: `Could not load recipients: ${err}` });
@@ -415,16 +421,20 @@ async function bulkMessageWaitlist(req, res, serviceKey) {
   const failed = [];
   const succeededIds = [];
   for (const r of recipients) {
+    if (r.opted_out_at) {
+      failed.push({ id: r.id, name: r.name, reason: 'Skipped: replied STOP to opt out' });
+      continue;
+    }
     if (!r.whatsapp) {
       failed.push({ id: r.id, name: r.name, reason: 'No WhatsApp number on file' });
       continue;
     }
-    const ok = await notifyWhatsApp(r.whatsapp, r.name, trimmedMessage);
-    if (ok) {
+    const result = await sendWaitlistTemplate(r.whatsapp, r.name);
+    if (result.ok) {
       sent++;
       succeededIds.push(r.id);
     } else {
-      failed.push({ id: r.id, name: r.name, reason: 'WhatsApp API rejected the message — see Metrics > Recent errors' });
+      failed.push({ id: r.id, name: r.name, reason: result.reason, code: result.code });
     }
     // Stay well under WhatsApp Cloud API's send-rate limits.
     await new Promise(resolveDelay => setTimeout(resolveDelay, 300));
@@ -436,7 +446,7 @@ async function bulkMessageWaitlist(req, res, serviceKey) {
         method: 'PATCH', headers,
         body: JSON.stringify({
           last_messaged_at: new Date().toISOString(),
-          last_message_text: trimmedMessage.slice(0, 500),
+          last_message_text: `Template: ${WAITLIST_TEMPLATE_NAME}`,
         }),
       });
     } catch (e) {
@@ -448,6 +458,7 @@ async function bulkMessageWaitlist(req, res, serviceKey) {
 
   return res.status(200).json({
     success: true,
+    template: WAITLIST_TEMPLATE_NAME,
     total: recipients.length,
     sent,
     failed_count: failed.length,

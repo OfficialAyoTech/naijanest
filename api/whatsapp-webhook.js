@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { logError } from '../lib/notify.js';
+import { toE164 } from '../lib/waitlist-whatsapp.js';
 
 // Vercel must not pre-parse the body — we need the exact raw bytes to verify Meta's
 // X-Hub-Signature-256 header, same reasoning as paystack-webhook.js.
@@ -44,6 +45,84 @@ async function isRateLimited(key, maxRequests, windowMinutes, serviceKey) {
     console.error('whatsapp webhook: rate-limit record failed:', e.message);
   }
   return false;
+}
+
+// Plain text reply inside the 24h customer-service window (the person just
+// messaged us, so no template is needed).
+async function sendWhatsAppText(to, body) {
+  const sendResp = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body },
+    }),
+  });
+  if (!sendResp.ok) {
+    console.error('whatsapp webhook: WhatsApp send failed:', sendResp.status, await sendResp.text());
+    return false;
+  }
+  console.log('whatsapp webhook: reply sent successfully to', to);
+  return true;
+}
+
+// The waitlist outreach template's footer promises "Reply STOP to opt out",
+// so that has to actually work. Kept to unambiguous phrases only — words like
+// "cancel" or "end" are too likely to appear in a normal chat with the bot.
+const OPT_OUT_PHRASES = new Set(['stop', 'unsubscribe', 'opt out', 'opt-out', 'optout', 'stop messages']);
+function isOptOut(text) {
+  return OPT_OUT_PHRASES.has(String(text || '').trim().toLowerCase().replace(/[.!\s]+$/, ''));
+}
+
+// Marks any waitlist row(s) matching this WhatsApp number as opted out.
+// Requires: alter table waitlist add column if not exists opted_out_at timestamptz;
+// The waitlist is small, so it's fetched and matched in JS on normalized
+// digits — that way 0810..., +234 810... and 234810... all match.
+async function handleOptOut(from, headers) {
+  try {
+    const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?select=id,whatsapp`, { headers });
+    if (resp.ok) {
+      const rows = await resp.json();
+      const ids = rows.filter(r => toE164(r.whatsapp) === from).map(r => r.id);
+      if (ids.length) {
+        const patchResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/waitlist?id=in.(${ids.join(',')})`, {
+          method: 'PATCH', headers,
+          body: JSON.stringify({ opted_out_at: new Date().toISOString() }),
+        });
+        if (!patchResp.ok) {
+          await logError('whatsapp-webhook-optout', new Error(`Could not record opt-out for ${from}: ${(await patchResp.text()).slice(0, 300)}`));
+        }
+      }
+    }
+  } catch (e) {
+    console.error('whatsapp webhook: opt-out handling failed:', e.message);
+    await logError('whatsapp-webhook-optout', e);
+  }
+  await sendWhatsAppText(from, "You've been unsubscribed and won't receive more announcements from NaijaNest. You can still message us here any time to search for a home 🏠");
+}
+
+// Reads the admin-controlled platform fee (Admin > Payments), the same
+// site_content row paystack-initialize.js reads. Defaults to 0 (launch
+// pricing) if it was never set.
+async function getPlatformFeePercent(headers) {
+  try {
+    const resp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/site_content?key=eq.platform_fee_percent&select=html`, { headers });
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows[0]) {
+        const percent = Number(JSON.parse(rows[0].html).percent);
+        if (Number.isFinite(percent) && percent >= 0) return percent;
+      }
+    }
+  } catch (e) {
+    console.error('whatsapp webhook: platform fee lookup failed:', e.message);
+  }
+  return 0;
 }
 
 // WhatsApp Cloud API webhook (Meta direct — no BSP markup).
@@ -111,6 +190,13 @@ export default async function handler(req, res) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
+    // Opt-out requests are handled before anything else — no AI call, no
+    // session, and they never get blocked by the rate limit below.
+    if (isOptOut(text)) {
+      await handleOptOut(from, headers);
+      return res.status(200).send('EVENT_RECEIVED');
+    }
+
     // Per-phone-number rate limit — signature verification already blocks spoofed
     // requests, but a real user could still script rapid-fire messages from their
     // own number to run up Groq costs. 20 messages / 10 min is generous for a real
@@ -157,6 +243,12 @@ export default async function handler(req, res) {
     const coverageLine = activeCities.length
       ? `You currently have verified listings in: ${activeCities.join(', ')}.`
       : `You don't have any verified listings yet — new ones are added regularly.`;
+
+    const platformFeePercent = await getPlatformFeePercent(headers);
+    const platformFeeRule = platformFeePercent > 0
+      ? `NaijaNest charges a platform fee of ${platformFeePercent}% of the annual rent, so ALWAYS include platform fee = price × ${platformFeePercent}/100 in the total.`
+      : `NaijaNest currently charges NO platform fee, so do not add one.`;
+
     const system = `You are the NaijaNest AI assistant, chatting with a user over WhatsApp. NaijaNest is Nigeria's AI-powered house rental assistant.
 
 ${coverageLine}
@@ -167,16 +259,21 @@ RULES:
 3. If the list is empty, or nothing matches the requested city, say NaijaNest doesn't have verified listings there yet and that new ones are added regularly. Do not invent one.
 4. This is WhatsApp — plain text only. No markdown tables, no special card syntax. Keep replies short and scannable: a few lines per property (name, area, price, one line of neighborhood info), not paragraphs.
 5. Answer questions about security, water, electricity, and flood risk using the fields provided for that property.
-6. If asked how to submit a property, tell them to visit naijanest.vercel.app/list-property.html.
+6. If asked how to submit a property, tell them listing is free and to visit naijanestai.com.ng/list-property.html.
 7. Be warm and conversational, like a knowledgeable friend, not a formal customer service bot.
-8. FULL COST QUESTIONS: if asked the total/actual cost, or about agency/documentation/caution fees, use agency_fee_percent, legal_fee_percent, and caution_fee on that property. Compute agency fee = price × agency_fee_percent/100, documentation fee = price × legal_fee_percent/100, then ALWAYS also add a NaijaNest platform fee = price × 5/100 (a fixed 5% on every property regardless of what the landlord set — never null, never skipped). Total = price + agency fee + documentation fee + caution_fee + platform fee (only skip agency/documentation/caution if that specific field is null — platform fee is always included). Show the full breakdown, not just one number. If a fee field is null, say that fee hasn't been listed yet and to ask the landlord directly — never guess a percentage. If asked why there's both an agency fee AND a platform fee, explain plainly: agency fee is the landlord's own choice (replaces a traditional agent, can be 0), while the platform fee is NaijaNest's fixed cost of running the service — not something anyone sets or removes.
+8. FULL COST QUESTIONS: if asked the total/actual cost, or about agency/documentation/caution fees, use agency_fee_percent, legal_fee_percent (this is the documentation fee), and caution_fee on that property. Agency and documentation fees only apply when that listing's landlord or agent actually charges them — null or 0 means none is listed for that property, so say that and suggest confirming with the landlord; never guess a percentage. Agency fee = price × agency_fee_percent/100 and documentation fee = price × legal_fee_percent/100. The caution fee is a deposit set by the landlord and refundable at the end of the tenancy; it is not a NaijaNest fee. ${platformFeeRule} Total = price + any agency fee + any documentation fee + caution_fee + any platform fee. Show the full breakdown, not just one number.
 
 CURRENT VERIFIED LISTINGS (JSON):
 ${JSON.stringify(propsForPrompt)}`;
 
-    // ---- Call Groq, with the same model fallback as the web chat ----
+    // ---- Call Groq, trying each model in turn ----
+    // Set GROQ_MODELS in Vercel (comma-separated, best model first) to the
+    // same list chat.js uses, so both stay in step when Groq retires a model.
+    // Any error on one model (rate limit, retired model, outage) moves on to
+    // the next instead of giving up.
     console.log('whatsapp webhook: calling Groq...');
-    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+    const models = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant')
+      .split(',').map(m => m.trim()).filter(Boolean);
     const messages = [{ role: 'system', content: system }, ...history];
     let reply = "Hi! 👋 Our AI assistant is taking a short break right now. Please try again in a few minutes 🙏";
     for (const model of models) {
@@ -189,11 +286,13 @@ ${JSON.stringify(propsForPrompt)}`;
         const data = await groqResp.json();
         if (!groqResp.ok) {
           console.error('whatsapp webhook: Groq error on', model, data?.error);
-          if (data?.error?.code === 'rate_limit_exceeded') continue;
+          continue;
+        }
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          reply = content;
           break;
         }
-        reply = data.choices?.[0]?.message?.content || reply;
-        break;
       } catch (e) {
         console.error('whatsapp webhook: Groq fetch failed on', model, e.message);
         continue;
@@ -212,24 +311,7 @@ ${JSON.stringify(propsForPrompt)}`;
     if (!saveResp.ok) console.error('whatsapp webhook: session save failed:', await saveResp.text());
 
     console.log('whatsapp webhook: sending reply via WhatsApp...');
-    const sendResp = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: from,
-        type: 'text',
-        text: { body: reply },
-      }),
-    });
-    if (!sendResp.ok) {
-      console.error('whatsapp webhook: WhatsApp send failed:', sendResp.status, await sendResp.text());
-    } else {
-      console.log('whatsapp webhook: reply sent successfully to', from);
-    }
+    await sendWhatsAppText(from, reply);
 
     return res.status(200).send('EVENT_RECEIVED');
   } catch (error) {
