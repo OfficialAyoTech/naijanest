@@ -249,10 +249,8 @@ async function handlePost(req, res) {
     if (action === 'confirm_move_in') return await confirmMoveIn(req, res);
     if (action === 'raise_dispute') return await raiseDispute(req, res);
     if (action === 'my_escrow') return await myEscrow(req, res);
+    if (action === 'cancel_pending_payment') return await cancelPendingPayment(req, res);
     return res.status(400).json({ error: 'Unknown action' });
-  } catch (error) {
-    await logError('paystack-verify-post', error);
-    return res.status(500).json({ error: error.message });
   }
 }
 
@@ -444,6 +442,59 @@ async function raiseDispute(req, res) {
   await notifyAdminWhatsApp(
     `🚩 Escrow dispute raised on payment ${escrow.reference}.\nReason: ${cleanReason.slice(0, 300)}\nReview in the admin dashboard.`
   );
+
+  return res.status(200).json({ success: true });
+}
+
+// Renter self-cancels a stuck pending_payment row instead of waiting for
+// the cron sweep. Before trusting the client's word that it's abandoned,
+// re-verifies with Paystack directly — if the payment actually succeeded
+// (e.g. they paid in another tab, or our redirect callback hasn't landed
+// yet), we reconcile it as funded instead of wrongly marking real money as
+// failed.
+async function cancelPendingPayment(req, res) {
+  const { escrow_id, access_token } = req.body || {};
+  if (!escrow_id || !access_token) {
+    return res.status(400).json({ error: 'Missing escrow_id or access_token' });
+  }
+  const user = await authenticateUser(access_token);
+  if (!user) return res.status(401).json({ error: 'Please sign in again' });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const escrowResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}&select=*`, { headers }
+  );
+  const rows = await escrowResp.json();
+  const escrow = rows[0];
+  if (!escrow) return res.status(404).json({ error: 'Escrow record not found' });
+  if (escrow.renter_id !== user.id) return res.status(403).json({ error: 'Not your payment' });
+  if (escrow.status !== 'pending_payment') {
+    return res.status(400).json({ error: `Cannot cancel — current status is ${escrow.status}` });
+  }
+
+  const verifyResp = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(escrow.reference)}`, {
+    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
+  });
+  const verifyData = await verifyResp.json();
+  if (verifyData.status && verifyData.data && verifyData.data.status === 'success') {
+    const confirmDeadline = new Date(Date.now() + CONFIRM_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ status: 'funded', funded_at: new Date().toISOString(), confirm_deadline: confirmDeadline }),
+    });
+    await notifyRentFunded(escrow, headers);
+    return res.status(200).json({
+      success: false, reconciled: true,
+      error: 'This payment actually went through — refresh to see it as funded.',
+    });
+  }
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({ status: 'payment_failed' }),
+  });
 
   return res.status(200).json({ success: true });
 }
