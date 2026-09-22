@@ -35,7 +35,9 @@ async function handleGet(req, res) {
     const queryMatch = !!process.env.CRON_SECRET && req.query.cron_secret === process.env.CRON_SECRET;
     const isCron = headerMatch || queryMatch;
     if (isCron && !req.query.reference) {
-      return await runAutoReleaseSweep(res);
+      const abandoned = await runAbandonedPaymentSweep();
+      const releaseResult = await runAutoReleaseSweep();
+      return res.status(200).json({ ...releaseResult, abandoned });
     }
 
     if (req.query.list_banks) {
@@ -148,9 +150,48 @@ async function verifyRentEscrow({ tx, reference, headers, res }) {
   }
 }
 
-// Runs every 15–30 min via an external cron hitting this URL with
-// ?cron_secret=... (see handleGet above).
-async function runAutoReleaseSweep(res) {
+// Abandoned checkouts: a tenant who cancels or just closes the Paystack tab
+// without an explicit "cancel" click never triggers a redirect back to
+// callback_url, so verifyRentEscrow() never runs and the row sits at
+// pending_payment forever. This sweeps those up. 60 minutes is generous
+// slack for someone genuinely mid-checkout on a slow connection.
+const ABANDONED_PENDING_MINUTES = 60;
+
+async function runAbandonedPaymentSweep() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  const cutoff = new Date(Date.now() - ABANDONED_PENDING_MINUTES * 60 * 1000).toISOString();
+
+  const staleResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions` +
+    `?status=eq.pending_payment&created_at=lt.${cutoff}&select=id,reference`,
+    { headers }
+  );
+  const stale = staleResp.ok ? await staleResp.json() : [];
+  for (const row of stale) {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${row.id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ status: 'payment_failed' }),
+    });
+  }
+
+  const stalePayResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/payments` +
+    `?status=eq.pending&created_at=lt.${cutoff}&select=id`,
+    { headers }
+  );
+  const stalePayments = stalePayResp.ok ? await stalePayResp.json() : [];
+  for (const row of stalePayments) {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/payments?id=eq.${row.id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ status: 'failed' }),
+    });
+  }
+
+  return { expired: stale.length, expiredPayments: stalePayments.length };
+}
+
+async function runAutoReleaseSweep() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
@@ -197,7 +238,7 @@ async function runAutoReleaseSweep(res) {
     }
   }
 
-  return res.status(200).json({ swept: due.length, results });
+  return { swept: due.length, results };
 }
 
 // ---- POST: renter/landlord actions -----------------------------------------
