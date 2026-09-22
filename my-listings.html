@@ -423,6 +423,9 @@ function escrowRowHtml(r, isRenter){
     <div class="escrow-actions">
       <button class="btn-confirm" onclick="mlConfirmMoveIn('${r.id}')">✅ Confirm move-in</button>
       <button class="btn-dispute" onclick="mlRaiseDispute('${r.id}')">🚩 Report a problem</button>
+    </div>` : (isRenter && r.status === 'pending_payment') ? `
+    <div class="escrow-actions">
+      <button class="btn-dispute" onclick="mlCancelPending('${r.id}')" style="flex:1">✖️ Cancel payment</button>
     </div>` : '';
   const receiptBtn = hasReceipt
     ? `<button class="receipt-btn" onclick="openMlReceipt('${r.id}')">🧾 View Payment Receipt</button>` : '';
@@ -578,6 +581,20 @@ async function mlRaiseDispute(escrowId){
     await refreshEscrowSections();
     alert('Reported. Our team will review and reach out.');
   }catch(e){ alert('Could not submit report: ' + e.message); }
+}
+
+async function mlCancelPending(escrowId){
+  if(!confirm('Cancel this payment attempt? You can start a new payment anytime after.')) return;
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-verify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'cancel_pending_payment', escrow_id: escrowId, access_token })
+    });
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error || 'Could not cancel');
+    await refreshEscrowSections();
+  }catch(e){ alert('Could not cancel payment: ' + e.message); }
 }
 
 function escapeHtml(str){
