@@ -793,6 +793,10 @@ async function renderRentPaySection(p){
         <button onclick="raiseDisputeFlow('${row.id}')" style="flex:1;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">🚩 Report a problem</button>
       </div>`;
   }
+  if(row.status === 'pending_payment'){
+    actions = `
+      <button onclick="cancelPendingFlow('${row.id}')" style="width:100%;margin-top:8px;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:20px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer">✖️ Cancel this payment</button>`;
+  }
   el.innerHTML = `
     <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:12.5px;font-weight:600;color:${color}">${text}</div>
@@ -906,6 +910,21 @@ async function raiseDisputeFlow(escrowId){
     if(selectedProp) renderRentPaySection(selectedProp);
     alert('Reported. Our team will review and reach out.');
   }catch(e){ alert('Could not submit report: ' + e.message); }
+}
+
+async function cancelPendingFlow(escrowId){
+  if(!confirm('Cancel this payment attempt? You can start a new payment anytime after.')) return;
+  try{
+    const access_token = await NaijaAuth.getAccessToken();
+    const resp = await fetch('/api/paystack-verify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'cancel_pending_payment', escrow_id: escrowId, access_token })
+    });
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error || 'Could not cancel');
+    await loadMyEscrow(true);
+    if(selectedProp) renderRentPaySection(selectedProp);
+  }catch(e){ alert('Could not cancel payment: ' + e.message); }
 }
 
 async function reportListing(propertyId){
