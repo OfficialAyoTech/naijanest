@@ -11,6 +11,7 @@ const FEATURED_DAYS = 30;
 // timing so funds are actually transferable by the time release fires. Keep
 // in sync with the same constant in paystack-webhook.js / paystack-initialize.js.
 const CONFIRM_WINDOW_HOURS = 24;
+const STALLED_BALANCE_ALERT_HOURS = 24;
 
 // escrow_transactions.status values:
 //   pending_payment -> funded -> confirmed | disputed -> released | refunded
