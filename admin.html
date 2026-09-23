@@ -1430,6 +1430,21 @@ function escrowStatusBadge(status){
   return map[status] || {label: status, color:'#555'};
 }
 
+// Shows a manual-release option for any escrow stuck at funded/confirmed/
+// disputed — the safety valve for when Paystack's automated Transfer can't
+// complete (e.g. balance swept out by Paystack's own settlement before our
+// sweep could act) and the landlord was paid directly from the business
+// bank account instead.
+function manualReleaseSection(e){
+  if (!['funded','confirmed','disputed'].includes(e.status)) return '';
+  return `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border,#e5e7eb)">
+      <button class="unpublish-btn" onclick="manuallyRelease('${e.id}')">🏦 Mark as manually released (paid outside Paystack)</button>
+    </div>`;
+}
+
+function cautionFeeSection(e){
+
 function cautionFeeSection(e){
   if (!e.caution_fee_amount || e.caution_fee_amount <= 0) return '';
   const amt = `₦${Number(e.caution_fee_amount/100).toLocaleString()}`;
@@ -1462,6 +1477,25 @@ async function settleCaution(escrowId, decision){
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Could not settle caution fee');
     alert(`Done — ${data.decision}.`);
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function manuallyRelease(escrowId){
+  const notes = prompt('How/where was the landlord paid? (e.g. "Sent ₦300,000 to David\'s OPay 7012290315 on 23 Sept via bank app, ref XXXX") — required, for your own records:');
+  if (!notes || !notes.trim()) { alert('A note is required so there\'s a record of how this was paid.'); return; }
+  if (!confirm('Mark this escrow as released? This does NOT send any money — only use this after you\'ve already paid the landlord directly.')) return;
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'manually_release_escrow', escrow_id: escrowId, admin_notes: notes.trim() })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not mark as released');
+    alert('Marked as released.');
     await loadData();
   } catch(e) {
     alert('Error: ' + e.message);
@@ -1501,6 +1535,7 @@ function renderPayments(){
         ${e.released_at ? ` · Released ${new Date(e.released_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
         ${e.refunded_at ? ` · Refunded ${new Date(e.refunded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
       </div>
+      ${manualReleaseSection(e)}
       ${cautionFeeSection(e)}
     </div>`;
   }).join('');
