@@ -201,7 +201,7 @@ async function runAutoReleaseSweep() {
     `&select=*`,
     { headers }
   );
-  if (!dueResp.ok) return res.status(500).json({ error: 'Could not fetch due escrow rows' });
+  if (!dueResp.ok) return { swept: 0, error: 'Could not fetch due escrow rows' };
   const due = await dueResp.json();
 
   const results = [];
@@ -251,6 +251,9 @@ async function handlePost(req, res) {
     if (action === 'my_escrow') return await myEscrow(req, res);
     if (action === 'cancel_pending_payment') return await cancelPendingPayment(req, res);
     return res.status(400).json({ error: 'Unknown action' });
+  } catch (error) {
+    await logError('paystack-verify-post', error);
+    return res.status(500).json({ error: error.message });
   }
 }
 
