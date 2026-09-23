@@ -155,6 +155,47 @@ async function resolveEscrowDispute(req, res, serviceKey) {
   return res.status(200).json({ success: true, resolution: 'refunded' });
 }
 
+// Admin manually confirms the landlord's share was paid outside Paystack —
+// e.g. Paystack's own settlement swept the balance to our bank account
+// before releaseEscrow's Transfer could fire (insufficientBalance stuck
+// past STALLED_BALANCE_ALERT_HOURS in paystack-verify.js), and Dave sent
+// the landlord their share directly from the business bank account. This
+// never calls Paystack Transfer — it only records that the money moved by
+// another channel, so the row stops showing as unresolved and the sweep
+// stops retrying it. admin_notes should record how/where it was sent
+// (bank, reference) since there's no Paystack transfer_code for this case.
+async function manuallyReleaseEscrow(req, res, serviceKey) {
+  const { escrow_id, admin_notes } = req.body || {};
+  if (!escrow_id || !admin_notes || !String(admin_notes).trim()) {
+    return res.status(400).json({ error: 'Missing escrow_id or admin_notes (required — explain how/where the landlord was paid)' });
+  }
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const escrowResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}&select=*`, { headers }
+  );
+  const rows = await escrowResp.json();
+  const escrow = rows[0];
+  if (!escrow) return res.status(404).json({ error: 'Escrow record not found' });
+  if (!['funded', 'confirmed', 'disputed'].includes(escrow.status)) {
+    return res.status(400).json({ error: `Cannot manually release — current status is ${escrow.status}` });
+  }
+
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
+    method: 'PATCH', headers,
+    body: JSON.stringify({
+      status: 'released', released_at: new Date().toISOString(),
+      resolved_by_admin_at: new Date().toISOString(),
+      admin_notes: `[Manual release — paid outside Paystack] ${String(admin_notes).slice(0, 1000)}`,
+    }),
+  });
+
+  await notifyRentReleased(escrow, headers);
+
+  return res.status(200).json({ success: true });
+}
+
 // Settles the caution fee once a tenancy is over (told to you off-platform —
 // there's no automated lease-end tracking). Only fires for a payment that
 // actually completed (status 'released'); the caution fee sat untouched
@@ -490,6 +531,9 @@ export default async function handler(req, res) {
 
     if (action === 'resolve_escrow_dispute') {
       return await resolveEscrowDispute(req, res, serviceKey);
+    }
+    if (action === 'manually_release_escrow') {
+      return await manuallyReleaseEscrow(req, res, serviceKey);
     }
     if (action === 'settle_caution_fee') {
       return await settleCautionFee(req, res, serviceKey);
