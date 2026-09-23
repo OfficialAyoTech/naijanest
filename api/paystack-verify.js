@@ -209,13 +209,27 @@ async function runAutoReleaseSweep() {
     try {
       await releaseEscrow({ escrow, headers });
       results.push({ id: escrow.id, ok: true });
-    } catch (e) {
-      if (e.insufficientBalance) {
-        // Expected/self-resolving — Paystack hasn't released these funds
-        // into available balance yet. Not logged as an error and no admin
-        // alert: this will keep quietly retrying every sweep cycle until
-        // the hold clears, same as any other 'confirmed'/overdue row.
+    } catch (e) {      
+
+   if (e.insufficientBalance) {
+        // Usually expected/self-resolving — Paystack hasn't released these
+        // funds into available balance yet, and the next sweep retries
+        // automatically. But if this stretches past our own settlement
+        // schedule, Paystack's automatic payout to our bank account may
+        // have already swept the balance out from under us — landlord
+        // money could be stuck until someone manually intervenes. Once a
+        // row has been stuck this long, alert once (not every 15-minute
+        // retry) so it doesn't go unnoticed.
         console.log(`auto-release deferred for escrow ${escrow.id} — Paystack balance not yet available, will retry`);
+        const referenceTime = escrow.confirmed_at || escrow.funded_at || escrow.created_at;
+        const hoursStalled = (Date.now() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
+        if (hoursStalled >= STALLED_BALANCE_ALERT_HOURS) {
+          await logError(`escrow-insufficient-balance:${escrow.id}`, e, { windowMinutes: 24 * 60, skipDuplicateLog: true });
+          await notifyAdminWhatsApp(
+            `⚠️ Escrow ${escrow.reference} (₦${(escrow.total_amount / 100).toLocaleString()}) still not released after ~${Math.floor(hoursStalled)}h — ` +
+            `Paystack balance may have been auto-swept to the business account before release. Check manually and release from the admin dashboard if needed.`
+          );
+        }
         results.push({ id: escrow.id, ok: false, deferred: true });
         continue;
       }
