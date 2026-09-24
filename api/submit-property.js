@@ -115,6 +115,45 @@ function validateProperty(body) {
     if (!listerRoleOther) return { error: 'Please specify your role' };
   }
 
+  // Payout arrangement. An owner is always listing their own property. Anyone
+  // else must say whether they ARE the landlord or are listing for someone
+  // else — and if it's someone else, how the money should be paid out:
+  //   split           -> rent to the landlord's own account (entered here,
+  //                      verified with Paystack in the handler), the lister's
+  //                      agency/documentation fees to the lister's account
+  //   lister_collects -> everything to the lister's account; the lister then
+  //                      passes the rent on to the landlord themselves
+  // Either way the lister must confirm the landlord authorised them.
+  const actingFor = listerRole === 'owner' ? 'self' : (body.acting_for || '').trim();
+  if (!['self', 'other'].includes(actingFor)) {
+    return { error: 'Please tell us whether you are the landlord of this property' };
+  }
+  let payoutMode = 'self';
+  let listerConsentAt = null;
+  let landlordAccount = null;
+  if (actingFor === 'other') {
+    payoutMode = (body.payout_mode || '').trim();
+    if (!['split', 'lister_collects'].includes(payoutMode)) {
+      return { error: 'Please choose how payments for this property should be paid out' };
+    }
+    if (body.lister_consent !== true) {
+      return { error: 'Please confirm the landlord has authorised you to list this property' };
+    }
+    listerConsentAt = new Date().toISOString();
+    if (payoutMode === 'split') {
+      const bankCode = String(body.landlord_bank_code || '').trim();
+      const acct = String(body.landlord_bank_account_number || '').replace(/\D/g, '');
+      if (!bankCode || acct.length !== 10) {
+        return { error: "Please enter the landlord's bank and 10-digit account number" };
+      }
+      landlordAccount = {
+        bank_code: bankCode,
+        bank_name: truncate(escapeHtml(String(body.landlord_bank_name || '').trim()), 100),
+        account_number: acct,
+      };
+    }
+  }
+
   const name = truncate(escapeHtml((body.name || '').trim()), 100);
   if (!name) return { error: 'Property title is required' };
 
@@ -234,9 +273,10 @@ function validateProperty(body) {
       nin_number: encryptedNin, security_info: securityInfo, water_info: waterInfo,
       electricity_info: electricityInfo, flood_risk: floodRisk,
       nearby_schools: nearbySchools, nearby_markets: nearbyMarkets, photo_urls: photoUrls,
-      agency_fee_percent: agencyFeePercent, legal_fee_percent: legalFeePercent, caution_fee: cautionFee,
-      lister_role: listerRole, lister_role_other: listerRoleOther,
+      agency_fee_percent: agencyFeePercent, legal_fee_percent: legalFeePercent, caution_fee: cautionFee,      lister_role: listerRole, lister_role_other: listerRoleOther,
+      payout_mode: payoutMode, lister_fee_consent_at: listerConsentAt,
     },
+    landlordAccount,
   };
 }
 
@@ -454,6 +494,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: validated.error });
     }
 
+    // Split listings: verify the landlord's account with Paystack ourselves —
+    // the name the client displayed is never trusted, and the verified name is
+    // what gets stored (and what admin/renters see).
+    let landlordAccountResolved = null;
+    if (validated.landlordAccount) {
+      const r = await fetch(
+        `https://api.paystack.co/bank/resolve?account_number=${validated.landlordAccount.account_number}` +
+        `&bank_code=${encodeURIComponent(validated.landlordAccount.bank_code)}`,
+        { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` } }
+      );
+      const d = await r.json();
+      if (!d.status) {
+        return res.status(400).json({ error: d.message || "Could not verify the landlord's account number" });
+      }
+      landlordAccountResolved = d.data.account_name;
+    }
+
     // Admin entries use the service role key (bypasses RLS entirely, since we've
     // already independently verified this is a legitimate admin action above).
     // Normal user entries keep using the anon key exactly as before.
@@ -476,7 +533,12 @@ export default async function handler(req, res) {
     // landlord who hasn't set up payout details yet — nothing to compare.
     let bankNameMismatch = null;
     let bankAccountNameSnapshot = null;
-    if (user && !isAdminEntry) {
+    if (landlordAccountResolved) {
+      // Split listing: the rent account belongs to the landlord, so compare the
+      // landlord name on the form against THAT account, not the lister's.
+      bankAccountNameSnapshot = landlordAccountResolved;
+      bankNameMismatch = !namesLikelyMatch(validated.data.landlord_name, landlordAccountResolved);
+    } else if (user && !isAdminEntry) {
       try {
         const profResp = await fetch(
           `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=bank_account_name`,
@@ -518,9 +580,17 @@ export default async function handler(req, res) {
       }
     }
 
+    // Split listings need the new property's id to attach the landlord's payout
+    // account, so they insert with the service key and read the row back (the
+    // anon key can't read a pending row back under RLS). Safe: the user was
+    // authenticated above and user_id comes from the verified token, not the client.
+    const needsAccountRow = !!landlordAccountResolved;
+    const propInsertHeaders = needsAccountRow
+      ? { 'Content-Type': 'application/json', apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, Prefer: 'return=representation' }
+      : insertHeaders;
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties`, {
       method: 'POST',
-      headers: insertHeaders,
+      headers: propInsertHeaders,
       body: JSON.stringify({
         ...validated.data,
         user_id: user ? user.id : null,
@@ -531,6 +601,32 @@ export default async function handler(req, res) {
       })
     });
     if (!response.ok) { const err = await response.text(); return res.status(400).json({ error: err }); }
+
+    if (needsAccountRow) {
+      const created = await response.json();
+      const newId = created[0] && created[0].id;
+      const svcHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+      let saved = false;
+      if (newId) {
+        const accResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/property_payout_accounts`, {
+          method: 'POST', headers: { ...svcHeaders, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            property_id: newId, landlord_name: validated.data.landlord_name,
+            bank_code: validated.landlordAccount.bank_code, bank_name: validated.landlordAccount.bank_name,
+            account_number: validated.landlordAccount.account_number, account_name: landlordAccountResolved,
+          }),
+        });
+        saved = accResp.ok;
+      }
+      if (!saved) {
+        // Never leave a split listing without its payout account — roll the listing back.
+        if (newId) {
+          await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${newId}`, { method: 'DELETE', headers: svcHeaders });
+        }
+        await logError('submit-property-payout-account', new Error(`Could not save landlord payout account for new property ${newId}`));
+        return res.status(500).json({ error: "Could not save the landlord's payout account — please try again" });
+      }
+    }
 
     if (bankNameMismatch) {
       await notifyAdminWhatsApp(
