@@ -22,6 +22,9 @@ export default async function handler(req, res) {
       // to renters as a "Listed by ..." badge on the card and detail view. Safe to
       // expose: it's a role label, never landlord identity or contact details.
       'lister_role', 'lister_role_other',
+      // How payments for this listing are paid out — shown to renters as a plain-language
+      // notice before they pay. Contains no bank details or identity information.
+      'payout_mode',
     ].join(',');
 
     // Safety cap — harmless today with a handful of listings, but prevents every
