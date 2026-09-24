@@ -184,7 +184,7 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
 
   const propResp = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}` +
-    `&select=id,user_id,status,name,price,agency_fee_percent,legal_fee_percent,caution_fee`,
+    `&select=id,user_id,status,name,price,agency_fee_percent,legal_fee_percent,caution_fee,payout_mode`,
     { headers }
   );
   const props = await propResp.json();
@@ -197,19 +197,39 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
     return res.status(400).json({ error: "You can't pay rent on your own listing" });
   }
 
-  // The landlord must have payout details on file before we accept money on
-  // their behalf — otherwise there's no way to release it to them later.
-  const landlordResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${property.user_id}` +
-    `&select=id,bank_account_number,paystack_recipient_code`,
-    { headers }
-  );
-  const landlords = await landlordResp.json();
-  const landlord = landlords[0];
-  if (!landlord || !landlord.bank_account_number) {
-    return res.status(400).json({
-      error: 'This landlord has not set up payouts yet. Please check back soon or contact them via WhatsApp.',
-    });
+  // Where the money will go is decided here and snapshotted onto the escrow
+  // row (see lib/escrow.js for what each mode means). We must have somewhere
+  // to send the RENT before accepting the tenant's money:
+  //   self / lister_collects -> the lister's own payout details
+  //   split                  -> the landlord account stored for this property
+  // (In split mode the lister's own bank details are NOT required up front —
+  // their fee payout simply waits until they add them, without blocking rent.)
+  const payoutMode = property.payout_mode || 'self';
+
+  if (payoutMode === 'split') {
+    const accResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/property_payout_accounts?property_id=eq.${property_id}&select=account_number`,
+      { headers }
+    );
+    const accRows = accResp.ok ? await accResp.json() : [];
+    if (!accRows[0] || !accRows[0].account_number) {
+      return res.status(400).json({
+        error: 'This listing has not finished setting up payouts yet. Please check back soon or contact the lister via WhatsApp.',
+      });
+    }
+  } else {
+    const landlordResp = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${property.user_id}` +
+      `&select=id,bank_account_number,paystack_recipient_code`,
+      { headers }
+    );
+    const landlords = await landlordResp.json();
+    const landlord = landlords[0];
+    if (!landlord || !landlord.bank_account_number) {
+      return res.status(400).json({
+        error: 'This landlord has not set up payouts yet. Please check back soon or contact them via WhatsApp.',
+      });
+    }
   }
 
   const price = Number(property.price) || 0;
@@ -219,10 +239,9 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
 
   // NaijaNest's own platform fee — admin-configurable from the dashboard's
   // Payments tab (site_content key: platform_fee_percent), unlike
-  // agency_fee/legal_fee which are landlord-set per listing. Defaults to 0%
-  // (launch pricing) until an admin sets it. Same non-transfer mechanism as
-  // agency/legal fee below (never sent anywhere via Paystack Transfer, so it
-  // simply stays in the platform's balance once rent releases).
+  // agency_fee/legal_fee which are lister-set per listing. Defaults to 0%
+  // (launch pricing) until an admin sets it. Never sent anywhere via Paystack
+  // Transfer, so it simply stays in the platform's balance once rent releases.
   const platformFeePercent = await getPlatformFeePercent(serviceKey);
 
   // All amounts in kobo (Paystack's base unit) from here on.
@@ -236,6 +255,12 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
   if (totalAmount <= 0) {
     return res.status(400).json({ error: 'This listing does not have a valid price set' });
   }
+
+  // Only split listings have a separate lister payout leg: the lister's
+  // agency + documentation fees, paid to the lister's own account while the
+  // rent goes to the landlord. In self / lister_collects those fees ride
+  // along with the single main payout instead.
+  const listerPayoutAmount = payoutMode === 'split' ? agencyFeeAmount + legalFeeAmount : 0;
 
   const reference = `naijanest_escrow_${property_id}_${Date.now()}`;
   const origin = req.headers.origin || `https://${req.headers.host}`;
@@ -271,6 +296,12 @@ async function initializeRentEscrow({ req, res, user, property_id, serviceKey, w
       legal_fee_amount: legalFeeAmount, caution_fee_amount: cautionFeeAmount,
       platform_fee_amount: platformFeeAmount,
       total_amount: totalAmount, status: 'pending_payment',
+      // Payout snapshot — locked in at checkout so later edits to the
+      // listing never change where an already-paid escrow is released to.
+      payout_mode: payoutMode,
+      lister_id: property.user_id,
+      lister_payout_amount: listerPayoutAmount,
+      lister_payout_status: listerPayoutAmount > 0 ? 'pending' : 'none',
       // Consent proof: recorded server-side with our own timestamp (never the
       // client's clock) and the doc version constant above, so if either
       // changes later, existing rows stay a truthful record of what was agreed
