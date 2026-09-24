@@ -321,6 +321,7 @@ Tap the button below to check it out.</div>
   <button class="approve-btn" style="max-width:200px" onclick="saveFeaturedPricing()">Save</button>
   <div id="featPricingResult" style="font-size:12.5px;margin-top:8px"></div>
 </div>
+      <div class="city-breakdown" style="margin-bottom:1rem" id="owedCard"></div>
       <div class="tabs">
         <button class="tab active" onclick="filterEscrow('all',this)">All</button>
         <button class="tab" onclick="filterEscrow('pending_payment',this)">Pending</button>
@@ -1443,6 +1444,24 @@ function manualReleaseSection(e){
     </div>`;
 }
 
+function payoutInfoLine(e){
+  if (!e.payout_mode || e.payout_mode === 'self') return '';
+  if (e.payout_mode === 'lister_collects') {
+    return `<div style="font-size:11.5px;color:var(--text-sec);margin-top:4px">Payout: everything → lister's account (lister passes rent to landlord)</div>`;
+  }
+  const st = e.lister_payout_status;
+  const labels = {
+    none: 'no lister fees on this payment',
+    pending: 'queued (after rent is released)',
+    pending_recipient: '⚠️ waiting for the lister to add bank details',
+    processing: '⚠️ marked "processing" — if this stays for over an hour, check Paystack transfers before doing anything',
+    paid: '✅ paid',
+    manual: 'paid manually (outside Paystack)',
+  };
+  const amt = e.lister_payout_amount > 0 ? ` ₦${Number(e.lister_payout_amount/100).toLocaleString()}` : '';
+  return `<div style="font-size:11.5px;color:var(--text-sec);margin-top:4px">Payout: rent → landlord's own account · lister fees${amt}: ${labels[st] || st}</div>`;
+}
+
 function cautionFeeSection(e){
   if (!e.caution_fee_amount || e.caution_fee_amount <= 0) return '';
   const amt = `₦${Number(e.caution_fee_amount/100).toLocaleString()}`;
@@ -1482,7 +1501,7 @@ async function settleCaution(escrowId, decision){
 }
 
 async function manuallyRelease(escrowId){
-  const notes = prompt('How/where was the landlord paid? (e.g. "Sent ₦300,000 to David\'s OPay 7012290315 on 23 Sept via bank app, ref XXXX") — required, for your own records:');
+  const notes = prompt('How/where were the landlord AND the agent (if any) paid? (e.g. "Sent ₦300,000 to David\'s OPay 7012290315 on 23 Sept via bank app, ref XXXX") — required, for your own records:');
   if (!notes || !notes.trim()) { alert('A note is required so there\'s a record of how this was paid.'); return; }
   if (!confirm('Mark this escrow as released? This does NOT send any money — only use this after you\'ve already paid the landlord directly.')) return;
   try {
@@ -1501,6 +1520,7 @@ async function manuallyRelease(escrowId){
 }
 
 function renderPayments(){
+  renderOwedCard();
   const el = document.getElementById('paymentsContent');
   if (!el) return;
 
@@ -1533,10 +1553,35 @@ function renderPayments(){
         ${e.released_at ? ` · Released ${new Date(e.released_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
         ${e.refunded_at ? ` · Refunded ${new Date(e.refunded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : ''}
       </div>
+      ${payoutInfoLine(e)}
       ${manualReleaseSection(e)}
       ${cautionFeeSection(e)}
     </div>`;
   }).join('');
+}
+
+// How much of the Paystack balance belongs to other people right now. Conservative on purpose:
+// money still in escrow counts in full (a dispute could refund all of it, platform fee included).
+function renderOwedCard(){
+  const el = document.getElementById('owedCard');
+  if (!el) return;
+  let inEscrow = 0, cautionHeld = 0, listerOwed = 0;
+  allEscrow.forEach(e => {
+    if (['funded','confirmed','disputed'].includes(e.status)) inEscrow += e.total_amount || 0;
+    if (e.status === 'released') {
+      if (e.caution_fee_status === 'held') cautionHeld += e.caution_fee_amount || 0;
+      if (['pending','pending_recipient','processing'].includes(e.lister_payout_status)) listerOwed += e.lister_payout_amount || 0;
+    }
+  });
+  const total = inEscrow + cautionHeld + listerOwed;
+  const n = k => '₦' + Number(k/100).toLocaleString();
+  el.innerHTML = `
+    <h3>🏦 Keep this much in your Paystack balance</h3>
+    <div class="city-row"><span>In escrow (tenants' money not yet released)</span><strong>${n(inEscrow)}</strong></div>
+    <div class="city-row"><span>Caution fees held for released rentals</span><strong>${n(cautionHeld)}</strong></div>
+    <div class="city-row"><span>Agent fees not yet paid out</span><strong>${n(listerOwed)}</strong></div>
+    <div class="city-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px"><span><strong>Minimum to keep</strong></span><strong style="color:var(--green)">${n(total)}</strong></div>
+    <p style="font-size:11px;color:var(--text-sec);margin-top:8px">Compare this with your Paystack balance before transferring anything to your business bank account. Only the amount above this line is yours to withdraw. Refunds and Paystack's transfer fees also come out of the balance, so leave a small cushion.</p>`;
 }
 
 function showView(name, el) {
@@ -1614,6 +1659,7 @@ function renderProps() {
       ${p.landlord_phone_verified===true ? `<div style="font-size:11px;color:var(--green);margin-bottom:8px">✓ Landlord phone verified via WhatsApp OTP</div>` : (p.landlord_phone_verified===false ? `<div style="font-size:11.5px;color:#dc2626;margin-bottom:8px">⚠️ Landlord phone not verified</div>` : '')}
       <div class="prop-meta">
         <strong>Listing as:</strong> ${escapeHtml(listerRoleLabel(p.lister_role, p.lister_role_other))}<br>
+        <strong>Payout:</strong> ${p.payout_mode==='split' ? "Split — rent to the landlord's own account, agent fees to the agent" : p.payout_mode==='lister_collects' ? 'Everything to the lister — lister passes rent to the landlord' : 'Lister is the landlord'}<br>
         <strong>Location:</strong> ${escapeHtml(p.area)}${p.lga?', '+escapeHtml(p.lga):''}, ${escapeHtml(p.city)}<br>
         <strong>Type:</strong> ${escapeHtml(p.type)} · <strong>Beds:</strong> ${p.bedrooms} · <strong>Price:</strong> ₦${Number(p.price).toLocaleString()}/yr<br>
         <strong>Landlord:</strong> ${escapeHtml(p.landlord_name)} · <strong>Phone:</strong> ${escapeHtml(p.landlord_phone)}<br>
