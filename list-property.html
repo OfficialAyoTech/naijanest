@@ -113,6 +113,43 @@
       <input type="text" id="lister_role_other" placeholder="e.g. handling this on behalf of a family member who owns the property"/>
     </div>
     <div class="note" style="border-left-color:#d97706">⚠️ Only list a property if you are the owner or have permission/authority from the owner to advertise it for rent.</div>
+    <div id="actingForBlock" style="display:none">
+      <div class="field">
+        <label>Are you the landlord of this property?</label>
+        <select id="acting_for" onchange="onActingForChange()">
+          <option value="">Select</option>
+          <option value="self">Yes — I own it / I am the landlord</option>
+          <option value="other">No — I'm listing it for someone else</option>
+        </select>
+      </div>
+      <div id="otherPayoutBlock" style="display:none">
+        <div class="field">
+          <label>How should payments be paid out?</label>
+          <select id="payout_mode" onchange="onPayoutModeChange()">
+            <option value="split">Rent to the landlord's account, my agency/documentation fees to my account</option>
+            <option value="lister_collects">Everything to my account — I'll pay the landlord myself</option>
+          </select>
+        </div>
+        <div id="landlordBankBlock">
+          <div class="field">
+            <label>Landlord's bank</label>
+            <select id="landlord_bank_code" onchange="onLandlordAcctChanged()"><option value="">Loading banks...</option></select>
+          </div>
+          <div class="field">
+            <label>Landlord's account number</label>
+            <div class="verify-row">
+              <input type="text" id="landlord_bank_account_number" maxlength="10" inputmode="numeric" placeholder="10-digit account number" oninput="onLandlordAcctChanged()" style="flex:1"/>
+              <button type="button" class="verify-btn" id="resolveAcctBtn" onclick="resolveLandlordAccount()">Verify</button>
+            </div>
+            <div id="landlordAcctResult" style="font-size:12px;margin-top:6px"></div>
+          </div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text-sec);margin-bottom:14px;cursor:pointer">
+          <input type="checkbox" id="lister_consent" style="margin-top:3px;width:auto;height:auto"/>
+          <span id="listerConsentText"></span>
+        </label>
+      </div>
+    </div>
 
     <div class="card-title" style="font-size:13px;margin-bottom:12px;margin-top:20px"><i class="ti ti-home"></i> Property Details</div>
 
@@ -283,7 +320,7 @@
     <div class="note">🔒 We only collect your NIN for identity verification, and your bank details (added later from "My Listings") only when you're ready to receive rent payouts. Neither is ever shown publicly. See our <a href="privacy-policy.html" target="_blank">Privacy Policy</a> for exactly how this information is stored and used.</div>
 
     <div class="field">
-      <label>Full name</label>
+      <label id="landlordNameLabel">Full name</label>
       <input type="text" id="landlord_name" placeholder="e.g. Chukwuemeka Obi"/>
     </div>
     <div class="field-row">
@@ -334,6 +371,115 @@ function onListerRoleChange() {
   const selected = document.getElementById('lister_role').value;
   const otherField = document.getElementById('listerRoleOtherField');
   otherField.style.display = (selected === 'other') ? 'block' : 'none';
+
+  // Owners are always listing their own property, so only everyone else is asked.
+  const block = document.getElementById('actingForBlock');
+  const ask = selected && selected !== 'owner';
+  block.style.display = ask ? 'block' : 'none';
+  if (!ask) document.getElementById('acting_for').value = 'self';
+  onActingForChange();
+}
+
+let landlordAcct = { key: null, name: null };
+let banksLoaded = false;
+
+function actingForOther() {
+  return document.getElementById('actingForBlock').style.display !== 'none'
+    && document.getElementById('acting_for').value === 'other';
+}
+
+function onActingForChange() {
+  const other = actingForOther();
+  document.getElementById('otherPayoutBlock').style.display = other ? 'block' : 'none';
+  document.getElementById('landlordNameLabel').textContent = other ? "Landlord's full name" : 'Full name';
+  if (other) { loadLandlordBanks(); onPayoutModeChange(); }
+}
+
+function onPayoutModeChange() {
+  const mode = document.getElementById('payout_mode').value;
+  document.getElementById('landlordBankBlock').style.display = (mode === 'split') ? 'block' : 'none';
+  document.getElementById('listerConsentText').textContent = (mode === 'split')
+    ? "I confirm the landlord has authorised me to list this property and to receive the agency/documentation fees I've set. The rent will be paid straight to the landlord's account above."
+    : "I confirm the landlord has authorised me to list this property. I understand ALL payments (rent and fees) will be paid into MY account, and that I am responsible for paying the landlord their rent.";
+}
+
+async function loadLandlordBanks() {
+  if (banksLoaded) return;
+  const sel = document.getElementById('landlord_bank_code');
+  try {
+    const resp = await fetch('/api/paystack-verify?list_banks=1');
+    const data = await resp.json();
+    if (!data.banks) throw new Error('no banks');
+    sel.innerHTML = '<option value="">Select the landlord\'s bank</option>' +
+      data.banks.map(b => `<option value="${b.code}">${b.name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('');
+    banksLoaded = true;
+  } catch (e) {
+    sel.innerHTML = '<option value="">Could not load banks — refresh to try again</option>';
+  }
+}
+
+function onLandlordAcctChanged() {
+  const key = document.getElementById('landlord_bank_code').value + ':' + document.getElementById('landlord_bank_account_number').value.trim();
+  if (key !== landlordAcct.key) {
+    landlordAcct = { key: null, name: null };
+    document.getElementById('landlordAcctResult').textContent = '';
+  }
+}
+
+async function resolveLandlordAccount() {
+  const bank = document.getElementById('landlord_bank_code').value;
+  const num = document.getElementById('landlord_bank_account_number').value.trim();
+  const out = document.getElementById('landlordAcctResult');
+  if (!bank || num.length !== 10) { out.style.color = '#dc2626'; out.textContent = 'Select the bank and enter the 10-digit account number.'; return; }
+  const btn = document.getElementById('resolveAcctBtn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    const session = await NaijaAuth.client.auth.getSession();
+    const access_token = session.data.session ? session.data.session.access_token : null;
+    const resp = await fetch('/api/paystack-verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'resolve_bank_account', access_token, bank_code: bank, account_number: num })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Could not verify this account');
+    landlordAcct = { key: bank + ':' + num, name: data.account_name };
+    out.style.color = 'var(--green)';
+    out.textContent = '✅ Account name: ' + data.account_name + " — this should be the landlord's name.";
+  } catch (e) {
+    out.style.color = '#dc2626'; out.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Verify';
+  }
+}
+
+// Fields sent to /api/submit-property (re-validated and re-verified server-side).
+function collectPayoutFields() {
+  if (!actingForOther()) return { acting_for: 'self' };
+  const mode = document.getElementById('payout_mode').value;
+  const sel = document.getElementById('landlord_bank_code');
+  return {
+    acting_for: 'other', payout_mode: mode,
+    lister_consent: document.getElementById('lister_consent').checked,
+    ...(mode === 'split' ? {
+      landlord_bank_code: sel.value,
+      landlord_bank_name: sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '',
+      landlord_bank_account_number: document.getElementById('landlord_bank_account_number').value.trim(),
+    } : {}),
+  };
+}
+
+function validatePayoutFields() {
+  const askVisible = document.getElementById('actingForBlock').style.display !== 'none';
+  if (askVisible && !document.getElementById('acting_for').value) {
+    return 'Please tell us whether you are the landlord of this property.';
+  }
+  if (!actingForOther()) return null;
+  if (document.getElementById('payout_mode').value === 'split') {
+    const key = document.getElementById('landlord_bank_code').value + ':' + document.getElementById('landlord_bank_account_number').value.trim();
+    if (landlordAcct.key !== key) return "Please tap Verify to confirm the landlord's account name before submitting.";
+  }
+  if (!document.getElementById('lister_consent').checked) return 'Please tick the confirmation box to continue.';
+  return null;
 }
 
 // Phone OTP verification state. verifiedPhone/verifiedToken only stay valid
@@ -594,6 +740,8 @@ async function submitProperty() {
 
   if (!lister_role) { alert('Please select who is listing this property.'); return; }
   if (lister_role === 'other' && !lister_role_other) { alert('Please specify your role.'); return; }
+  const payoutErr = validatePayoutFields();
+  if (payoutErr) { alert(payoutErr); return; }
   if (!nameVal) { alert('Please enter the property title.'); return; }
   if (!state) { alert('Please select a state.'); return; }
   if (!lga) { alert('Please select a Local Government Area (LGA).'); return; }
@@ -631,7 +779,7 @@ async function submitProperty() {
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, lister_role, lister_role_other, access_token, landlord_phone_verified_token: phoneOtpState.verifiedToken })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, lister_role, lister_role_other, ...collectPayoutFields(), access_token, landlord_phone_verified_token: phoneOtpState.verifiedToken })
     });
     const data = await resp.json();
     if (data.success) {
