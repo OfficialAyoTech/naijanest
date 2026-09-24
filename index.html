@@ -601,6 +601,23 @@ async function sendMsg(){
 
 function sendChip(el){document.getElementById('userInput').value=el.textContent;sendMsg();}
 
+// Plain-language notice, shown before a renter pays, about WHO receives the money on
+// this listing. Nothing is shown when the lister is the landlord (the normal case).
+function payoutNoticeHtml(p){
+  const who = listerRoleLabel(p.lister_role, p.lister_role_other) || 'the lister';
+  if(p.payout_mode === 'split'){
+    return `<div style="background:var(--surface);border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--text-sec);line-height:1.55">
+      <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
+      This property is listed by ${escHtml(who)} on behalf of the landlord. Your rent is paid to the landlord's bank account; any agency or documentation fee goes to the lister.</div>`;
+  }
+  if(p.payout_mode === 'lister_collects'){
+    return `<div style="background:#fff7ed;border:0.5px solid #fdba74;border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#9a3412;line-height:1.55">
+      <i class="ti ti-alert-circle" style="font-size:13px;vertical-align:-1px"></i>
+      This property is listed by ${escHtml(who)} on behalf of the landlord. <strong>All payments for it (rent and fees) are paid to the lister</strong>, who is responsible for passing the rent on to the landlord. Confirm the lister's authority with the landlord before you pay.</div>`;
+  }
+  return '';
+}
+
 function openDetail(id){
   selectedProp=PROPS.find(p=>p.id===id);
   if(!selectedProp)return;
@@ -665,6 +682,7 @@ function openDetail(id){
       </div>
       <div class="badge-row">${p.amenities.map(a=>`<span class="dbadge">${a}</span>`).join('')}</div>
       ${feeBreakdownHtml}
+      ${payoutNoticeHtml(p)}
       <div id="rentPaySection"></div>
       <div class="sec-title">Neighborhood intelligence</div>
       <div class="nbhd-grid">
@@ -868,7 +886,7 @@ async function payRent(propertyId){
       body: JSON.stringify({
         property_id: propertyId, access_token, purpose: 'rent_escrow', whatsapp_number,
         fund_handling_consent: true,
-        fund_handling_doc_version: '2026-08-14'
+        fund_handling_doc_version: '2026-09-24'
       })
     });
     const data = await resp.json();
@@ -1191,6 +1209,7 @@ async function loadRealProperties(){
         price:p.price,type:p.type,verified:true,inspections:0,rentals:0,
         agency_fee_percent:p.agency_fee_percent,legal_fee_percent:p.legal_fee_percent,caution_fee:p.caution_fee,
         lister_role:p.lister_role,lister_role_other:p.lister_role_other,
+        payout_mode:p.payout_mode||'self',
         amenities:p.amenities||[],
         img:photos[0],
         photos:photos,
