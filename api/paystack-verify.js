@@ -1,6 +1,7 @@
 import { logError, notifyAdminWhatsApp, notifyRentFunded, notifyRentReleased } from '../lib/notify.js';
 import { authenticateUser } from '../lib/auth.js';
-import { releaseEscrow } from '../lib/escrow.js';
+import { releaseEscrow, runListerPayoutSweep } from '../lib/escrow.js';
+import { isRateLimited } from '../lib/rate-limit.js';
 import { namesLikelyMatch } from '../lib/name-match.js';
 
 const FEATURED_DAYS = 30;
@@ -253,7 +254,9 @@ async function runAutoReleaseSweep() {
     }
   }
 
-  return { swept: due.length, results };
+  // Second leg of split listings: retry any lister fee payouts that couldn't go out at release time.
+  const listerPayouts = await runListerPayoutSweep({ headers });
+  return { swept: due.length, results, listerPayouts };
 }
 
 // ---- POST: renter/landlord actions -----------------------------------------
@@ -264,6 +267,7 @@ async function handlePost(req, res) {
     if (action === 'confirm_move_in') return await confirmMoveIn(req, res);
     if (action === 'raise_dispute') return await raiseDispute(req, res);
     if (action === 'my_escrow') return await myEscrow(req, res);
+    if (action === 'resolve_bank_account') return await resolveBankAccount(req, res);
     if (action === 'cancel_pending_payment') return await cancelPendingPayment(req, res);
     return res.status(400).json({ error: 'Unknown action' });
   } catch (error) {
@@ -286,12 +290,45 @@ async function myEscrow(req, res) {
     `?or=(renter_id.eq.${user.id},landlord_id.eq.${user.id})&order=created_at.desc` +
     `&select=id,property_id,renter_id,landlord_id,rent_amount,agency_fee_amount,legal_fee_amount,` +
     `caution_fee_amount,platform_fee_amount,total_amount,status,confirm_deadline,funded_at,confirmed_at,disputed_at,` +
-    `dispute_reason,released_at,refunded_at,reference,created_at`,
+    `dispute_reason,released_at,refunded_at,reference,created_at,` +
+    `payout_mode,lister_payout_amount,lister_payout_status`,
     { headers }
   );
   if (!resp.ok) return res.status(400).json({ error: 'Could not fetch escrow records' });
   const rows = await resp.json();
   return res.status(200).json({ escrow: rows, user_id: user.id });
+}
+
+// Lets list-property.html show the landlord's verified account NAME before an
+// agent submits a listing for someone else. Read-only: nothing is saved here
+// (submit-property.js re-resolves server-side and stores the verified name, so
+// this endpoint's answer is never trusted). Signed-in users only, rate limited
+// so it can't be used to enumerate account holders.
+async function resolveBankAccount(req, res) {
+  const { access_token, bank_code, account_number } = req.body || {};
+  if (!access_token || !bank_code || !account_number) {
+    return res.status(400).json({ error: 'Missing access_token, bank_code, or account_number' });
+  }
+  const user = await authenticateUser(access_token);
+  if (!user) return res.status(401).json({ error: 'Please sign in again' });
+
+  const digits = String(account_number).replace(/\D/g, '');
+  if (digits.length !== 10) return res.status(400).json({ error: 'Account number must be 10 digits' });
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (await isRateLimited(`resolve-account:${user.id}`, 10, 60, serviceKey)) {
+    return res.status(429).json({ error: 'Too many lookups — please try again later' });
+  }
+
+  const resolveResp = await fetch(
+    `https://api.paystack.co/bank/resolve?account_number=${digits}&bank_code=${encodeURIComponent(bank_code)}`,
+    { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` } }
+  );
+  const resolveData = await resolveResp.json();
+  if (!resolveData.status) {
+    return res.status(400).json({ error: resolveData.message || 'Could not verify this account number' });
+  }
+  return res.status(200).json({ success: true, account_name: resolveData.data.account_name });
 }
 
 async function saveBankDetails(req, res) {
@@ -338,7 +375,7 @@ async function saveBankDetails(req, res) {
 async function reflagExistingListings(userId, bankAccountName, serviceKey) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
   const resp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/properties?user_id=eq.${userId}&select=id,name,landlord_name,bank_name_mismatch`,
+    `${process.env.SUPABASE_URL}/rest/v1/properties?user_id=eq.${userId}&payout_mode=neq.split&select=id,name,landlord_name,bank_name_mismatch`,
     { headers }
   );
   if (!resp.ok) return;
