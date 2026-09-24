@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { logError, notifyRentReleased, notifyRenter, notifyLandlordCustom } from '../lib/notify.js';
 import { sendWaitlistTemplate, WAITLIST_TEMPLATE_NAME } from '../lib/waitlist-whatsapp.js';
-import { releaseEscrow } from '../lib/escrow.js';
+import { releaseEscrow, getRentPayee, transferToPayee } from '../lib/escrow.js';
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;
@@ -188,6 +188,12 @@ async function manuallyReleaseEscrow(req, res, serviceKey) {
       status: 'released', released_at: new Date().toISOString(),
       resolved_by_admin_at: new Date().toISOString(),
       admin_notes: `[Manual release — paid outside Paystack] ${String(admin_notes).slice(0, 1000)}`,
+      // If a lister fee payout is still queued for this escrow, treat it as handled by hand too, so the
+      // cron can't send it automatically on top of what you paid manually. Your admin note should say
+      // that the lister was paid. To let Paystack send the lister's fees automatically instead, pass
+      // lister_payout_auto: true in the request body.
+      ...(['pending', 'pending_recipient'].includes(escrow.lister_payout_status) && !req.body.lister_payout_auto
+        ? { lister_payout_status: 'manual' } : {}),
     }),
   });
 
@@ -335,32 +341,22 @@ async function settleCautionFee(req, res, serviceKey) {
     return res.status(200).json({ success: true, decision: 'refunded' });
   }
 
-  // decision === 'forfeit' — pay the caution fee to the landlord. Their
-  // Paystack recipient already exists (rent was already transferred there
-  // to reach 'released' status), so this reuses it directly.
-  const landlordResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${escrow.landlord_id}&select=paystack_recipient_code`,
-    { headers }
-  );
-  const landlords = await landlordResp.json();
-  const recipientCode = landlords[0]?.paystack_recipient_code;
-  if (!recipientCode) {
-    return res.status(400).json({ error: 'Landlord has no Paystack recipient on file — this should not happen after a successful release. Check profiles table.' });
+  // decision === 'forfeit' — pay the caution fee to whoever received the rent: the landlord's own
+  // account on split listings, otherwise the lister's account. Creates the Paystack recipient if it
+  // doesn't exist yet and self-heals a stale one.
+  const payee = await getRentPayee({ escrow, headers });
+  if (!payee || !payee.account_number) {
+    return res.status(400).json({ error: 'No payout account on file for the rent recipient — check the profiles / property_payout_accounts tables.' });
   }
-
-  const transferRef = `naijanest_caution_${escrow.id}_${Date.now()}`;
-  const transferResp = await fetch('https://api.paystack.co/transfer', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      source: 'balance', amount: escrow.caution_fee_amount, recipient: recipientCode,
-      reference: transferRef, reason: `NaijaNest caution fee forfeiture — escrow ${escrow.id}`,
-    }),
-  });
-  const transferData = await transferResp.json();
-  if (!transferData.status) {
-    await logError('caution-fee-forfeit', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${transferData.message}`));
-    return res.status(400).json({ error: `Transfer failed: ${transferData.message}` });
+  try {
+    await transferToPayee({
+      payee, amount: escrow.caution_fee_amount,
+      refBase: `naijanest_caution_${escrow.id}`,
+      reason: `NaijaNest caution fee forfeiture — escrow ${escrow.id}`,
+    });
+  } catch (e) {
+    await logError('caution-fee-forfeit', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
+    return res.status(400).json({ error: e.message });
   }
 
   await fetch(`${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}`, {
