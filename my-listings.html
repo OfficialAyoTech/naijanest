@@ -326,9 +326,13 @@ async function renderPayoutSection(){
     profile = data;
   }catch(e){}
 
+  const waitingFees = ESCROW_ROWS
+    .filter(r => r.landlord_id === window.__myUserId && r.lister_payout_status === 'pending_recipient')
+    .reduce((sum, r) => sum + (r.lister_payout_amount || 0), 0);
+
   const saved = profile && profile.bank_account_number
     ? `<div class="bank-saved">✅ Payouts go to ${escapeHtml(profile.bank_account_name||'')} — ${escapeHtml(profile.bank_name||'')} ****${escapeHtml(String(profile.bank_account_number).slice(-4))}</div>`
-    : `<div class="section-sub">Add your bank account so rent payments can be paid out to you once a tenant confirms move-in.</div>`;
+    : `${waitingFees ? `<div class="bank-saved" style="background:#fef3c7;color:#92400e">You have ${fmt(waitingFees/100)} in agency/documentation fees waiting. Add your bank account below and it will be paid out automatically.</div>` : ''}<div class="section-sub">Add your bank account so payments — rent, and any agency or documentation fees you've set — can be paid out to you once a tenant confirms move-in.</div>`;
 
   el.innerHTML = `
     <div class="section-title">Payout details</div>
@@ -429,9 +433,25 @@ function escrowRowHtml(r, isRenter){
     </div>` : '';
   const receiptBtn = hasReceipt
     ? `<button class="receipt-btn" onclick="openMlReceipt('${r.id}')">🧾 View Payment Receipt</button>` : '';
+  // Lister-side explanation of where this payment's money goes.
+  let payoutNote = '';
+  if(!isRenter){
+    const listerAmt = fmt((r.lister_payout_amount || 0) / 100);
+    if(r.payout_mode === 'split'){
+      const st = r.lister_payout_status;
+      const stLabel = st === 'paid' ? 'paid to you'
+        : st === 'pending_recipient' ? 'waiting for your bank details (add them under Payout Details)'
+        : st === 'manual' ? 'paid to you by NaijaNest manually'
+        : st === 'processing' ? 'being sent' : 'queued for payout after rent is released';
+      payoutNote = `<div class="escrow-meta" style="margin-top:4px">Rent goes to the landlord's account.${r.lister_payout_amount > 0 ? ` Your fees: ${listerAmt} — ${stLabel}.` : ''}</div>`;
+    } else if(r.payout_mode === 'lister_collects'){
+      payoutNote = `<div class="escrow-meta" style="margin-top:4px">Paid to your account — remember to pass the landlord's rent on to them.</div>`;
+    }
+  }
   return `<div class="card">
     <div class="escrow-status" style="color:${color}">${text}</div>
     <div class="escrow-meta">${fmt(r.total_amount / 100)} total · ${new Date(r.created_at).toLocaleDateString()}</div>
+    ${payoutNote}
     ${actions}
     ${receiptBtn}
   </div>`;
