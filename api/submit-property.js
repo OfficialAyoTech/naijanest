@@ -472,6 +472,8 @@ export default async function handler(req, res) {
         body.lister_role = 'other';
         body.lister_role_other = 'Admin-entered listing';
       }
+      // Admin entries have no separate lister/landlord distinction.
+      body.acting_for = 'self';
     } else {
       const accessToken = body.access_token;
       if (!accessToken) {
