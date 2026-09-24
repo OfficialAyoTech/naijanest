@@ -1444,8 +1444,6 @@ function manualReleaseSection(e){
 }
 
 function cautionFeeSection(e){
-
-function cautionFeeSection(e){
   if (!e.caution_fee_amount || e.caution_fee_amount <= 0) return '';
   const amt = `₦${Number(e.caution_fee_amount/100).toLocaleString()}`;
 
