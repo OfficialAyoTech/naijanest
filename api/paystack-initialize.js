@@ -12,7 +12,7 @@ import { authenticateUser } from '../lib/auth.js';
 // If this value is surfaced anywhere in checkout/consent UI text, update
 // that copy too.
 const CONFIRM_WINDOW_HOURS = 24;
-const FUND_HANDLING_DOC_VERSION = '2026-08-14'; // must match "Last updated" on how-payments-work.html
+const FUND_HANDLING_DOC_VERSION = '2026-09-24'; // must match "Last updated" on how-payments-work.html
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
