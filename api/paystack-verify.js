@@ -211,28 +211,46 @@ async function runAutoReleaseSweep() {
     try {
       await releaseEscrow({ escrow, headers });
       results.push({ id: escrow.id, ok: true });
-    } catch (e) {      
+    } catch (e) {
 
-   if (e.insufficientBalance) {
+      if (e.insufficientBalance || e.transferPending) {
         // Usually expected/self-resolving — Paystack hasn't released these
-        // funds into available balance yet, and the next sweep retries
-        // automatically. But if this stretches past our own settlement
-        // schedule, Paystack's automatic payout to our bank account may
-        // have already swept the balance out from under us — landlord
-        // money could be stuck until someone manually intervenes. Once a
-        // row has been stuck this long, alert once (not every 15-minute
-        // retry) so it doesn't go unnoticed.
-        console.log(`auto-release deferred for escrow ${escrow.id} — Paystack balance not yet available, will retry`);
+        // funds into available balance yet (insufficientBalance), or has
+        // accepted the transfer and is still processing it (transferPending)
+        // — and the next sweep retries automatically. But if this stretches
+        // past our own settlement schedule, Paystack's automatic payout to
+        // our bank account may have already swept the balance out from
+        // under us — landlord money could be stuck until someone manually
+        // intervenes. Once a row has been stuck this long, alert once (not
+        // every 15-minute retry) so it doesn't go unnoticed.
+        console.log(`auto-release deferred for escrow ${escrow.id} — ${e.transferPending ? 'transfer still processing on Paystack' : 'Paystack balance not yet available'}, will retry`);
         const referenceTime = escrow.confirmed_at || escrow.funded_at || escrow.created_at;
         const hoursStalled = (Date.now() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
         if (hoursStalled >= STALLED_BALANCE_ALERT_HOURS) {
           await logError(`escrow-insufficient-balance:${escrow.id}`, e, { windowMinutes: 24 * 60, skipDuplicateLog: true });
           await notifyAdminWhatsApp(
             `⚠️ Escrow ${escrow.reference} (₦${(escrow.total_amount / 100).toLocaleString()}) still not released after ~${Math.floor(hoursStalled)}h — ` +
-            `Paystack balance may have been auto-swept to the business account before release. Check manually and release from the admin dashboard if needed.`
+            `Paystack balance may have been auto-swept to the business account before release, or the transfer is stuck processing. Check manually and release from the admin dashboard if needed.`
           );
         }
         results.push({ id: escrow.id, ok: false, deferred: true });
+        continue;
+      }
+      if (e.otpRequired) {
+        // NOT self-resolving like the two above — this will fail identically
+        // every 15 minutes until a human disables "Confirm transfers before
+        // sending" in Paystack's dashboard settings. Alert distinctly (not
+        // lumped in with the generic error path) so it can't get missed the
+        // way it did before this check existed — a transfer stuck on OTP
+        // used to silently masquerade as "insufficient balance".
+        console.error(`auto-release blocked for escrow ${escrow.id} — Transfer OTP confirmation is enabled on the Paystack account`);
+        await logError(`escrow-otp-required:${escrow.id}`, e, { windowMinutes: 24 * 60, skipDuplicateLog: true });
+        await notifyAdminWhatsApp(
+          `🚫 Escrow ${escrow.reference} (₦${(escrow.total_amount / 100).toLocaleString()}) can't release — ` +
+          `Paystack's "Confirm transfers before sending" (Transfer OTP) setting is turned on. This blocks EVERY automated payout, not just this one. ` +
+          `Turn it off in Paystack Settings > Preferences > Transfers.`
+        );
+        results.push({ id: escrow.id, ok: false, deferred: true, reason: 'otp_required' });
         continue;
       }
       if (e.noBankDetails) {
@@ -439,12 +457,23 @@ async function confirmMoveIn(req, res) {
   try {
     await releaseEscrow({ escrow: { ...escrow, status: 'confirmed' }, headers });
   } catch (e) {
-    if (e.insufficientBalance) {
-      // Expected/self-resolving — see the note in releaseEscrow. The row
+    if (e.insufficientBalance || e.transferPending) {
+      // Expected/self-resolving — see the notes in escrow.js. The row
       // stays 'confirmed' and the next cron sweep retries it quietly; no
       // error log, no admin alert, since this isn't something Dave needs
       // to act on.
-      console.log(`release deferred for escrow ${escrow_id} — Paystack balance not yet available, will retry via cron`);
+      console.log(`release deferred for escrow ${escrow_id} — ${e.transferPending ? 'transfer still processing' : 'Paystack balance not yet available'}, will retry via cron`);
+      return res.status(200).json({
+        success: true, released: false,
+        note: 'Move-in confirmed. Payout to the landlord is processing.',
+      });
+    }
+    if (e.otpRequired) {
+      // NOT self-resolving — the sweep's own otpRequired handling already
+      // alerts on this, so avoid double-alerting here; still log it so it's
+      // visible in this specific request's error trail too.
+      console.error(`release after confirm blocked for escrow ${escrow_id} — Transfer OTP is enabled on the Paystack account`);
+      await logError('escrow-release', new Error(`Escrow ${escrow_id} (${escrow.reference}) confirmed but release blocked: ${e.message}`));
       return res.status(200).json({
         success: true, released: false,
         note: 'Move-in confirmed. Payout to the landlord is processing.',

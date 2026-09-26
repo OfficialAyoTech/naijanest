@@ -236,10 +236,18 @@ async function retryReleaseEscrow(req, res, serviceKey) {
       ? (escrow.payout_mode === 'split'
           ? 'Still no landlord payout account on file for this property.'
           : 'Still no bank details on file for this landlord.')
+      : e.otpRequired
+      ? 'Transfer OTP confirmation is enabled on the Paystack account, which blocks every automated payout — turn it off under Settings > Preferences > Transfers, then retry.'
+      : e.transferPending
+      ? 'Transfer was accepted by Paystack and is still processing — check the Transfers page shortly, then retry if it did not complete.'
       : e.insufficientBalance
       ? 'Paystack available balance is still too low for this transfer — check Balance > Payouts if this keeps happening.'
       : `Release failed: ${e.message}`;
-    if (!e.noBankDetails && !e.insufficientBalance) {
+    if (!e.noBankDetails && !e.insufficientBalance && !e.transferPending) {
+      // otpRequired is deliberately still logged here (unlike the sweep,
+      // which already alerts) — a manual retry click is a "Dave is looking
+      // right now" moment, so surfacing it in Recent Errors too costs
+      // nothing and gives a paper trail of how often it comes up.
       await logError('escrow-manual-retry', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
     }
     return res.status(200).json({ success: false, error: reason });
