@@ -1435,12 +1435,18 @@ function escrowStatusBadge(status){
 // disputed — the safety valve for when Paystack's automated Transfer can't
 // complete (e.g. balance swept out by Paystack's own settlement before our
 // sweep could act) and the landlord was paid directly from the business
-// bank account instead.
+// bank account instead. Also offers an on-demand retry (calls
+// releaseEscrow() right now instead of waiting for the next 15-minute
+// sweep) — useful the moment you know the earlier blocker has cleared, e.g.
+// a landlord just added bank details or the Paystack balance just settled.
 function manualReleaseSection(e){
   if (!['funded','confirmed','disputed'].includes(e.status)) return '';
   return `
     <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border,#e5e7eb)">
-      <button class="unpublish-btn" onclick="manuallyRelease('${e.id}')">🏦 Mark as manually released (paid outside Paystack)</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="approve-btn" style="flex:none" onclick="retryRelease('${e.id}')">🔁 Retry release now</button>
+        <button class="unpublish-btn" onclick="manuallyRelease('${e.id}')">🏦 Mark as manually released (paid outside Paystack)</button>
+      </div>
     </div>`;
 }
 
@@ -1513,6 +1519,31 @@ async function manuallyRelease(escrowId){
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Could not mark as released');
     alert('Marked as released.');
+    await loadData();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+// On-demand retry: calls releaseEscrow() right now for this one escrow,
+// instead of waiting for the next 15-minute sweep. Use this once you
+// believe the earlier blocker has cleared (e.g. bank details just added,
+// or the Paystack balance just settled) — it reports back plainly if it's
+// still blocked, rather than pretending it worked.
+async function retryRelease(escrowId){
+  if (!confirm('Retry releasing this escrow now? This actually attempts the Paystack transfer — only do this if you expect the earlier blocker (missing bank details, low balance) has cleared.')) return;
+  try {
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_password: adminPassword, action: 'retry_release_escrow', escrow_id: escrowId })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      alert('✅ Released successfully.');
+    } else {
+      alert('Not released: ' + data.error);
+    }
     await loadData();
   } catch(e) {
     alert('Error: ' + e.message);
