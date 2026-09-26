@@ -202,6 +202,50 @@ async function manuallyReleaseEscrow(req, res, serviceKey) {
   return res.status(200).json({ success: true });
 }
 
+// Manual retry for ONE stuck escrow, by ID — for when you know the blocker
+// (missing bank details, Paystack balance) has just cleared and don't want
+// to wait for the next 15-minute sweep. Reuses releaseEscrow() exactly as
+// the sweep and confirm-move-in do, so behavior (idempotency guard, lister
+// payout second leg, notifications) is identical — this just triggers it
+// on demand instead of on a timer.
+async function retryReleaseEscrow(req, res, serviceKey) {
+  const { escrow_id } = req.body || {};
+  if (!escrow_id) return res.status(400).json({ error: 'Missing escrow_id' });
+
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+
+  const escrowResp = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/escrow_transactions?id=eq.${escrow_id}&select=*`, { headers }
+  );
+  const rows = await escrowResp.json();
+  const escrow = rows[0];
+  if (!escrow) return res.status(404).json({ error: 'Escrow record not found' });
+  if (!['funded', 'confirmed', 'disputed'].includes(escrow.status)) {
+    return res.status(400).json({ error: `Nothing to retry — current status is ${escrow.status}` });
+  }
+
+  try {
+    await releaseEscrow({ escrow, headers });
+    return res.status(200).json({ success: true, released: true });
+  } catch (e) {
+    // Same reasons the sweep already tags — surface them plainly so the
+    // admin knows whether to wait, or go fix something (e.g. re-check
+    // Paystack's settlement schedule), rather than just seeing a generic
+    // 500.
+    const reason = e.noBankDetails
+      ? (escrow.payout_mode === 'split'
+          ? 'Still no landlord payout account on file for this property.'
+          : 'Still no bank details on file for this landlord.')
+      : e.insufficientBalance
+      ? 'Paystack available balance is still too low for this transfer — check Balance > Payouts if this keeps happening.'
+      : `Release failed: ${e.message}`;
+    if (!e.noBankDetails && !e.insufficientBalance) {
+      await logError('escrow-manual-retry', new Error(`Escrow ${escrow.id} (${escrow.reference}): ${e.message}`));
+    }
+    return res.status(200).json({ success: false, error: reason });
+  }
+}
+
 // Settles the caution fee once a tenancy is over (told to you off-platform —
 // there's no automated lease-end tracking). Only fires for a payment that
 // actually completed (status 'released'); the caution fee sat untouched
@@ -530,6 +574,9 @@ export default async function handler(req, res) {
     }
     if (action === 'manually_release_escrow') {
       return await manuallyReleaseEscrow(req, res, serviceKey);
+    }
+    if (action === 'retry_release_escrow') {
+      return await retryReleaseEscrow(req, res, serviceKey);
     }
     if (action === 'settle_caution_fee') {
       return await settleCautionFee(req, res, serviceKey);
