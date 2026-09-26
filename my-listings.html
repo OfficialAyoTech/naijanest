@@ -252,7 +252,7 @@ function renderListingsList(){
           <div class="listing-info">
             <div class="listing-name">${escapeHtml(p.name)} ${isFeatured ? '<span style="font-size:11px;color:#d97706">⭐ Featured</span>' : ''}</div>
             <div class="listing-meta">${escapeHtml(p.area)}${p.lga?', '+escapeHtml(p.lga):''}, ${escapeHtml(p.city)} · ${fmt(p.price)}/yr</div>
-            <span class="status-badge status-${p.status}">${p.status === 'approved' ? '✅ Live' : p.status === 'rejected' ? '❌ Rejected' : '⏳ Pending review'}</span>
+            <span class="status-badge status-${p.status}">${p.status === 'approved' ? '✅ Live' : p.status === 'rented' ? '🏠 Rented out' : p.status === 'rejected' ? '❌ Rejected' : '⏳ Pending review'}</span>
             ${p.status==='approved' ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
               <button class="share-link-btn" onclick="copyListingLink(${p.id},this)"><i class="ti ti-share-2" style="font-size:12px"></i> Share listing</button>
               ${!isFeatured ? `<button class="feature-btn" data-id="${p.id}" onclick="featureListing(${p.id})">${featuredButtonLabel()}</button>` : ''}
