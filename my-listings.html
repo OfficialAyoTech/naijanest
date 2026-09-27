@@ -228,18 +228,20 @@ function renderListingsList(){
   const counts = {
     all: MY_PROPERTIES.length,
     approved: MY_PROPERTIES.filter(p=>p.status==='approved').length,
-    pending: MY_PROPERTIES.filter(p=>p.status!=='approved' && p.status!=='rejected').length,
+    pending: MY_PROPERTIES.filter(p=>p.status!=='approved' && p.status!=='rejected' && p.status!=='rented').length,
+    rented: MY_PROPERTIES.filter(p=>p.status==='rented').length,
     rejected: MY_PROPERTIES.filter(p=>p.status==='rejected').length,
   };
   const tabDefs = [
     {key:'all', label:'All'}, {key:'approved', label:'Live'},
-    {key:'pending', label:'Pending'}, {key:'rejected', label:'Rejected'},
+    {key:'pending', label:'Pending'}, {key:'rented', label:'Rented'},
+    {key:'rejected', label:'Rejected'},
   ];
   const tabsHtml = `<div class="tabs">${tabDefs.map(t => `
     <button class="tab-btn${currentListingsTab===t.key?' active':''}" onclick="selectListingsTab('${t.key}')">${t.label} (${counts[t.key]})</button>`).join('')}</div>`;
 
   const filtered = currentListingsTab === 'all' ? MY_PROPERTIES
-    : currentListingsTab === 'pending' ? MY_PROPERTIES.filter(p=>p.status!=='approved' && p.status!=='rejected')
+    : currentListingsTab === 'pending' ? MY_PROPERTIES.filter(p=>p.status!=='approved' && p.status!=='rejected' && p.status!=='rented')
     : MY_PROPERTIES.filter(p=>p.status===currentListingsTab);
 
   const listHtml = !filtered.length
