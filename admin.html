@@ -181,6 +181,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
   .qa-row{grid-template-columns:1fr}
   .ov-head h2{font-size:20px}
 }
+.pw-wrap{position:relative;margin-bottom:10px}
+.pw-wrap .login-input{margin-bottom:0;padding-right:44px}
+.pw-eye{position:absolute;right:0;top:0;height:40px;width:44px;background:none;border:none;cursor:pointer;font-size:19px;color:var(--text-sec);display:flex;align-items:center;justify-content:center}
+.login-btn:disabled{opacity:.75;cursor:wait}
+.login-btn .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -208,8 +214,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 
   <div class="login-card" id="loginCard">
     <div class="login-title">🔐 Admin Login</div>
-    <input type="password" class="login-input" id="pwInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')login()"/>
-    <button class="login-btn" onclick="login()">Login</button>
+    <div class="pw-wrap">
+      <input type="password" class="login-input" id="pwInput" placeholder="Enter admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
+      <button type="button" class="pw-eye" id="pwEye" aria-label="Show password" aria-pressed="false" onclick="togglePw()"><i class="ti ti-eye"></i></button>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="login()">Login</button>
     <div class="login-error" id="loginError">Wrong password, or server isn't configured yet.</div>
   </div>
 
@@ -697,13 +706,34 @@ async function qaSubmit(){
 if (adminPassword) { loadData(); }
 qaPopulateStates();
 
+function togglePw() {
+  const input = document.getElementById('pwInput');
+  const eye = document.getElementById('pwEye');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  eye.innerHTML = show ? '<i class="ti ti-eye-off"></i>' : '<i class="ti ti-eye"></i>';
+  eye.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  eye.setAttribute('aria-pressed', String(show));
+}
+
 async function login() {
+  const btn = document.getElementById('loginBtn');
+  if (btn.disabled) return;
   const pw = document.getElementById('pwInput').value;
   if (!pw) return;
   adminPassword = pw;
-  const ok = await loadData();
-  if (ok) {
-    sessionStorage.setItem('naijanest_admin_pw', pw);
+  document.getElementById('loginError').style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Logging in…';
+  let ok = false;
+  try {
+    ok = await loadData();
+    if (ok) {
+      sessionStorage.setItem('naijanest_admin_pw', pw);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Login';
   }
 }
 
@@ -717,6 +747,8 @@ function logout() {
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('loginCard').style.display = 'block';
   document.getElementById('pwInput').value = '';
+  document.getElementById('pwInput').type = 'password';
+  document.getElementById('pwEye').innerHTML = '<i class="ti ti-eye"></i>';
 }
 
 
