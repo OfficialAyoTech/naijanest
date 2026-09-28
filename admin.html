@@ -187,6 +187,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .login-btn:disabled{opacity:.75;cursor:wait}
 .login-btn .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.boot-spin{width:28px;height:28px;margin:0 auto;border:3px solid var(--green-light);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
+.idle-note{display:none;background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px}
+#idleWarn{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:90;background:#1a1a1a;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);width:max-content;max-width:calc(100vw - 24px)}
+#idleWarn button{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -219,7 +223,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
       <button type="button" class="pw-eye" id="pwEye" aria-label="Show password" aria-pressed="false" onclick="togglePw()"><i class="ti ti-eye"></i></button>
     </div>
     <button class="login-btn" id="loginBtn" onclick="login()">Login</button>
+    <div class="idle-note" id="idleNote">You were signed out after 15 minutes of inactivity. Please log in again.</div>
     <div class="login-error" id="loginError">Wrong password, or server isn't configured yet.</div>
+  </div>
+
+  <div class="login-card" id="bootLoad" style="display:none" role="status" aria-live="polite">
+    <div class="boot-spin"></div>
+    <div class="login-title" style="margin:14px 0 0">Signing in…</div>
   </div>
 
   <div id="adminPanel">
@@ -500,6 +510,7 @@ Tap the button below to check it out.</div>
     <div class="sheet" id="moreSheet" onclick="if(event.target===this)toggleMore(false)"><div class="sheet-in" id="moreList"></div></div>
   </div>
 </div>
+<div id="idleWarn" role="alert"><span>Signing you out in <b id="idleSecs">60</b>s due to inactivity.</span><button type="button" onclick="idleStay()">Stay signed in</button></div>
 <script>
 let adminPassword = sessionStorage.getItem('naijanest_admin_pw') || '';
 let allProps = [];
@@ -703,7 +714,20 @@ async function qaSubmit(){
 }
 
 
-if (adminPassword) { loadData(); }
+if (adminPassword) {
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('bootLoad').style.display = 'block';
+  loadData().then(ok => {
+    document.getElementById('bootLoad').style.display = 'none';
+    if (!ok) {
+      document.getElementById('loginCard').style.display = 'block';
+      if (!adminPassword) {
+        document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }
+  });
+}
 qaPopulateStates();
 
 function togglePw() {
@@ -722,7 +746,9 @@ async function login() {
   const pw = document.getElementById('pwInput').value;
   if (!pw) return;
   adminPassword = pw;
+  document.getElementById('loginError').textContent = "Wrong password, or server isn't configured yet.";
   document.getElementById('loginError').style.display = 'none';
+  document.getElementById('idleNote').style.display = 'none';
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span>Logging in…';
   let ok = false;
@@ -2126,6 +2152,41 @@ function dashInit(){
   showView('overview');
 }
 dashInit();
+
+
+/* ===== Idle auto-logout ===== */
+const IDLE_MS = 15 * 60 * 1000;   // sign out after this much inactivity
+const WARN_MS = 60 * 1000;        // show the warning for the last minute
+let lastActivity = Date.now();
+
+function idleWarnShown(){ return document.getElementById('idleWarn').style.display === 'flex'; }
+function idleStay(){ lastActivity = Date.now(); document.getElementById('idleWarn').style.display = 'none'; }
+function idleTick(){
+  const warn = document.getElementById('idleWarn');
+  if (!adminPassword) { warn.style.display = 'none'; return; }
+  const left = IDLE_MS - (Date.now() - lastActivity);
+  if (left <= 0) {
+    adminPassword = '';
+    sessionStorage.removeItem('naijanest_admin_pw');
+    sessionStorage.setItem('naijanest_idle_note', '1');
+    location.reload();   // wipes all admin data from memory and the page
+    return;
+  }
+  if (left <= WARN_MS) {
+    document.getElementById('idleSecs').textContent = Math.ceil(left / 1000);
+    warn.style.display = 'flex';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+['mousedown','mousemove','keydown','touchstart','scroll','wheel'].forEach(ev =>
+  document.addEventListener(ev, () => { if (adminPassword && !idleWarnShown()) lastActivity = Date.now(); }, {capture:true, passive:true}));
+setInterval(idleTick, 1000);
+document.addEventListener('visibilitychange', idleTick);
+if (sessionStorage.getItem('naijanest_idle_note')) {
+  sessionStorage.removeItem('naijanest_idle_note');
+  document.getElementById('idleNote').style.display = 'block';
+}
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
