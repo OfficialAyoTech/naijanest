@@ -100,18 +100,109 @@
   #adminPanel{display:none}
   .refresh-btn{font-size:12px;color:var(--green);background:none;border:none;cursor:pointer;font-weight:500;margin-bottom:1rem}
   @media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* === Dashboard UI upgrade === */
+.container{max-width:1200px}
+.header{background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px 14px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.hdr-left{display:flex;align-items:center;min-width:0}
+.hdr-title{font-size:13px;color:var(--text-sec);padding-left:12px;margin-left:12px;border-left:1px solid var(--border);white-space:nowrap}
+#hdrTools{display:none;align-items:center;gap:10px}
+.greet{text-align:right;font-size:12px;color:var(--text-sec);line-height:1.25}
+.greet b{display:block;font-size:14px;color:var(--text)}
+.ico-btn{position:relative;width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text)}
+.ico-btn.avatar{background:var(--green);border-color:var(--green);color:#fff;font-weight:600;font-size:14px}
+.dot{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--red);display:none}
+.menu-wrap{position:relative}
+.pop{display:none;position:absolute;right:0;top:46px;min-width:240px;max-width:86vw;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);z-index:60;padding:6px}
+.pop.open{display:block}
+.pop button{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;color:var(--text)}
+.pop button:hover{background:var(--surface)}
+.pop-empty{padding:10px;font-size:13px;color:var(--text-sec)}
+#logoutBtn{color:var(--red);border-radius:8px;border:none;padding:10px;font-size:13px}
+.shell{display:block}
+.main{min-width:0}
+.side{display:none}
+.chips{display:flex;gap:8px;margin-bottom:1rem;overflow-x:auto}
+.chips button,.seg button{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px;color:var(--text-sec);cursor:pointer;white-space:nowrap}
+.chips button.active,.seg button.on{background:var(--green);color:#fff;border-color:var(--green)}
+.ov-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.ov-head h2{font-size:22px}
+.ov-head .refresh-btn{margin:0;padding:8px 12px;border:1px solid var(--border);border-radius:20px;background:#fff}
+.statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.25rem}
+.sc{background:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:var(--shadow)}
+.sc-l{font-size:12.5px;color:var(--text-sec)}
+.sc-n{font-size:28px;font-weight:700;margin-top:4px}
+.card{background:#fff;border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:1.25rem}
+.g-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.g-top h3,.dsec h3{font-size:16px}
+.seg{display:flex;gap:6px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-sec);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.dsec{margin-bottom:1.25rem}
+.dsec h3{margin-bottom:10px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.dcard{display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.05);min-height:64px;width:100%;font-family:inherit;color:var(--text)}
+.dcard:hover{border-color:var(--green-mid)}
+.dcard.red{background:#fef2f2;border-color:#fca5a5}
+.dcard.amber{background:#fffbeb;border-color:#fcd34d}
+.dic{width:38px;height:38px;border-radius:10px;background:var(--green-light);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.dtx{flex:1;min-width:0}
+.dtx b{display:block;font-size:14.5px}
+.dtx small{display:block;font-size:12px;color:var(--text-sec);margin-top:2px;word-break:break-word}
+.cnt{font-size:13px;font-weight:700;background:var(--green-light);color:var(--green);border-radius:20px;padding:3px 10px;flex-shrink:0}
+.side-h{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin:14px 10px 4px}
+.side button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;border-radius:10px;padding:10px;font-size:13.5px;color:var(--text);cursor:pointer;text-align:left}
+.side button:hover{background:#fff}
+.side button.active{background:var(--green);color:#fff}
+.cnt-s{margin-left:auto;font-style:normal;font-size:11px;font-weight:700}
+.bnav{display:none}
+.sheet{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:70;align-items:flex-end}
+.sheet.open{display:flex}
+.sheet-in{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:14px 12px calc(20px + env(safe-area-inset-bottom))}
+.sheet-in button{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:14px 8px;font-size:15px;border-bottom:1px solid var(--surface);cursor:pointer;color:var(--text)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.tabs{flex-wrap:wrap}
+.prop-actions{flex-wrap:wrap}
+.prop-meta,.wl-name,.wl-meta{word-break:break-word}
+@media(min-width:900px){
+  .shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px}
+  .side{display:block;position:sticky;top:1rem;align-self:start}
+}
+@media(max-width:899px){
+  body{padding-bottom:92px}
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:50}
+  .bnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;font-size:11.5px;color:var(--text-sec);padding:6px 2px;min-height:48px;cursor:pointer}
+  .bnav button i{font-size:22px}
+  .bnav button.active{color:var(--green);font-weight:600}
+}
+@media(max-width:600px){
+  .hdr-title{display:none}
+  .statgrid{grid-template-columns:repeat(2,1fr)}
+  .qa-row{grid-template-columns:1fr}
+  .ov-head h2{font-size:20px}
+}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <a href="index.html" class="logo" style="text-decoration:none;color:inherit">
-      <div class="logo-icon"><i class="ti ti-home-2"></i></div>
-      <div class="logo-name">Naija<span>Nest</span></div>
-    </a>
-    <div class="header-right">
-      <span class="admin-badge">ADMIN DASHBOARD</span>
-      <button class="logout-btn" id="logoutBtn" style="display:none" onclick="logout()">Log out</button>
+    <div class="hdr-left">
+      <a href="index.html" class="logo" style="text-decoration:none;color:inherit">
+        <div class="logo-icon"><i class="ti ti-home-2"></i></div>
+        <div class="logo-name">Naija<span>Nest</span></div>
+      </a>
+      <span class="hdr-title">Admin Dashboard</span>
+    </div>
+    <div id="hdrTools">
+      <div class="greet"><span id="greet">Hello,</span><b>Admin</b></div>
+      <div class="menu-wrap">
+        <button class="ico-btn" aria-label="Notifications" onclick="togglePop('notifMenu')"><i class="ti ti-bell"></i><span class="dot" id="notifDot"></span></button>
+        <div class="pop" id="notifMenu"></div>
+      </div>
+      <div class="menu-wrap">
+        <button class="ico-btn avatar" aria-label="Admin menu" onclick="togglePop('profMenu')">A</button>
+        <div class="pop" id="profMenu"><button class="logout-btn" id="logoutBtn" onclick="logout()">Log out</button></div>
+      </div>
     </div>
   </div>
 
@@ -123,32 +214,28 @@
   </div>
 
   <div id="adminPanel">
-    <button class="refresh-btn" onclick="refresh()">↻ Refresh data</button>
-
-    <div class="stats">
-      <div class="stat"><div class="stat-num" id="totalCount">0</div><div class="stat-label">Total listings</div></div>
-      <div class="stat"><div class="stat-num" id="pendingCount" style="color:#d97706">0</div><div class="stat-label">Pending review</div></div>
-      <div class="stat"><div class="stat-num" id="approvedCount">0</div><div class="stat-label">Live listings</div></div>
-      <div class="stat"><div class="stat-num" id="waitlistCount">0</div><div class="stat-label">Waitlist signups</div></div>
-    </div>
-
-    <div class="main-tabs">
-      <button class="main-tab active" onclick="showView('overview',this)">Overview</button>
-      <button class="main-tab" onclick="showView('submissions',this)">Submissions<span id="submissionsBadge"></span></button>
-      <button class="main-tab" onclick="showView('waitlist',this)">Waitlist<span id="waitlistBadge"></span></button>
-      <button class="main-tab" onclick="showView('metrics',this)">📊 Metrics</button>
-      <button class="main-tab" onclick="showView('disputes',this)">🚩 Disputes<span id="disputeBadge"></span></button>
-      <button class="main-tab" onclick="showView('reports',this)">⚠️ Reports<span id="reportBadge"></span></button>
-      <button class="main-tab" onclick="showView('support',this)">📩 Support<span id="supportBadge"></span></button>
-      <button class="main-tab" onclick="showView('faq',this)">❓ FAQ</button>
-      <button class="main-tab" onclick="showView('policy',this)">📄 Payment Policy</button>
-      <button class="main-tab" onclick="showView('privacy',this)">🔒 Privacy Policy</button>
-      <button class="main-tab" onclick="showView('payments',this)">💳 Payments<span id="paymentsBadge"></span></button>
-      <button class="main-tab" onclick="showView('quickadd',this)">⚡ Quick Add</button>
-    </div>
-
-    <!-- OVERVIEW -->
+    <div class="shell">
+      <aside class="side" id="sideNav" aria-label="Admin navigation"></aside>
+      <main class="main">
+    <div id="groupChips" class="chips" style="display:none"></div>
     <div class="view active" id="view-overview">
+      <div class="ov-head"><h2>Overview</h2><button class="refresh-btn" id="refreshBtn" onclick="refresh()">↻ Refresh data</button></div>
+      <div class="statgrid">
+        <div class="sc"><div class="sc-l">Total Listings</div><div class="sc-n" id="totalCount">–</div></div>
+        <div class="sc"><div class="sc-l">Live Listings</div><div class="sc-n" id="approvedCount">–</div></div>
+        <div class="sc"><div class="sc-l">Pending Submissions</div><div class="sc-n" id="pendingCount" style="color:#d97706">–</div></div>
+        <div class="sc"><div class="sc-l">Waitlist Signups</div><div class="sc-n" id="waitlistCount">–</div></div>
+      </div>
+      <div class="card">
+        <div class="g-top"><h3>Platform Growth</h3>
+          <div class="seg" id="growthTabs">
+            <button onclick="setGrowth('7',this)">7D</button><button class="on" onclick="setGrowth('30',this)">30D</button>
+            <button onclick="setGrowth('90',this)">3M</button><button onclick="setGrowth('365',this)">12M</button>
+          </div></div>
+        <div id="growthChart"><div class="empty">Loading…</div></div>
+      </div>
+      <div id="dashSections"></div>
+
       <div class="city-breakdown">
         <h3>Listings by city</h3>
         <div id="cityBreakdown"></div>
@@ -398,6 +485,10 @@ Tap the button below to check it out.</div>
         <div id="qa_result" style="margin-top:10px;font-size:13px"></div>
       </div>
     </div>
+      </main>
+    </div>
+    <nav class="bnav" id="bottomNav" aria-label="Primary"></nav>
+    <div class="sheet" id="moreSheet" onclick="if(event.target===this)toggleMore(false)"><div class="sheet-in" id="moreList"></div></div>
   </div>
 </div>
 <script>
@@ -622,12 +713,12 @@ function logout() {
   allProps = [];
   allWaitlist = [];
   document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('hdrTools').style.display = 'none';
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('loginCard').style.display = 'block';
   document.getElementById('pwInput').value = '';
 }
 
-async function refresh() { await loadData(); }
 
 async function loadData() {
   try {
@@ -701,6 +792,7 @@ function updateStats() {
   document.getElementById('pendingCount').textContent = allProps.filter(p=>p.status==='pending').length;
   document.getElementById('approvedCount').textContent = allProps.filter(p=>p.status==='approved').length;
   document.getElementById('waitlistCount').textContent = allWaitlist.length;
+  dashSync();
 }
 
 function getOrInitLastSeen(key){
@@ -1615,14 +1707,6 @@ function renderOwedCard(){
     <p style="font-size:11px;color:var(--text-sec);margin-top:8px">Compare this with your Paystack balance before transferring anything to your business bank account. Only the amount above this line is yours to withdraw. Refunds and Paystack's transfer fees also come out of the balance, so leave a small cushion.</p>`;
 }
 
-function showView(name, el) {
-  document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('view-' + name).classList.add('active');
-
-  if (name === 'payments') { markSeen('payments'); updatePaymentsBadge(); }
-}
 
 function countBy(arr, key) {
   const counts = {};
@@ -1893,6 +1977,123 @@ async function deleteProp(id, name) {
     alert('Something went wrong: ' + e.message);
   }
 }
+
+
+/* ===== Dashboard UI layer (navigation, overview cards, growth chart) ===== */
+const NAV = [
+  {id:'overview',label:'Overview',icon:'home-2',sec:'Main'},
+  {id:'submissions',label:'Submissions',icon:'clipboard-list',sec:'Management',desc:'Review property submissions'},
+  {id:'waitlist',label:'Waitlist',icon:'users',sec:'Management',desc:'View waitlist signups'},
+  {id:'metrics',label:'Metrics',icon:'chart-bar',sec:'Management',desc:'View platform growth'},
+  {id:'disputes',label:'Disputes',icon:'flag',sec:'Safety & Support',desc:'View and manage disputes'},
+  {id:'reports',label:'Reports',icon:'alert-triangle',sec:'Safety & Support',desc:'Review reported listings'},
+  {id:'support',label:'Support',icon:'inbox',sec:'Safety & Support',desc:'View and manage support requests'},
+  {id:'payments',label:'Payments',icon:'credit-card',sec:'Finance',desc:'Escrow, payouts and fees'},
+  {id:'faq',label:'FAQ',icon:'help-circle',sec:'Content & Policies',desc:'Edit public FAQ'},
+  {id:'policy',label:'Payment Policy',icon:'file-text',sec:'Content & Policies',desc:'Edit How Payments Work'},
+  {id:'privacy',label:'Privacy Policy',icon:'lock',sec:'Content & Policies',desc:'Edit privacy policy'},
+  {id:'quickadd',label:'Quick Add',icon:'bolt',sec:'System & Actions',desc:'Publish a listing instantly'},
+];
+const BOTTOM = [['overview','home-2','Overview'],['listings','clipboard-list','Listings'],['safety','shield','Safety'],['finance','credit-card','Finance'],['more','menu-2','More']];
+const BOTTOM_GO = {overview:'overview',listings:'submissions',safety:'disputes',finance:'payments'};
+const MORE = ['waitlist','metrics','faq','policy','privacy','quickadd'];
+const SAFETY = ['disputes','reports','support'];
+let growthPeriod = '30';
+
+function tabOf(v){ return v==='overview'?'overview': v==='submissions'?'listings': SAFETY.includes(v)?'safety': v==='payments'?'finance':'more'; }
+function closePops(){ document.querySelectorAll('.pop.open').forEach(p=>p.classList.remove('open')); }
+function togglePop(id){ const p=document.getElementById(id), o=p.classList.contains('open'); closePops(); if(!o) p.classList.add('open'); }
+function toggleMore(open){ document.getElementById('moreSheet').classList.toggle('open', open); }
+document.addEventListener('click', e => { if(!e.target.closest('.menu-wrap')) closePops(); });
+
+function showView(name){
+  const v = document.getElementById('view-'+name); if(!v) return;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  v.classList.add('active');
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  const t = tabOf(name);
+  document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  document.getElementById('groupChips').style.display = SAFETY.includes(name) ? 'flex' : 'none';
+  closePops(); toggleMore(false); window.scrollTo(0,0);
+  if (name === 'payments') { markSeen('payments'); updatePaymentsBadge(); }
+}
+
+function setGrowth(p, btn){
+  growthPeriod = p;
+  document.querySelectorAll('#growthTabs button').forEach(b=>b.classList.toggle('on', b===btn));
+  renderGrowth();
+}
+
+function renderGrowth(){
+  const el = document.getElementById('growthChart'); if(!el) return;
+  const [n, days] = {'7':[7,1],'30':[10,3],'90':[12,7],'365':[12,30]}[growthPeriod];
+  const step = days*864e5, end = Date.now(), start = end - n*step;
+  const ts = a => a.map(x=>x.created_at ? new Date(x.created_at).getTime() : NaN).filter(t=>!isNaN(t));
+  const S = [['Listings', ts(allProps), '#1a6b3a'], ['Waitlist signups', ts(allWaitlist), '#d97706']];
+  if (!S.some(s=>s[1].length)) { el.innerHTML = '<div class="empty">No data yet. Growth appears as listings and signups come in.</div>'; return; }
+  const pts = S.map(s => Array.from({length:n}, (_,i) => s[1].filter(t => t <= start+(i+1)*step).length));
+  const max = Math.max(1, ...pts.flat()), W=600, H=200, L=34, B=24, T=10, R=8;
+  const X = i => L + i*(W-L-R)/(n-1), Y = v => T + (H-T-B)*(1-v/max);
+  const fmt = t => new Date(t).toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+  const grid = [0,.5,1].map(f => { const v=Math.round(max*f), y=Y(v); return `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#e5e7eb" stroke-dasharray="3 3"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="#888">${v}</text>`; }).join('');
+  const lines = pts.map((p,k) => `<polyline fill="none" stroke="${S[k][2]}" stroke-width="2.5" stroke-linejoin="round" points="${p.map((v,i)=>X(i)+','+Y(v)).join(' ')}"/>`).join('');
+  const labels = [0, Math.floor((n-1)/2), n-1].map((i,j) => `<text x="${X(i)}" y="${H-6}" text-anchor="${j===0?'start':j===2?'end':'middle'}" font-size="11" fill="#888">${fmt(start+(i+1)*step)}</text>`).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative listings and waitlist signups" style="width:100%;height:auto;display:block">${grid}${lines}${labels}</svg>` +
+    `<div class="legend">${S.map((s,k)=>`<span><i style="background:${s[2]}"></i>${s[0]}: ${pts[k][n-1]} total</span>`).join('')}</div>`;
+}
+
+function dashSync(){
+  const $ = id => document.getElementById(id);
+  $('hdrTools').style.display = 'flex';
+  const h = new Date().getHours();
+  $('greet').textContent = h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+  const c = {
+    submissions: allProps.filter(p=>p.status==='pending').length,
+    waitlist: allWaitlist.length,
+    disputes: allEscrow.filter(e=>e.status==='disputed').length,
+    reports: allReports.filter(r=>r.status==='open').length,
+    support: allSupportMessages.filter(m=>m.status==='open').length,
+  };
+  const held = allEscrow.filter(e=>['funded','confirmed','disputed'].includes(e.status)).reduce((s,e)=>s+(e.total_amount||0),0);
+  const naira = k => '₦' + Math.round(k/100).toLocaleString();
+
+  document.querySelectorAll('[data-cnt]').forEach(b => { const v=c[b.dataset.cnt]; b.textContent = v ? v : ''; });
+
+  const card = n => {
+    let cnt = c[n.id] ? String(c[n.id]) : '', desc = n.desc, tone = '';
+    if (n.id==='payments') { cnt = naira(held); desc = `In escrow · ${allEscrow.length} transaction${allEscrow.length===1?'':'s'}`; }
+    if (n.id==='disputes' && c.disputes) tone = 'red';
+    if (n.id==='reports' && c.reports) tone = 'amber';
+    return `<button class="dcard ${tone}" onclick="showView('${n.id}')"><span class="dic"><i class="ti ti-${n.icon}"></i></span><span class="dtx"><b>${n.label}</b><small>${desc}</small></span>${cnt?`<span class="cnt">${cnt}</span>`:''}</button>`;
+  };
+  const secs = [...new Set(NAV.filter(n=>n.desc).map(n=>n.sec))];
+  $('dashSections').innerHTML = secs.map(s => `<section class="dsec"><h3>${s}</h3><div class="dgrid">${NAV.filter(n=>n.sec===s&&n.desc).map(card).join('')}</div></section>`).join('');
+
+  const items = [['submissions','pending submission(s) to review'],['disputes','open dispute(s)'],['reports','open report(s)'],['support','open support request(s)']].filter(i=>c[i[0]]>0);
+  $('notifDot').style.display = items.length ? 'block' : 'none';
+  $('notifMenu').innerHTML = items.length ? items.map(i=>`<button onclick="showView('${i[0]}')"><b>${c[i[0]]}</b> ${i[1]}</button>`).join('') : '<div class="pop-empty">All caught up ✅</div>';
+
+  renderGrowth();
+}
+
+async function refresh(){
+  const b = document.getElementById('refreshBtn');
+  b.disabled = true; b.textContent = 'Refreshing…';
+  const ok = await loadData();
+  b.disabled = false; b.textContent = ok ? '✓ Updated' : '⚠ Refresh failed. Tap to retry';
+  setTimeout(() => { b.textContent = '↻ Refresh data'; }, 2500);
+}
+
+function dashInit(){
+  const $ = id => document.getElementById(id);
+  const secs = [...new Set(NAV.map(n=>n.sec))];
+  $('sideNav').innerHTML = secs.map(s => `<div class="side-h">${s}</div>` + NAV.filter(n=>n.sec===s).map(n=>`<button data-view="${n.id}" onclick="showView('${n.id}')"><i class="ti ti-${n.icon}"></i><span>${n.label}</span><em class="cnt-s" data-cnt="${n.id}"></em></button>`).join('')).join('');
+  $('bottomNav').innerHTML = BOTTOM.map(b => `<button data-tab="${b[0]}" onclick="${b[0]==='more' ? 'toggleMore(true)' : `showView('${BOTTOM_GO[b[0]]}')`}"><i class="ti ti-${b[1]}"></i><span>${b[2]}</span></button>`).join('');
+  $('groupChips').innerHTML = SAFETY.map(id => { const n = NAV.find(x=>x.id===id); return `<button data-view="${id}" onclick="showView('${id}')">${n.label}</button>`; }).join('');
+  $('moreList').innerHTML = MORE.map(id => { const n = NAV.find(x=>x.id===id); return `<button onclick="showView('${id}')"><i class="ti ti-${n.icon}"></i>${n.label}</button>`; }).join('');
+  showView('overview');
+}
+dashInit();
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
