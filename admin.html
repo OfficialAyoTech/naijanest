@@ -1858,7 +1858,7 @@ function renderProps() {
         <button class="unpublish-btn" onclick="updateProp(${p.id},'approved')">↩ Mark Available Again</button>
       </div>`:''}
       <div class="prop-actions">
-        <button class="reject-btn" onclick="deleteProp(${p.id},'${escapeHtml(p.name)}')">🗑 Delete Permanently</button>
+        <button class="reject-btn" onclick="deleteProp(${p.id})">🗑 Delete Permanently</button>
       </div>
     </div>`).join('');
 }
@@ -2007,32 +2007,71 @@ async function updateProp(id, status) {
   }
 }
 
-async function deleteProp(id, name) {
-  if (!confirm(`Permanently delete "${name}"? This cannot be undone — the listing and its photos will be gone for good. Use "Mark as Rented" instead if this property was just rented out and you want to keep the record.`)) {
-    return;
+// In-page confirm + toast. The browser's built-in confirm()/alert() can be
+// silently blocked (Chrome's "prevent this page from creating additional
+// dialogs"), which made Delete look like it did nothing at all.
+function askConfirm(message, okLabel) {
+  return new Promise(resolve => {
+    const o = document.createElement('div');
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+    o.innerHTML = '<div role="dialog" aria-modal="true" style="background:#fff;border-radius:16px;padding:20px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.25)">' +
+      '<div class="ac-msg" style="font-size:14px;line-height:1.5;margin-bottom:16px;word-break:break-word"></div>' +
+      '<div style="display:flex;gap:8px"><button type="button" class="unpublish-btn" data-r="0" style="color:var(--text);border-color:var(--border)">Cancel</button>' +
+      '<button type="button" class="reject-btn" data-r="1" style="background:#dc2626;color:#fff"></button></div></div>';
+    o.querySelector('.ac-msg').textContent = message;
+    o.querySelector('[data-r="1"]').textContent = okLabel || 'Delete';
+    o.addEventListener('click', e => {
+      const r = e.target.closest('[data-r]');
+      if (r || e.target === o) { o.remove(); resolve(!!r && r.dataset.r === '1'); }
+    });
+    document.body.appendChild(o);
+    o.querySelector('[data-r="0"]').focus();
+  });
+}
+
+function toast(msg, kind, ms) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status');
+    t.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:210;max-width:calc(100vw - 24px);padding:10px 16px;border-radius:12px;font-size:13px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+    document.body.appendChild(t);
   }
+  t.style.background = kind === 'err' ? '#dc2626' : kind === 'ok' ? '#1a6b3a' : '#1a1a1a';
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._h); if (kind !== 'wait') t._h = setTimeout(() => { t.style.display = 'none'; }, ms || 3500);
+}
+
+async function deleteProp(id) {
+  const prop = allProps.find(p => p.id === id);
+  const name = prop ? prop.name : '#' + id;
+  if (!(await askConfirm(`Permanently delete "${name}"? This cannot be undone. The listing and its photos will be gone for good. Use "Mark as Rented" instead if you want to keep the record.`))) return;
+  toast('Deleting…', 'wait');
   try {
     const resp = await fetch('/api/approve-property', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ id, action: 'delete', admin_password: adminPassword })
     });
-    const data = await resp.json();
-    if (data.success) {
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
+    if (resp.ok && data.success) {
       if (data.soft_deleted) {
         allProps = allProps.map(p => p.id === id ? { ...p, status: 'deleted' } : p);
+        toast('Marked as deleted (kept because it has payment records)', 'ok', 6000);
       } else {
-        allProps = allProps.filter(p=>p.id!==id);
+        allProps = allProps.filter(p => p.id !== id);
+        toast('Deleted permanently', 'ok');
       }
       updateStats();
       renderOverview();
       renderProps();
       updateSubmissionsBadge();
     } else {
-      alert('Error: ' + JSON.stringify(data.error));
+      const detail = typeof data.error === 'string' ? data.error : JSON.stringify(data.error || 'no details from server');
+      toast(`Delete failed (HTTP ${resp.status}): ${detail}`, 'err', 10000);
     }
-  } catch(e) {
-    alert('Something went wrong: ' + e.message);
+  } catch (e) {
+    toast('Delete failed: ' + e.message, 'err', 10000);
   }
 }
 
