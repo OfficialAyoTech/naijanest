@@ -794,7 +794,8 @@ async function loadData() {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Failed to load');
 
-    allProps = data.properties || [];
+    // Soft-deleted listings (kept only because of payment records) are hidden from every count, chart and list.
+    allProps = (data.properties || []).filter(p => p.status !== 'deleted');
     allWaitlist = data.waitlist || [];
     allPayments = data.payments || [];
     allEvents = data.events || [];
@@ -2056,8 +2057,8 @@ async function deleteProp(id) {
     try { data = await resp.json(); } catch (e) {}
     if (resp.ok && data.success) {
       if (data.soft_deleted) {
-        allProps = allProps.map(p => p.id === id ? { ...p, status: 'deleted' } : p);
-        toast('Marked as deleted (kept because it has payment records)', 'ok', 6000);
+        allProps = allProps.filter(p => p.id !== id);
+        toast('Removed from the dashboard (the record is kept in the database because it has payment records)', 'ok', 7000);
       } else {
         allProps = allProps.filter(p => p.id !== id);
         toast('Deleted permanently', 'ok');
