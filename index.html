@@ -386,7 +386,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <footer class="footer">
     <div style="margin-bottom:6px"><strong style="color:#fff">NaijaNest</strong> — Nigeria's AI Rental Assistant</div>
-    <div>© 2026 NaijaNest by AyoTech Innovation Hub · <a href="list-property.html">List your property</a> · <a href="how-payments-work.html">How payments work</a> · <a href="privacy-policy.html">Privacy policy</a> · <a href="contact.html">Contact support</a></div>
+    <div>© 2026 NaijaNest by AyoTech Innovation Hub · <a href="list-property.html">List your property</a> · <a href="how-payments-work.html">How payments work</a> · <a href="terms.html">Terms</a> · <a href="privacy-policy.html">Privacy policy</a> · <a href="contact.html">Contact support</a></div>
   </footer>
 </div>
 
@@ -416,6 +416,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="send-btn" id="sendBtn" onclick="sendMsg()" aria-label="Send message"><i class="ti ti-send"></i></button>
       </div>
     </div>
+    <div style="text-align:center;font-size:11.5px;padding:0 0 8px;flex-shrink:0"><a href="contact.html" style="color:var(--text-muted);text-decoration:underline">Got feedback or found a problem? Tell us</a></div>
     <div class="overlay" id="detailOverlay" style="display:none">
       <div class="overlay-header">
         <button class="back-btn" onclick="closeDetail()"><i class="ti ti-arrow-left"></i></button>
@@ -594,7 +595,7 @@ async function sendMsg(){
     saveChatHistory();
   }catch(e){
     typingEl.remove();
-    addMsg('ai','Sorry, something went wrong. Please try again.');
+   addMsg('ai',"I'm having trouble answering right now. It may just be busy. Give it a minute and try again, or browse the live listings on the homepage. If it keeps happening, tell us via the Contact page.");
   }
   document.getElementById('sendBtn').disabled=false;
 }
@@ -683,6 +684,7 @@ function openDetail(id){
       <div class="badge-row">${p.amenities.map(a=>`<span class="dbadge">${a}</span>`).join('')}</div>
       ${feeBreakdownHtml}
       ${payoutNoticeHtml(p)}
+      <div style="background:#fff7ed;border:0.5px solid #fdba74;border-radius:12px;padding:10px 13px;margin-bottom:10px;font-size:12px;color:#9a3412;line-height:1.55"><i class="ti ti-alert-triangle" style="font-size:13px;vertical-align:-1px"></i> <strong>Only pay through the Pay Rent Securely button.</strong> Money sent directly to a landlord or agent can't be protected or recovered by NaijaNest.</div>
       <div id="rentPaySection"></div>
       <div class="sec-title">Neighborhood intelligence</div>
       <div class="nbhd-grid">
