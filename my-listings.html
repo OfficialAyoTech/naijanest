@@ -127,6 +127,12 @@
 function fmt(n){ return '₦' + Number(n).toLocaleString(); }
 
 let MY_PROPERTIES = [];
+let PAYOUT_MISSING = false;
+function payoutReminderHtml(){
+  if(!PAYOUT_MISSING) return '';
+  return `<div style="background:#fef3c7;border:0.5px solid #fcd34d;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;line-height:1.5">💳 <strong>Add your payout bank details</strong> so renters can pay and you can receive rent or fees. Renters can't pay on your listing until this is done.
+    <button onclick="selectMainTab('payout')" style="margin-left:6px;padding:4px 10px;background:#1a6b3a;color:#fff;border:none;border-radius:14px;font-size:11.5px;cursor:pointer">Add now</button></div>`;
+}
 let currentListingsTab = 'all';
 
 let FEATURED_PRICING = { price: 5000, days: 30 };
@@ -265,7 +271,8 @@ function renderListingsList(){
       }).join('');
 
   content.innerHTML = `<a href="list-property.html" class="add-btn"><i class="ti ti-plus"></i> List Another Property for FREE</a>
-    <div id="paymentBanner"></div>
+   <div id="paymentBanner"></div>
+    <div id="payoutReminder">${payoutReminderHtml()}</div>
     ${tabsHtml}
     ${listHtml}`;
 }
@@ -325,7 +332,10 @@ async function renderPayoutSection(){
     const {data} = await NaijaAuth.client.from('profiles')
       .select('bank_code,bank_name,bank_account_number,bank_account_name')
       .eq('id', NaijaAuth.currentUser.id).maybeSingle();
-    profile = data;
+   profile = data;
+    PAYOUT_MISSING = !(data && data.bank_account_number);
+    const rem = document.getElementById('payoutReminder');
+    if(rem) rem.innerHTML = payoutReminderHtml();
   }catch(e){}
 
   const waitingFees = ESCROW_ROWS
