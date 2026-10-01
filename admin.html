@@ -1890,6 +1890,11 @@ function renderProps() {
         <button class="unpublish-btn" onclick="updateProp(${p.id},'pending')">⏸ Unpublish</button>
         <button class="unpublish-btn" onclick="updateProp(${p.id},'rented')">🏠 Mark as Rented</button>
       </div>`:''}
+      ${p.status==='rejected'?`
+      <div class="prop-actions">
+        <button class="approve-btn" onclick="updateProp(${p.id},'approved')">✅ Republish</button>
+        <button class="unpublish-btn" onclick="updateProp(${p.id},'pending')">↩ Back to Pending</button>
+      </div>`:''}
       ${p.status==='rented'?`
       <div class="prop-actions">
         <button class="unpublish-btn" onclick="updateProp(${p.id},'approved')">↩ Mark Available Again</button>
