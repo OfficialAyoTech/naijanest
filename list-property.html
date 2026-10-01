@@ -750,10 +750,6 @@ async function submitProperty() {
   if (!price) { alert('Please enter the annual rent price.'); return; }
   if (!landlordNameVal) { alert('Please enter your full name.'); return; }
   if (!landlordPhoneVal) { alert('Please enter your phone number.'); return; }
-  if (!phoneOtpState.verifiedToken || phoneOtpState.verifiedPhone !== landlordPhoneVal) {
-    alert('Please verify your phone number (tap "Send code" next to the phone field) before submitting.');
-    return;
-  }
   if (!ninVal) { alert('Please enter your NIN number.'); return; }
   if (!security_info) { alert('Please describe the security situation in the area.'); return; }
   if (!water_info) { alert('Please describe the water supply.'); return; }
@@ -779,7 +775,7 @@ async function submitProperty() {
     const resp = await fetch('/api/submit-property', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, lister_role, lister_role_other, ...collectPayoutFields(), access_token, landlord_phone_verified_token: phoneOtpState.verifiedToken })
+      body: JSON.stringify({ name: nameVal, area: areaVal, city: state, lga, type, price, bedrooms, bathrooms, description, amenities: selectedAmenities, landlord_name: landlordNameVal, landlord_phone: landlordPhoneVal, landlord_email, nin_number: ninVal, security_info, water_info, electricity_info, flood_risk, nearby_schools, nearby_markets, photo_urls, agency_fee_percent, legal_fee_percent, caution_fee, lister_role, lister_role_other, ...collectPayoutFields(), access_token, landlord_phone_verified_token: phoneOtpState.verifiedToken || '' })
     });
     const data = await resp.json();
     if (data.success) {
