@@ -298,13 +298,30 @@ async function reportListing(req, res, body) {
 
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
   const propResp = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}&select=name,area,city`, { headers }
+    `${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}&select=name,area,city,status`, { headers }
   );
   const props = await propResp.json();
   const property = props[0];
   const propertyLabel = property ? `${property.name} — ${property.area}, ${property.city}` : `Property #${property_id}`;
 
   const cleanReason = reason ? String(reason).slice(0, 500) : '(no reason given)';
+
+  let autoHidden = false;
+  try {
+    const openResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports?property_id=eq.${property_id}&status=eq.open&select=reporter_ip`, { headers });
+    if (openResp.ok) {
+      const ips = new Set((await openResp.json()).map(r => r.reporter_ip));
+      ips.add(ip);
+      if (ips.size >= 3 && property && property.status === 'approved') {
+        const hideResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/properties?id=eq.${property_id}`, {
+          method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ status: 'pending' }),
+        });
+        autoHidden = hideResp.ok;
+      }
+    }
+  } catch (e) { console.error('report auto-hide failed:', e.message); }
+  if (autoHidden) await notifyAdminWhatsApp(`⏸ ${propertyLabel} was auto-hidden after 3 reports. Review it under Submissions → Pending.`);
 
   const insertResp = await fetch(`${process.env.SUPABASE_URL}/rest/v1/listing_reports`, {
     method: 'POST',
