@@ -81,7 +81,7 @@
         email, password,
         options: {
           emailRedirectTo: window.location.href.split('#')[0],
-          data: { full_name: fullName }
+          data: { full_name: fullName, terms_agreed_at: new Date().toISOString() }
         }
       });
       if (error) throw error;
@@ -178,7 +178,7 @@
           <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4 24 4c-7.5 0-14 4.2-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.5-2.1 14.2-5.6l-6.6-5.4C29.6 34.7 26.9 36 24 36c-5.3 0-9.6-3.3-11.3-7.9l-6.6 5C9.9 39.7 16.4 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.6 5.4C41.4 36.4 44 30.7 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
           Continue with Google
         </button>
-
+        <div style="font-size:11px;color:#888;margin:-4px 0 10px;line-height:1.5">By continuing with Google you agree to our <a href="terms.html" target="_blank" style="color:#1a6b3a">Terms</a> and <a href="privacy-policy.html" target="_blank" style="color:#1a6b3a">Privacy Policy</a>.</div>
         <div style="font-size:11px;color:#999;margin:10px 0;display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}">— or —</div>
 
         <div id="naAuthForm" style="display:${EMAIL_AUTH_ENABLED ? 'block' : 'none'}"><input id="naSignupNameInput" type="text" placeholder="Full name" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:13.5px;margin-bottom:10px;outline:none;box-sizing:border-box;display:none"/>
@@ -191,6 +191,7 @@
             <input id="naConfirmPasswordInput" type="password" placeholder="Confirm password" style="width:100%;height:42px;border:1px solid #ddd;border-radius:8px;padding:0 40px 0 12px;font-size:13.5px;outline:none;box-sizing:border-box"/>
             <button type="button" id="naConfirmPasswordToggle" style="position:absolute;right:0;top:0;height:42px;width:40px;background:none;border:none;cursor:pointer;font-size:15px;color:#999">👁️</button>
           </div>
+         <label id="naAgreeWrap" style="display:none;align-items:flex-start;gap:8px;text-align:left;font-size:12px;color:#555;margin-bottom:10px;line-height:1.5;cursor:pointer"><input type="checkbox" id="naAgreeCheck" style="margin-top:2px;width:auto;height:auto"/><span>I agree to the <a href="terms.html" target="_blank" style="color:#1a6b3a">Terms of Use</a> and <a href="privacy-policy.html" target="_blank" style="color:#1a6b3a">Privacy Policy</a></span></label>
           <button id="naSubmitBtn" style="width:100%;padding:11px;border-radius:8px;border:none;background:#1a6b3a;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;margin-bottom:10px">Log in</button>
           <div style="font-size:12px;color:#666">
             <span id="naModeSwitchPrompt">New here?</span>
@@ -245,6 +246,7 @@
       const fullName = document.getElementById('naSignupNameInput').value.trim();
       if (!email || !email.includes('@')) return showAuthError('Enter a valid email address');
       if (mode === 'signup' && !fullName) return showAuthError('Please enter your full name');
+      if (mode === 'signup' && !document.getElementById('naAgreeCheck').checked) return showAuthError('Please tick the box to agree to the Terms of Use and Privacy Policy');
       const btn = document.getElementById('naSubmitBtn');
 
       if (mode === 'forgot') {
@@ -330,6 +332,7 @@
     hideAuthError();
     const nameInput = document.getElementById('naSignupNameInput');
     nameInput.style.display = mode === 'signup' ? 'block' : 'none';
+    document.getElementById('naAgreeWrap').style.display = mode === 'signup' ? 'flex' : 'none';
     document.getElementById('naConfirmPasswordWrap').style.display = mode === 'signup' ? 'block' : 'none';
     const pwInput = document.getElementById('naPasswordInput');
     const submitBtn = document.getElementById('naSubmitBtn');
@@ -396,6 +399,7 @@
     document.getElementById('naConfirmPasswordInput').type = 'password';
     document.getElementById('naConfirmPasswordToggle').textContent = '👁️';
     document.getElementById('naSignupNameInput').value = '';
+    document.getElementById('naAgreeCheck').checked = false;
     renderAuthFormMode();
     document.getElementById('naPhoneStep1').style.display = PHONE_AUTH_ENABLED ? 'block' : 'none';
     document.getElementById('naPhoneStep2').style.display = 'none';
