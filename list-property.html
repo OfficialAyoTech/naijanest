@@ -326,7 +326,7 @@
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Phone number</label>
+       <label id="phoneLabel">Phone number</label>
         <input type="tel" id="landlord_phone" placeholder="08012345678" oninput="onLandlordPhoneChanged()"/>
         <div id="phoneOtpArea" style="display:none"></div>
       </div>
@@ -336,7 +336,7 @@
       </div>
     </div>
     <div class="field">
-      <label>NIN (National ID Number)</label>
+      <label id="ninLabel">NIN (National ID Number)</label>
       <input type="text" id="nin_number" placeholder="Your 11-digit NIN for verification"/>
     </div>
 
@@ -393,6 +393,8 @@ function onActingForChange() {
   const other = actingForOther();
   document.getElementById('otherPayoutBlock').style.display = other ? 'block' : 'none';
   document.getElementById('landlordNameLabel').textContent = other ? "Landlord's full name" : 'Full name';
+  document.getElementById('phoneLabel').textContent = other ? 'Your phone number (the lister)' : 'Phone number';
+  document.getElementById('ninLabel').textContent = other ? 'Your NIN (the lister)' : 'NIN (National ID Number)';
   if (other) { loadLandlordBanks(); onPayoutModeChange(); }
 }
 
