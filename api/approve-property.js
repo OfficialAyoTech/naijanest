@@ -217,7 +217,7 @@ async function notifyLandlord(property, status) {
 
   const statusText = status === 'approved' ? 'approved and is now live!' : 'not approved this time';
   const closingText = status === 'approved'
-    ? 'View it at naijanestai.com.ng'
+    ? 'View it at naijanestai.com.ng. To receive rent or fees, add your payout bank details in My Listings.'
     : 'Contact support if you have questions.';
 
   const resp = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
