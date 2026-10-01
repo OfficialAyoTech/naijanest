@@ -73,7 +73,8 @@
 .photo-preview-wrap{position:relative;width:80px;height:80px}
 .photo-preview-img{width:80px;height:80px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border)}
 .photo-preview-remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#dc2626;color:#fff;border:none;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
-  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--green);text-decoration:none;margin-bottom:1rem}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--green);text-decoration:none;margin-bottom:1rem}
+.field-error{border-color:#dc2626 !important;background:#fef2f2 !important}
 </style>
 </head>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -633,18 +634,33 @@ function previewPhotos(input) {
   input.files = dt.files;
 }
 
-function renderPhotoPreviews() {
+const thumbCache = new WeakMap();
+async function makeThumb(file) {
+  if (thumbCache.has(file)) return thumbCache.get(file);
+  let url = '';
+  try {
+    const bmp = await createImageBitmap(file, { resizeWidth: 160, resizeQuality: 'low' });
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    c.getContext('2d').drawImage(bmp, 0, 0);
+    if (bmp.close) bmp.close();
+    url = c.toDataURL('image/jpeg', 0.6);
+  } catch (e) {}
+  thumbCache.set(file, url);
+  return url;
+}
+
+async function renderPhotoPreviews() {
   const previews = document.getElementById('photoPreviews');
   const count = document.getElementById('photoCount');
-  previews.innerHTML = selectedPhotos.map((f,i) => {
-    const url = URL.createObjectURL(f);
-    return `<div class="photo-preview-wrap">
-      <img class="photo-preview-img" src="${url}" alt="Photo ${i+1}"/>
-      <button class="photo-preview-remove" onclick="removePhoto(${i})">×</button>
-    </div>`;
-  }).join('');
+  const thumbs = [];
+  for (const f of selectedPhotos) thumbs.push(await makeThumb(f));
+  previews.innerHTML = selectedPhotos.map((f, i) => `<div class="photo-preview-wrap">
+    ${thumbs[i] ? `<img class="photo-preview-img" src="${thumbs[i]}" alt="Photo ${i+1}"/>` : `<div class="photo-preview-img" style="background:#e5e7eb"></div>`}
+    <button type="button" class="photo-preview-remove" onclick="removePhoto(${i})">×</button>
+  </div>`).join('');
   count.textContent = selectedPhotos.length > 0 ? `${selectedPhotos.length} photo${selectedPhotos.length>1?'s':''} selected` : '';
-  if(selectedPhotos.length < 3) {
+  if (selectedPhotos.length < 3) {
     count.style.color = '#dc2626';
     count.textContent += selectedPhotos.length > 0 ? ' — please add at least 3 photos' : '';
   } else {
@@ -704,7 +720,47 @@ async function uploadAllPhotos(files, onProgress) {
   return urls;
 }
 
+document.addEventListener('input', e => e.target.classList && e.target.classList.remove('field-error'));
+document.addEventListener('change', e => e.target.classList && e.target.classList.remove('field-error'));
+
+function checkRequiredFields() {
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+  const missing = [];
+  const val = id => String((document.getElementById(id) || {}).value || '').trim();
+  const need = (id, label) => { if (!val(id)) missing.push({ el: document.getElementById(id), label }); };
+
+  need('lister_role', 'Your role');
+  if (val('lister_role') === 'other') need('lister_role_other', 'Specify your role');
+  if (document.getElementById('actingForBlock').style.display !== 'none') need('acting_for', 'Are you the landlord?');
+  need('name', 'Property title'); need('stateSelect', 'State'); need('lgaSelect', 'LGA');
+  need('area', 'Area / Neighbourhood'); need('type', 'Property type'); need('price', 'Annual rent');
+  need('description', 'Description');
+  need('security_info', 'Security'); need('water_info', 'Water supply');
+  need('electricity_info', 'Electricity'); need('flood_risk', 'Flood risk');
+  need('landlord_name', 'Full name'); need('landlord_phone', 'Phone number');
+  need('landlord_email', 'Email address'); need('nin_number', 'NIN');
+
+  if (val('nin_number') && !/^\d{11}$/.test(val('nin_number'))) missing.push({ el: document.getElementById('nin_number'), label: 'NIN must be exactly 11 digits' });
+  if (val('landlord_email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val('landlord_email'))) missing.push({ el: document.getElementById('landlord_email'), label: 'Enter a valid email address' });
+  if (selectedPhotos.length < 3) missing.push({ el: document.querySelector('.photo-upload-area'), label: 'At least 3 photos' });
+
+  let banner = document.getElementById('formErrorBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'formErrorBanner';
+    banner.style.cssText = 'background:#fef2f2;border:0.5px solid #fca5a5;color:#b91c1c;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:10px;line-height:1.6';
+    document.getElementById('submitBtn').before(banner);
+  }
+  if (!missing.length) { banner.style.display = 'none'; return true; }
+  banner.style.display = 'block';
+  banner.innerHTML = '<strong>Please complete these before submitting:</strong><br>' + missing.map(m => '• ' + m.label).join('<br>');
+  missing.forEach(m => m.el && m.el.classList.add('field-error'));
+  if (missing[0].el) missing[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return false;
+}
+
 async function submitProperty() {
+  if (!checkRequiredFields()) return;
   const name = document.getElementById('name').value.trim();
   const state = document.getElementById('stateSelect').value;
   const lga = document.getElementById('lgaSelect').value;
