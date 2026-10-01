@@ -220,7 +220,7 @@ async function notifyLandlord(property, status) {
     ? 'View it at naijanestai.com.ng'
     : 'Contact support if you have questions.';
 
-  await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+  const resp = await fetch(`https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
@@ -245,4 +245,8 @@ async function notifyLandlord(property, status) {
       },
     }),
   });
+  if (!resp.ok) {
+    const errBody = await resp.text();
+    await logError('approve-property-whatsapp', new Error(`Landlord notification failed (${resp.status}): ${errBody.slice(0, 400)}`));
+  }
 }
