@@ -13,11 +13,12 @@
 <title>Terms of Use — NaijaNest</title>
 <meta name="description" content="The rules for using NaijaNest: listing, renting, payments, disputes and what we expect from everyone on the platform."/>
 <link rel="canonical" href="https://naijanestai.com.ng/terms.html"/>
+<link rel="icon" href="/icons/favicon-32.png"/>
 <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" onload="this.onload=null;this.rel='stylesheet'"/>
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/></noscript>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  :root{--green:#1a6b3a;--green-light:#eaf5ef;--green-mid:#b3ddc4;--green-dark:#155730;--text:#1a1a1a;--text-sec:#555;--border:#e5e7eb;--surface:#f9fafb}
+  :root{--green:#1a6b3a;--green-light:#eaf5ef;--text:#1a1a1a;--text-sec:#555;--surface:#f9fafb}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f4f0;color:var(--text);min-height:100vh;padding:1.5rem 1rem}
   .container{max-width:760px;margin:0 auto;background:#fff;border-radius:16px;padding:2rem 2.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
   .logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;margin-bottom:1.5rem}
@@ -26,89 +27,68 @@
   .logo-name{font-size:17px;font-weight:600}
   .logo-name span{color:var(--green)}
   h1{font-size:22px;margin-bottom:6px}
-  .updated{font-size:12.5px;color:var(--text-sec);margin-bottom:1.75rem}
+  .updated{font-size:12.5px;color:var(--text-sec);margin-bottom:1.5rem}
   h2{font-size:15px;margin:1.75rem 0 8px;color:var(--green)}
   p,li{font-size:14px;line-height:1.7;color:#333}
   p{margin-bottom:8px}
-  ul{margin-left:1.2rem;margin-bottom:0.5rem}
+  ul,ol{margin:0 0 .5rem 1.2rem}
   a{color:var(--green)}
-  .callout{background:var(--surface);border-left:3px solid var(--green);border-radius:8px;padding:10px 14px;margin:1rem 0;font-size:13.5px}
-  .warn{background:#fff7ed;border-left-color:#ea580c}
+  .callout{background:var(--surface);border-left:3px solid var(--green);border-radius:8px;padding:10px 14px;margin:1rem 0;font-size:13.5px;line-height:1.7}
   @media (max-width:480px){.container{padding:1.5rem 1.25rem}}
 </style>
 </head>
 <body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/auth.js"></script>
 <div class="container">
   <a href="index.html" class="logo">
     <div class="logo-icon"><i class="ti ti-home-2"></i></div>
     <div class="logo-name">Naija<span>Nest</span></div>
   </a>
-
   <h1>Terms of Use</h1>
-  <div class="updated">Last updated: October 2026</div>
-
-  <p>NaijaNest is operated by AyoTech Innovations Hub ("NaijaNest," "we," "us"). By searching, listing, paying or otherwise using naijanestai.com.ng, our WhatsApp assistant or any related service, you agree to these terms. If you don't agree, please don't use NaijaNest.</p>
-
-  <h2>What NaijaNest is (and isn't)</h2>
-  <p>NaijaNest is an online marketplace that connects people who have rental properties to let (landlords, agents, managers and other authorised listers) with people looking to rent. We are not a real estate agency, a landlord, a bank or a financial institution. We are not a party to any tenancy agreement between a renter and a landlord.</p>
-
-  <h2>Who can use NaijaNest</h2>
-  <p>You must be at least 18 and able to enter into a binding agreement under Nigerian law. You agree that the information you give us (name, phone number, email, NIN, bank details) is accurate and belongs to you.</p>
-
-  <h2>Listing a property</h2>
-  <ul>
-    <li>Only list a property if you are the owner or have the owner's authority to let it. Say honestly which one you are when the form asks.</li>
-    <li>Everything in a listing must be true and current: price, location, photos, fees, amenities and availability. Photos must be of the actual property.</li>
-    <li>Every listing is reviewed before it goes live. We can approve, reject, edit, hide or remove any listing at any time, including listings that are reported, out of date, unavailable or misleading.</li>
-    <li>Take a listing down (or tell us) as soon as the property is no longer available.</li>
-    <li>Listing on NaijaNest is free. Any agency, documentation or caution fee must be one you genuinely charge, and must be entered accurately on the listing.</li>
-    <li>Neighbourhood details (security, water, electricity, flooding) come from listers and our assistant, and are a guide only. Check them yourself.</li>
-  </ul>
-
-  <h2>Searching and our AI assistant</h2>
-  <p>Our AI assistant helps you search and understand listings. It can make mistakes. Treat its answers as a starting point, not advice, and always inspect a property and confirm important details with the lister before you pay.</p>
-
-  <h2>Paying rent through NaijaNest</h2>
-  <ul>
-    <li>Payments are processed by Paystack. We never see or store your card details.</li>
-    <li>When you pay through NaijaNest, your payment is held for a short holding period (currently 24 hours) before it is released to the payee. You can confirm move-in to release it sooner, or report a problem within the holding period to pause the release while we review it.</li>
-    <li>Who is paid depends on the listing. By default rent goes to the landlord. Where an agent or other lister acts for the landlord, the listing shows whether rent goes to the landlord with fees to the lister, or whether the lister collects everything. Read the payment notice on the listing before you pay.</li>
-    <li>The total you pay is shown before you pay and may include the agency, documentation and caution fees set by the lister, and a NaijaNest platform fee if one applies. Caution fees are the lister's and are refundable or forfeitable according to the tenancy terms agreed between you and the landlord.</li>
-    <li>Payment release times depend on our payment rules and on Paystack and bank processing. Delays outside our control can happen.</li>
-  </ul>
-  <div class="callout warn"><strong>Only pay through NaijaNest's "Pay Rent Securely" button.</strong> If you send money to a landlord or agent directly, in cash or by transfer, NaijaNest can't see it, protect it or help you recover it. Never pay anyone who asks you to pay outside the app.</div>
-
-  <h2>Disputes and refunds</h2>
-  <p>If something is wrong (for example the keys aren't handed over or the property is materially different from the listing), use "Report a problem" before the holding period ends. We will review what both sides tell us and decide whether to release, refund or split the payment. Give us honest, complete information and any evidence you have. Decisions are made in good faith on what we can see, and don't stop either person from pursuing their legal rights.</p>
-
-  <h2>What you must not do</h2>
-  <ul>
-    <li>Post fake, ghost, duplicate or already-let listings, or use another person's identity, NIN or bank account.</li>
-    <li>Ask renters to pay you outside NaijaNest, or collect money for a property you don't control.</li>
-    <li>Scrape, copy, overload or attempt to break into the platform, or interfere with payments.</li>
-    <li>Harass other users, post unlawful content, or use NaijaNest for anything illegal.</li>
-  </ul>
-  <p>Breaking these rules can lead to listings being removed, payments being held, accounts being suspended or banned permanently, and reports to the relevant authorities.</p>
-
-  <h2>Reporting a listing</h2>
-  <p>If a listing looks suspicious, use "Report suspicious listing" on the listing page. We review reports and may hide a listing while we check it.</p>
-
-  <h2>Our responsibility</h2>
-  <p>We work hard to keep NaijaNest accurate and safe, but we can't guarantee that every listing, lister or neighbourhood detail is perfect, or that the service will always be available or error-free. To the fullest extent Nigerian law allows, NaijaNest is not liable for losses caused by the acts or omissions of landlords, agents, renters or other third parties, for payments made outside NaijaNest, or for indirect or consequential losses. Nothing in these terms limits any liability that can't legally be limited.</p>
-
-  <h2>Your data</h2>
-  <p>How we collect and use your information is explained in our <a href="privacy-policy.html">Privacy Policy</a>.</p>
-
-  <h2>Changes and suspension</h2>
-  <p>We may update these terms as NaijaNest grows; the "Last updated" date will change when we do, and continued use means you accept the updated terms. We may suspend or end access for anyone who breaks these terms or puts others at risk.</p>
-
-  <h2>Governing law</h2>
-  <p>These terms are governed by the laws of the Federal Republic of Nigeria. We'd like to settle any problem with you informally first, so please contact us before taking any other step.</p>
-
-  <h2>Contact us</h2>
-  <p>Questions about these terms? Write to <a href="mailto:support@naijanestai.com.ng">support@naijanestai.com.ng</a> or use our <a href="contact.html">contact page</a>.</p>
-
-  <div class="callout">These terms are provided for transparency and are being developed alongside NaijaNest as we grow. They have not yet been reviewed by a lawyer.</div>
+  <div class="updated" id="updatedLine">Last updated: October 2026</div>
+  <div id="termsContent"><p>Loading…</p></div>
 </div>
+<script>
+  // Same lightweight markup as the Payment and Privacy policy editors:
+  // ## heading, - bullet, 1. numbered, > callout, **bold**, [text](url).
+  // Everything else is escaped, so edited text can never inject HTML or script.
+  function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function inline(s){
+    return esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(m,t,u)=>/^(https?:|mailto:|[\w\-./#?=&]+$)/.test(u)?'<a href="'+u+'">'+t+'</a>':t);
+  }
+  function render(text){
+    const lines=String(text||'').replace(/\r\n/g,'\n').split('\n');
+    let html='',i=0,para=[];
+    const flush=()=>{if(para.length){html+='<p>'+inline(para.join(' '))+'</p>';para=[];}};
+    while(i<lines.length){
+      const t=lines[i].trim();
+      if(!t){flush();i++;continue;}
+      if(t.startsWith('## ')){flush();html+='<h2>'+inline(t.slice(3))+'</h2>';i++;continue;}
+      if(t.startsWith('> ')){flush();const b=[];while(i<lines.length&&lines[i].trim().startsWith('> ')){b.push(lines[i].trim().slice(2));i++;}html+='<div class="callout">'+inline(b.join(' '))+'</div>';continue;}
+      if(t.startsWith('- ')){flush();const it=[];while(i<lines.length&&lines[i].trim().startsWith('- ')){it.push(lines[i].trim().slice(2));i++;}html+='<ul>'+it.map(x=>'<li>'+inline(x)+'</li>').join('')+'</ul>';continue;}
+      if(/^\d+\.\s/.test(t)){flush();const it=[];while(i<lines.length&&/^\d+\.\s/.test(lines[i].trim())){it.push(lines[i].trim().replace(/^\d+\.\s/,''));i++;}html+='<ol>'+it.map(x=>'<li>'+inline(x)+'</li>').join('')+'</ol>';continue;}
+      para.push(t);i++;
+    }
+    flush();return html;
+  }
+  (async function(){
+    const box=document.getElementById('termsContent');
+    let text=null,updated=null;
+    try{
+      if(window.NaijaAuth&&NaijaAuth.client){
+        const {data}=await NaijaAuth.client.from('site_content').select('html,updated_at').eq('key','terms_of_use').maybeSingle();
+        if(data&&data.html){text=data.html;updated=data.updated_at;}
+      }
+    }catch(e){}
+    if(!text){
+      try{const r=await fetch('/terms-default.txt');if(r.ok)text=await r.text();}catch(e){}
+    }
+    if(!text){box.innerHTML='<p>We could not load this page right now. Please try again, or email <a href="mailto:support@naijanestai.com.ng">support@naijanestai.com.ng</a>.</p>';return;}
+    box.innerHTML=render(text);
+    if(updated){const d=new Date(updated);document.getElementById('updatedLine').textContent='Last updated: '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
+  })();
+</script>
 </body>
 </html>
